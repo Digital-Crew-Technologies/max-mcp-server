@@ -1,7 +1,24 @@
 {
-  "name": "next.js-mcp-server",
+  "name": "max-mcp-server",
   "version": "0.1.0",
   "private": true,
+  "description": "MCP server for Digital Crew Max — workspace profile tools (Streamable HTTP) via Next.js and mcp-handler.",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "digital-crew",
+    "max",
+    "next.js",
+    "vercel"
+  ],
+  "homepage": "https://max.digitalcrew.tech",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Digital-Crew-Technologies/max-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://digitalcrew.tech/contact"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
