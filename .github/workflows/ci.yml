@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    name: Lint · Type-check · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── pnpm ──────────────────────────────────────────────────────────────
+      # Install pnpm before Node so the cache step works correctly
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      # ── Node + pnpm cache ──────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      # ── Install ────────────────────────────────────────────────────────────
+      # --frozen-lockfile = fail if pnpm-lock.yaml is out of date
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── Lint ───────────────────────────────────────────────────────────────
+      - name: Lint
+        run: pnpm run lint
+
+      # ── Type-check ─────────────────────────────────────────────────────────
+      - name: Type-check
+        run: pnpm run type-check
+
+      # ── Build ──────────────────────────────────────────────────────────────
+      - name: Build
+        run: pnpm run build
+
+      # ── Security audit ─────────────────────────────────────────────────────
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high
+        continue-on-error: true
