@@ -25,7 +25,8 @@
     "start": "next start",
     "type-check": "tsc --noEmit",
     "lint": "eslint .",
-    "verify": "node scripts/verify-tools.mjs"
+    "verify": "node scripts/verify-tools.mjs",
+    "test:endpoints": "node scripts/test-endpoints.mjs"
   },
   "dependencies": {
     "mcp-handler": "^1.0.5",
