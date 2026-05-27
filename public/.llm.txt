@@ -1,0 +1,802 @@
+# Digital Crew · Max Agent API
+# Source: https://docs.digitalcrew.tech/
+# Generated from: digitalcrew-docs/public/openapi/max-agent-v1.yaml
+
+## Overview
+
+HTTP API for Digital Crew **Max Agent** — an AI-powered outbound sales automation platform.
+Covers: campaigns, prospects, organizations, prospect lists, connected accounts (Unipile),
+Unibox (unified inbox), Apollo integration, AI agent, billing, and workspace tooling.
+
+Production base URL: https://max.digitalcrew.tech
+Local dev base URL:  http://localhost:3006
+
+---
+
+## Authentication
+
+All authenticated endpoints use HTTP Bearer:
+  Authorization: Bearer <token>
+
+Two token types are accepted:
+
+1. Workspace API key — prefixed `max_live_`. Has a fixed set of scopes.
+   - 403 Forbidden (with `requiredScope`) if key lacks required scope.
+
+2. Supabase session JWT — three dot-separated base64url segments. Used by the web app.
+   - Subject to workspace membership, not scopes.
+   - JWT-only routes reject API keys with 401.
+
+The server detects auth type by token shape: three dots → JWT, `max_live_…` → API key.
+
+### Scope Table
+
+| Tag                | Read scope                  | Write scope                  |
+|--------------------|-----------------------------|------------------------------|
+| Campaigns          | campaigns:read              | campaigns:write              |
+| Prospects          | prospects:read              | prospects:write              |
+| Prospect lists     | prospect-lists:read         | prospect-lists:write         |
+| Organizations      | organizations:read          | organizations:write          |
+| Accounts (Unipile) | accounts:read               | accounts:write               |
+| Unibox             | unibox:read                 | unibox:write                 |
+| Dashboard          | dashboard:read              | —                            |
+| Workspace profile  | workspace:read              | workspace:write              |
+| AI agent           | (uses related scope per op) |                              |
+| Apollo             | —                           | prospect-lists:write         |
+
+JWT-only tags (API keys rejected): Billing, Notifications, API keys, Onboarding.
+
+### All Available Scopes
+
+campaigns:read, campaigns:write, prospects:read, prospects:write,
+prospect-lists:read, prospect-lists:write, organizations:read, organizations:write,
+accounts:read, accounts:write, dashboard:read, workspace:read, workspace:write,
+unibox:read, unibox:write
+
+---
+
+## Response Shapes
+
+- Single resource:   { "data": { ... } }
+- Paginated list:    { "data": [...], "count": number, "page": number, "pageSize": number }
+- State transitions: { "message": string, "campaign": Campaign, ... }
+- Bulk import:       { "success": true, "imported": number, "existing": number, "failed": number, "total": number }
+- Errors:            { "error": "human-readable summary", "details": { ... } }
+  - 403 adds: requiredScope: string
+
+---
+
+## HTTP Status Codes
+
+| Status | Meaning                                                      |
+|--------|--------------------------------------------------------------|
+| 200    | Success                                                      |
+| 201    | Created                                                      |
+| 400    | Invalid request body or query parameter                      |
+| 401    | Missing, malformed, or expired bearer token                  |
+| 402    | Insufficient credits (AI agent / Apollo billing)             |
+| 403    | Valid token but missing scope — body includes requiredScope   |
+| 404    | Resource not found or not visible to this workspace          |
+| 409    | State conflict (e.g. launching a non-draft campaign)         |
+| 422    | Semantically invalid (duplicate email, AI provider error)    |
+| 429    | Rate limited (reserved — not currently emitted)              |
+| 500    | Unexpected server error                                      |
+| 502    | Upstream provider unavailable (Unipile, Apollo, OpenAI)      |
+| 503    | Feature disabled (e.g. OpenAI off in this environment)       |
+| 504    | Upstream provider timeout                                    |
+
+---
+
+## Pagination
+
+- Query params: `page` (≥ 1, default 1), `pageSize` (1–100, default 20)
+- Response includes: `count` (total rows), `page`, `pageSize`
+- No Link header — derive: `hasMore = page * pageSize < count`
+
+---
+
+## Rate Limiting
+
+No HTTP rate limits currently. Per-account sending limits are managed by
+account-rate-limits endpoints and apply at workflow execution time.
+
+Future: 429 with Retry-After header + X-RateLimit-* headers.
+
+---
+
+## Async Operations
+
+Two flows are async (return immediately, finish in background):
+
+1. POST /api/v1/apollo/people/create-list
+   - Creates prospect_list with status: "pending"
+   - Cron runs every minute to process; status advances: pending → processing → completed (or failed)
+   - Poll GET /prospect-lists/{id} — watch: status, processed_results, total_results, error_message
+
+2. POST /api/v1/campaigns/{id}/launch
+   - Creates workflow_execution per prospect, then returns
+   - Poll GET /campaigns/{id}/stats and GET /campaigns/{id}/lead-analytics for progress
+
+---
+
+## ENDPOINTS
+
+=============================================================================
+### CAMPAIGNS
+Scope: campaigns:read / campaigns:write
+=============================================================================
+
+GET    /api/v1/campaigns
+  List campaigns (paginated). Scope: campaigns:read
+  Query params: page, pageSize, search (substring on name), status[] (multi),
+    sortBy (name|status|created_at|updated_at|started_at|last_activity_at, default: created_at),
+    sortOrder (asc|desc, default: desc)
+  Response: PaginatedEnvelope<Campaign>
+
+POST   /api/v1/campaigns
+  Create campaign in draft state. Scope: campaigns:write
+  Required body: { name, included_lists (non-empty), accounts (non-empty) }
+  Optional body: description, workflow_config, excluded_lists, exclusion_settings,
+    scheduling_config, execution_engine
+  Response 201: { data: Campaign }
+
+GET    /api/v1/campaigns/{id}
+  Get campaign by UUID. Scope: campaigns:read
+  Response: { data: Campaign }
+
+PATCH  /api/v1/campaigns/{id}
+  Partial update. Scope: campaigns:write
+  Editable: name, description, workflow_config, included_lists, excluded_lists,
+    exclusion_settings, scheduling_config, accounts
+  Note: use dedicated state-transition endpoints instead of sending status directly.
+
+DELETE /api/v1/campaigns/{id}
+  Permanently delete campaign + all workflow_executions. Scope: campaigns:write
+  Prefer /archive for soft removal. Response: { success: true }
+
+POST   /api/v1/campaigns/{id}/launch
+  Transition draft → active. Scope: campaigns:write
+  Creates one workflow_execution per resolved prospect. Returns 409 if not draft.
+  Response: CampaignTransitionResponse (includes prospects_added, executions_created)
+
+PATCH  /api/v1/campaigns/{id}/pause
+  Transition active → paused. Scope: campaigns:write
+  Worker stops dequeueing; in-flight calls not interrupted. 409 if not active.
+
+PATCH  /api/v1/campaigns/{id}/resume
+  Transition paused → active. Scope: campaigns:write
+  409 if not paused.
+
+PATCH  /api/v1/campaigns/{id}/stop
+  Transition active|paused → stopped. Scope: campaigns:write
+  Cannot be resumed. 409 if not active/paused.
+
+PATCH  /api/v1/campaigns/{id}/archive
+  Transition any → archived. Scope: campaigns:write
+  Hidden from default list views but restorable.
+
+PATCH  /api/v1/campaigns/{id}/restore
+  Transition archived → draft. Scope: campaigns:write
+  409 if not archived.
+
+GET    /api/v1/campaigns/{id}/stats
+  Aggregate performance stats. Scope: campaigns:read
+  Eventually consistent (~1 minute lag). No date filtering.
+  Response: CampaignPerformanceStats
+    execution: { total, pending, running, paused, waiting, completed, failed, stopped }
+    email: { sent, opened, clicked, replied, bounced }
+    linkedin: { invitations_sent, invitations_connected, messages_sent, messages_replied,
+      messages_read, inmail_sent, inmail_replied, inmail_read }
+
+GET    /api/v1/campaigns/{id}/lead-analytics
+  Per-prospect breakdown in the workflow. Scope: campaigns:read
+  Query params: page, pageSize
+  Response: paginated per-lead rows with execution_status, message event counters.
+
+GET    /api/v1/campaigns/{id}/node-run-counts
+  Map of nodeId → execution count. Scope: campaigns:read
+  Useful for funnel visualization on the canvas.
+  Response: { nodeRunCounts: { [nodeId]: number } }
+
+--- Campaign Status Values ---
+draft, active, paused, stopped, completed, archived
+
+--- Campaign Object Fields ---
+id, name, description, status, workflow_config, included_lists (uuid[]),
+excluded_lists (uuid[]), accounts (CampaignAccount[]), exclusion_settings,
+scheduling_config, execution_engine, started_at, paused_at, stopped_at,
+completed_at, last_activity_at, workspace_id, created_by, launched_by,
+paused_by, stopped_by, stats (CampaignStats), created_at, updated_at
+
+--- CampaignAccount ---
+{ account_id: uuid, enabled: bool (default: true), priority: 0-100 (default: 10), rotation_weight: int (default: 1) }
+
+--- CampaignStats (embedded in Campaign) ---
+total_leads, excluded_leads, in_sequence, pending, paused, failed, finished, opted_out, skipped
+
+--- CampaignExclusionSettings ---
+exclude_from_other_campaigns (bool), exclude_messaged_by_same_sender (bool),
+exclude_messaged_by_other_senders (bool), exclude_replied_prospects (bool),
+exclude_bounced_prospects (bool, default: true), exclude_unsubscribed_prospects (bool, default: true)
+
+--- CampaignSchedulingConfig ---
+enabled (bool), timezone (string, default: UTC),
+time_windows: [{ start: "HH:MM", end: "HH:MM", timezone }],
+available_days: int[] (0=Sun, 6=Sat; default: [1,2,3,4,5]),
+wait_for_window (bool), delay_between_actions_minutes (int, default: 60)
+
+=============================================================================
+### PROSPECTS
+Scope: prospects:read / prospects:write
+=============================================================================
+
+GET    /api/v1/prospects
+  List prospects with rich filtering. Scope: prospects:read
+  Query params: page, pageSize, search (name/email/title), organization_id (uuid),
+    organization_ids[] (uuid[]), status[] (ProspectStatus[]),
+    person_name, titles[], countries[], states[], cities[], industries[],
+    keywords[], technologies[], employees_from, employees_to,
+    founded_from, founded_to, revenue_from, revenue_to,
+    sortBy (first_name|last_name|email|title|status|created_at|updated_at, default: created_at),
+    sortOrder (asc|desc)
+
+POST   /api/v1/prospects
+  Create single prospect. Scope: prospects:write
+  Deduplication by normalized email — returns existing row with HTTP 200 if duplicate.
+  Body: CreateProspectRequest (all optional, but email or linkedin_url recommended)
+
+GET    /api/v1/prospects/{id}
+  Get prospect by UUID. Scope: prospects:read
+
+PATCH  /api/v1/prospects/{id}
+  Update prospect (partial). Scope: prospects:write
+
+DELETE /api/v1/prospects/{id}
+  Delete prospect. Scope: prospects:write
+
+POST   /api/v1/prospects/bulk-import
+  Bulk import (no partial-batch rollback). Scope: prospects:write
+  Body: { prospects: CreateProspectRequest[] }
+  Extra field per row: organization_domain (string) — auto-attach/create org by domain
+  Deduplication by normalized email. Response: BulkImportResult
+
+POST   /api/v1/prospects/bulk-delete
+  Bulk delete. Scope: prospects:write
+  Body: { ids: uuid[] }
+
+GET    /api/v1/prospects/{id}/campaign-activity
+  Chronological activity log across all campaigns. Scope: prospects:read
+  Response: { data: ProspectActivityEvent[] } (newest first)
+
+--- Prospect Status Values ---
+prospect, contacted, replied, not_interested, existing_client
+
+--- Prospect Object Fields ---
+id, apollo_id, first_name, last_name, full_name, email, email_status,
+personal_emails[], email_domain_catchall, extrapolated_email_confidence,
+title, headline, seniority, functions[], departments[], subdepartments[],
+linkedin_url, twitter_url, github_url, facebook_url, photo_url,
+raw_address, street_address, city, state, postal_code, country, time_zone,
+employment_history, linkedin_profile_results, linkedin_post_results,
+perplexity_results, intent_strength, show_intent, organization_id,
+apollo_o_id, status, workspace_id, created_by, created_at, updated_at
+
+--- ProspectActivityEvent Types ---
+email_sent, email_opened, email_clicked, email_replied,
+linkedin_invitation_sent, linkedin_invitation_skipped, linkedin_invitation_accepted,
+linkedin_message_sent, linkedin_message_read, linkedin_message_replied
+
+=============================================================================
+### PROSPECT LISTS
+Scope: prospect-lists:read / prospect-lists:write
+=============================================================================
+
+GET    /api/v1/prospect-lists
+  List prospect lists (paginated). Scope: prospect-lists:read
+  Query params: page, pageSize
+
+POST   /api/v1/prospect-lists
+  Create empty platform list. Scope: prospect-lists:write
+  For Apollo-sourced lists use POST /api/v1/apollo/people/create-list instead.
+  Body: { list_name, search_source: "platform" }
+
+GET    /api/v1/prospect-lists/{id}
+  Get list by UUID. Scope: prospect-lists:read
+
+PATCH  /api/v1/prospect-lists/{id}
+  Update list (only list_name and status editable). Scope: prospect-lists:write
+
+DELETE /api/v1/prospect-lists/{id}
+  Delete list + join rows (prospects NOT deleted). Scope: prospect-lists:write
+
+GET    /api/v1/prospect-lists/{id}/prospects
+  List members of a prospect list. Scope: prospect-lists:read
+  Query params: page, pageSize, search, sortBy, sortOrder, status[] (ProspectStatus)
+
+POST   /api/v1/prospect-lists/{id}/prospects
+  Add prospects to list. Scope: prospect-lists:write
+  Body: { prospect_ids: uuid[] }
+
+DELETE /api/v1/prospect-lists/{id}/prospects
+  Remove prospects from list. Scope: prospect-lists:write
+  Body: { prospect_ids: uuid[] }
+
+POST   /api/v1/prospect-lists/search
+  Preview filter results without creating a list. Scope: prospect-lists:read
+  Body: { search_config: PlatformSearchConfig, page?, pageSize? }
+  Response: { data: Prospect[], count: number }
+
+POST   /api/v1/prospect-lists/import-csv
+  Create list + insert prospects in one call. Scope: prospect-lists:write
+  Body: { list_name, prospects: [{ email (required), ...CreateProspectRequest }] }
+  Response 201: { data: ProspectList, imported, existing, failed, total }
+
+--- Prospect List Status Values ---
+pending, processing, completed, failed, cancelled
+
+--- Prospect List Object Fields ---
+id, list_name, search_source (apollo|platform), search_type (people|organizations),
+search_criteria, apollo_search_payload, apollo_search_url, apollo_search_id,
+platform_search_config (PlatformSearchConfig), status, total_results,
+processed_results, failed_results, retry_count, error_message, error_details,
+search_metadata, estimated_cost, actual_cost, created_at, updated_at,
+started_at, finished_at
+
+--- PlatformSearchConfig ---
+status[], organization_id, organization_ids[], country, city, state,
+countries[], states[], cities[], titles[], person_name, industries[],
+keywords[], technologies[], employees_from, employees_to,
+founded_from, founded_to, revenue_from, revenue_to
+
+=============================================================================
+### ORGANIZATIONS
+Scope: organizations:read / organizations:write
+=============================================================================
+
+GET    /api/v1/organizations
+  List organizations (paginated). Scope: organizations:read
+  Query params: page, pageSize, search (name/primary_domain), industry[],
+    country, city, state, sortBy, sortOrder
+
+POST   /api/v1/organizations
+  Create organization. Scope: organizations:write
+  Required body: { name }
+
+GET    /api/v1/organizations/{id}
+  Get organization by UUID. Scope: organizations:read
+
+PATCH  /api/v1/organizations/{id}
+  Update organization. Scope: organizations:write
+
+DELETE /api/v1/organizations/{id}
+  Delete organization. Scope: organizations:write
+
+POST   /api/v1/organizations/bulk-import
+  Bulk import. Scope: organizations:write
+  Deduplication by normalized primary_domain (lowercased, strips scheme, www., trailing slash).
+  Body: { organizations: CreateOrganizationRequest[] }
+  Response: BulkImportResult
+
+POST   /api/v1/organizations/bulk-delete
+  Bulk delete. Scope: organizations:write
+  Body: { ids: uuid[], deleteProspects?: bool (default: false) }
+  deleteProspects: true cascades to delete linked prospects; false sets organization_id = null
+
+--- Organization Object Fields ---
+id, apollo_id, name, primary_domain, linkedin_uid, website_url, linkedin_url,
+twitter_url, facebook_url, blog_url, angellist_url, crunchbase_url, logo_url,
+founded_year, industry, industries[], estimated_num_employees, short_description,
+seo_description, keywords, technologies, publicly_traded_symbol,
+publicly_traded_exchange, annual_revenue, total_funding, phone,
+raw_address, street_address, city, state, postal_code, country, alexa_ranking,
+headcount_six_month_growth, headcount_twelve_month_growth,
+headcount_twenty_four_month_growth, created_at, updated_at
+
+=============================================================================
+### ACCOUNTS (UNIPILE)
+LinkedIn / email accounts connected via Unipile.
+Scope: accounts:read / accounts:write
+=============================================================================
+
+GET    /api/v1/accounts
+  List connected Unipile accounts. Scope: accounts:read
+  Response: { data: Account[] }
+
+DELETE /api/v1/accounts
+  Disconnect account. Scope: accounts:write
+  Query param: account_id (uuid, required)
+  Use POST /api/v1/unipile/hosted-auth/link with type:"reconnect" to re-add.
+
+GET    /api/v1/accounts/{id}
+  Get account. Scope: accounts:read
+
+PATCH  /api/v1/accounts/{id}
+  Update account config. Scope: accounts:write
+  Only config block is editable: sender_name, timezone, working_hours.
+  Body: { config: AccountConfig }
+
+GET    /api/v1/accounts/{id}/rate-limits
+  List rate-limit rows for account. Scope: accounts:read
+  One row per action_type:
+    send_email, send_linkedin_invitation, send_linkedin_message,
+    get_linkedin_profile, search_linkedin_profiles, send_inmail
+  Counters reset on rolling daily/weekly basis.
+
+PATCH  /api/v1/account-rate-limits/{id}
+  Update rate-limit row. Scope: accounts:write
+  Body: { daily_limit?: int, weekly_limit?: int } — at least one required
+
+POST   /api/v1/unipile/hosted-auth/link
+  Generate hosted-auth link to connect/reconnect account. Scope: accounts:write
+  User opens the returned URL to log in via LinkedIn/email provider.
+  On success Unipile redirects to success_redirect_url and posts webhook.
+  Body: {
+    type: "create" | "reconnect",
+    reconnect_account_id?: uuid (required if type=reconnect),
+    providers?: ["LINKEDIN","GOOGLE","GOOGLE_OAUTH","OUTLOOK","MAIL"],
+    success_redirect_url?: uri,
+    failure_redirect_url?: uri
+  }
+  Response: { success: bool, url: uri, expiresOn: datetime (~5 minutes) }
+
+--- Account Status Values ---
+connected, disconnected, error, pending, expired
+
+--- Account Channels ---
+email, linkedin, twitter, sms, whatsapp
+
+--- Account Provider Types ---
+GOOGLE, GOOGLE_OAUTH, OUTLOOK, MAIL, LINKEDIN
+
+--- Account Object Fields ---
+id, provider (unipile|twilio|sendgrid|mailgun), provider_type, provider_account_id,
+channel, email, name, phone_number, status, metadata, config (AccountConfig),
+workspace_id, created_by, created_at, updated_at, last_sync_at
+
+--- AccountConfig ---
+{ sender_name, timezone, working_hours: { start_hour: 0-23, end_hour: 0-23 } }
+
+--- AccountRateLimit Fields ---
+id, account_id, action_type, daily_count, weekly_count, daily_limit, weekly_limit,
+delay_config (LognormalDelayConfig), available_at, last_action_at,
+created_at, updated_at, locked_by, locked_at
+
+--- LognormalDelayConfig ---
+median_seconds (1-86400), sigma (0.1-3.0),
+min_interval_minutes (0-1440), max_interval_minutes
+
+=============================================================================
+### UNIBOX (UNIFIED INBOX)
+LinkedIn DMs + email replies in one feed.
+Scope: unibox:read / unibox:write
+=============================================================================
+
+GET    /api/v1/unibox/chats
+  List chats (paginated). Scope: unibox:read
+  Query params: page, pageSize, channel (email|linkedin), prospect_id, account_id,
+    archived (bool, default: false)
+
+GET    /api/v1/unibox/chats/{id}
+  Get chat. Scope: unibox:read
+
+PATCH  /api/v1/unibox/chats/{id}
+  Update chat metadata. Scope: unibox:write
+  Editable: title, unread_count, is_archived, prospect_id, metadata
+  Does NOT affect the upstream provider conversation.
+
+DELETE /api/v1/unibox/chats/{id}
+  Archive chat (soft delete). Scope: unibox:write
+  Row + messages remain; query with ?archived=true to see archived.
+
+GET    /api/v1/unibox/chats/{id}/messages
+  List messages in chat (newest first). Scope: unibox:read
+  Query params: page, pageSize
+
+POST   /api/v1/unibox/chats/{id}/messages
+  Send manual reply. Scope: unibox:write
+  Channel inferred from parent chat (email via Unipile SMTP/Gmail/Outlook; LinkedIn via Unipile messaging).
+  Body: { text: string (minLength: 1) }
+  Per-account daily/weekly caps from account_rate_limits still apply.
+  Response: { data: UniboxMessage }
+
+--- UniboxChat Fields ---
+id, account_id, prospect_id, workflow_execution_state_id, channel (email|linkedin),
+chat_id (provider-side), title, is_group, is_archived, unread_count,
+last_message_at, last_message_preview, metadata, workspace_id, created_at, updated_at
+
+--- UniboxMessage Fields ---
+id, chat_id, message_id (provider-side), direction (inbound|outbound),
+status (sent|delivered|clicked|read|failed|bounced|replied|unsubscribed|marked_as_spam),
+text, html_content, subject, sent_at, delivered_at, open_at, clicked_at,
+replied_at, bounced_at, attachments[], mail_type (single|campaign),
+prospect_id, account_id, workflow_execution_id, open_count, click_count, tracking_id
+
+=============================================================================
+### AI AGENT
+Generative endpoints. Charges credits.
+=============================================================================
+
+POST   /api/v1/ai-agent/generate-workflow
+  Generate campaign workflow from natural language. Scope: campaigns:write
+  Charges credits. Returns 402 if insufficient, 503 if OpenAI disabled.
+  Body (provide prompt OR the four structured fields):
+    prompt?: string (maxLength: 2000)
+    campaign_purpose_goal?: string (maxLength: 500)
+    specific_target_audience?: string (maxLength: 500)
+    main_value_proposition_hook?: string (maxLength: 500)
+    primary_call_to_action?: string (maxLength: 500)
+  Response: { data: { workflow_config: WorkflowConfig, campaign_name, campaign_description } }
+
+POST   /api/v1/ai-agent/generate-message-preview
+  Generate personalized message for one prospect. Scope: prospects:write
+  Charges credits. Uses prospect's org/title/activity as context.
+  Body: {
+    channel: "email" | "linkedin_inmail" | "linkedin_message",
+    prompt: string (1-4000 chars),
+    prospect_id: uuid,
+    model?: string,
+    temperature?: 0.0-1.0
+  }
+  Response: { data: { subject?: string, body?: string, message?: string } }
+  (subject+body for email/InMail; message for LinkedIn DM)
+
+=============================================================================
+### APOLLO
+People-search → prospect-list ingestion (async).
+Scope: prospect-lists:write
+=============================================================================
+
+POST   /api/v1/apollo/people/create-list
+  Create Apollo-backed prospect list (async). Scope: prospect-lists:write
+  Creates prospect_list with status:"pending", then cron processes every minute.
+  Status progression: pending → processing → completed (or failed after 3 retries).
+  Poll GET /prospect-lists/{id} for progress.
+  Body: {
+    list_name: string,
+    apollo_search_payload: object,  // Apollo mixed_people/search body
+    idempotency_key?: string        // safe to retry with same key
+  }
+  Example apollo_search_payload:
+    { person_titles: ["Founder","CEO"], organization_locations: ["United States"],
+      organization_num_employees_ranges: ["1-10","11-50"] }
+  Response: { data: ProspectList } (status: "pending")
+
+POST   /api/v1/apollo/people/add-more
+  Append more leads to existing Apollo list (async). Scope: prospect-lists:write
+  Re-runs saved apollo_search_payload to pull next N results.
+  Body: { list_id: uuid, count?: int (1-10000, default: 100) }
+  Response: { data: { list: ProspectList, message: string } }
+
+=============================================================================
+### DASHBOARD
+Workspace-wide KPIs. JWT or API key with dashboard:read scope.
+=============================================================================
+
+GET    /api/v1/dashboard/kpis
+  Workspace-wide aggregate stats across all campaigns. Scope: dashboard:read
+  Eventually consistent (~1 minute). No date-range filtering.
+  Response: DashboardKpis
+    execution: { total, pending, running, paused, waiting, completed, failed, stopped }
+    email: { sent, opened, clicked, replied, bounced }
+    linkedin: { invitations_sent, invitations_connected, messages_sent, messages_replied,
+      messages_read, inmail_sent, inmail_replied, inmail_read }
+    completion_rate_pct, email_open_rate_pct, email_reply_rate_pct,
+    linkedin_connection_rate_pct, linkedin_reply_rate_pct
+
+=============================================================================
+### WORKSPACE PROFILE
+Company profile used for AI personalization.
+Scope: workspace:read / workspace:write
+=============================================================================
+
+GET    /api/v1/workspace-profile-settings
+  Get workspace company profile. Scope: workspace:read
+  Returns null if workspace hasn't completed onboarding.
+  Response: { data: WorkspaceProfile | null }
+
+PUT    /api/v1/workspace-profile-settings
+  Replace (full update) workspace company profile. Scope: workspace:write
+  All fields required:
+    company_name, company_website_url, company_description (max 200 chars),
+    industry (enum), company_size (enum),
+    main_products_services, key_customer_pain_points
+
+--- Industry Values ---
+B2B SaaS, Ecommerce, Agency / Services, Marketplace, Recruiting / HR,
+Real Estate, Healthcare, Other
+
+--- CompanySize Values ---
+1-10, 11-50, 51-200, 201-500, 501-1000, 1000+
+
+=============================================================================
+### BILLING
+JWT only — API keys return 401.
+=============================================================================
+
+GET    /api/v1/billing/workspace-balance
+  Workspace credit balance. JWT only.
+  Response: { billingEnabled, balance, minStepCredits, outOfCredits, lowCredits, billingUrl }
+
+GET    /api/v1/billing/workspace-movements
+  Credit ledger (paginated by limit/offset). JWT only.
+  Query params: limit (1-100, default: 20), offset (default: 0)
+  Response: { billingEnabled, ownerAssigned, movements: WorkspaceMovement[], hasMore }
+
+GET    /api/v1/billing/apollo-search-quote
+  Quote Apollo-search cost (read-only, does not charge). JWT only.
+  Query params: maxLeads (1-10000, default: 100)
+  Response: { billingEnabled, maxLeads, required (credits), balance, sufficient, ownerFound, billingUrl }
+
+--- Movement Types ---
+topup, apollo_search, ai_message_preview, ai_workflow_generation, unipile_daily_charge
+
+=============================================================================
+### NOTIFICATIONS
+JWT only.
+=============================================================================
+
+GET    /api/v1/notifications
+  List in-app notifications. JWT only.
+  Query params: limit (1-50, default: 20), offset, unread_only (bool)
+
+POST   /api/v1/notifications/mark-all-read
+  Mark all notifications as read. JWT only.
+
+GET    /api/v1/notifications/unread-count
+  Get unread notification count. JWT only.
+  Response: { count: number }
+
+PATCH  /api/v1/notifications/{id}/read
+  Mark one notification as read. JWT only.
+
+--- Notification Types ---
+campaign_completed, account_disconnected, apollo_list_completed,
+apollo_list_failed, prospect_replied, low_credits
+
+=============================================================================
+### API KEYS
+JWT only — create/list/revoke workspace API keys.
+=============================================================================
+
+GET    /api/v1/api-keys
+  List API keys (secrets masked). JWT only.
+  key_prefix field shows first chars of secret (e.g. max_live_a1b2).
+  Response: { data: ApiKeyListItem[] }
+
+POST   /api/v1/api-keys
+  Create API key — plaintext secret returned ONCE. JWT only.
+  Store secret immediately; subsequent reads only return prefix.
+  Body: { name: string, scopes: Scope[] (minItems: 1) }
+  Response 201: { data: ApiKeyCreated } (includes key: "max_live_<32chars>")
+
+DELETE /api/v1/api-keys/{id}
+  Revoke API key (immediate). JWT only.
+
+--- Key Format ---
+max_live_<32 random alphanumeric characters>
+
+=============================================================================
+### WORKFLOW CONFIG
+=============================================================================
+
+WorkflowConfig:
+  nodes: WorkflowNode[] (minItems: 1)
+  edges: WorkflowEdge[]
+  ai_message_reviews: { [nodeId]: { [prospectId]: { subject?, body?, message? } } }
+
+WorkflowNode:
+  id: string
+  type: campaignStart | action | condition | delay | wait | label | end
+  position: { x: number, y: number }
+  data: object (shape varies by type)
+
+  For type "action", data.action_type is one of:
+    send_email
+    send_linkedin_message
+    send_linkedin_inmail
+    send_linkedin_invitation
+    view_profile
+    view_chat
+
+WorkflowEdge:
+  id: string
+  source: string (node id)
+  target: string (node id)
+  sourceHandle?: string (e.g. "success", "timeout", "true", "false")
+  targetHandle?: string
+  type?: string
+  data?: object
+
+=============================================================================
+### SETUP GUIDE
+=============================================================================
+
+1. Get a workspace API key
+   - Log into the web app (JWT session required)
+   - POST /api/v1/api-keys with desired name and scopes
+   - Copy the returned key (shown once only) — format: max_live_...
+
+2. Set the Authorization header for all subsequent requests:
+   Authorization: Bearer max_live_<your_key>
+
+3. Connect a sending account (LinkedIn or email)
+   - POST /api/v1/unipile/hosted-auth/link with type:"create"
+   - Open the returned URL and authenticate
+   - Account appears in GET /api/v1/accounts once connected
+
+4. Import prospects
+   - POST /api/v1/prospects/bulk-import — for CSV-style data
+   - POST /api/v1/apollo/people/create-list — for Apollo people search (async)
+   - POST /api/v1/prospect-lists/import-csv — for CSV with list creation
+
+5. Create a prospect list
+   - POST /api/v1/prospect-lists — empty list, then add members
+   - Or import-csv creates list + members in one call
+
+6. Create a campaign
+   POST /api/v1/campaigns with:
+   {
+     "name": "My Campaign",
+     "included_lists": ["<list_uuid>"],
+     "accounts": [{ "account_id": "<account_uuid>" }],
+     "workflow_config": { "nodes": [...], "edges": [...] }
+   }
+
+7. Launch the campaign
+   POST /api/v1/campaigns/{id}/launch
+   - Campaign transitions draft → active
+   - Worker processes executions out of band
+
+8. Monitor progress
+   - GET /api/v1/campaigns/{id}/stats — aggregate counters
+   - GET /api/v1/campaigns/{id}/lead-analytics — per-prospect status
+   - GET /api/v1/unibox/chats — incoming replies
+
+=============================================================================
+### ERROR HANDLING
+=============================================================================
+
+All errors:
+  { "error": "human-readable message", "details": { ... } }
+
+Validation (400):
+  { "error": "Invalid request body", "details": { "fieldErrors": { "field": ["message"] } } }
+
+Scope error (403):
+  { "error": "Forbidden", "requiredScope": "campaigns:write" }
+
+Conflict (409):
+  { "error": "Campaign cannot be launched from current status", "details": { "current_status": "active" } }
+
+Insufficient credits (402):
+  { "error": "Insufficient credits", "details": { "required": 100, "balance": 12 } }
+
+Upstream provider (502):
+  { "error": "Upstream provider error", "details": { "provider": "unipile" } }
+
+=============================================================================
+### DEDUPLICATION RULES
+=============================================================================
+
+Prospects: deduplicated by normalized email within workspace
+  - Duplicate on POST /api/v1/prospects → returns existing row with HTTP 200
+  - Bulk import: duplicates counted in "existing"
+
+Organizations: deduplicated by normalized primary_domain
+  - Normalization: lowercase, strip scheme (http/https), strip www., strip trailing slash
+
+=============================================================================
+### CREDITS SYSTEM
+=============================================================================
+
+Credits are consumed by:
+  - Apollo people search (per lead ingested)
+  - AI workflow generation
+  - AI message preview generation
+  - Unipile daily account charge
+
+Check balance: GET /api/v1/billing/workspace-balance (JWT only)
+Quote Apollo cost: GET /api/v1/billing/apollo-search-quote?maxLeads=N (JWT only)
+View ledger: GET /api/v1/billing/workspace-movements (JWT only)
+
+Endpoints return 402 when credits are insufficient.

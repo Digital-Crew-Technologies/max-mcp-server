@@ -1,0 +1,85 @@
+import { z } from "zod";
+import { withToken } from "../shared";
+
+export const listCampaignsSchema = z.object({
+  ...withToken,
+  page: z.number().int().min(1).optional().describe("Page number (default 1)"),
+  pageSize: z.number().int().min(1).max(100).optional().describe("Results per page (default 20, max 100)"),
+  status: z.enum(["draft", "active", "paused", "completed", "stopped", "archived"]).optional().describe("Filter by status"),
+  search: z.string().optional().describe("Search by campaign name"),
+  sortBy: z.enum(["name", "status", "created_at", "updated_at", "started_at", "last_activity_at"]).optional().describe("Sort column"),
+  sortOrder: z.enum(["asc", "desc"]).optional().describe("Sort direction"),
+});
+
+export const getCampaignSchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Campaign UUID"),
+});
+
+export const createCampaignSchema = z.object({
+  ...withToken,
+  name: z.string().min(1).max(255).describe("Campaign name"),
+  description: z.string().max(1000).optional().describe("Campaign description"),
+  included_lists: z.array(z.string().uuid()).min(1).describe("Prospect list UUIDs to include"),
+  accounts: z.array(z.object({
+    account_id: z.string().uuid(),
+    enabled: z.boolean().optional(),
+    priority: z.number().int().min(0).max(100).optional(),
+    rotation_weight: z.number().int().min(1).optional(),
+  })).min(1).describe("Sending accounts"),
+  excluded_lists: z.array(z.string().uuid()).optional().describe("Prospect list UUIDs to exclude"),
+  workflow_config: z.object({
+    nodes: z.array(z.record(z.unknown())).min(1),
+    edges: z.array(z.record(z.unknown())).optional(),
+  }).optional().describe("Workflow canvas config (nodes and edges)"),
+  exclusion_settings: z.record(z.unknown()).optional().describe("Exclusion rules"),
+  scheduling_config: z.record(z.unknown()).optional().describe("Scheduling config"),
+});
+
+export const updateCampaignSchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Campaign UUID"),
+  name: z.string().min(1).optional().describe("Campaign name"),
+  description: z.string().nullable().optional().describe("Campaign description"),
+  workflow_config: z.object({
+    nodes: z.array(z.record(z.unknown())),
+    edges: z.array(z.record(z.unknown())).optional(),
+  }).optional().describe("Updated workflow config"),
+  included_lists: z.array(z.string().uuid()).optional(),
+  excluded_lists: z.array(z.string().uuid()).optional(),
+  accounts: z.array(z.object({
+    account_id: z.string().uuid(),
+    enabled: z.boolean().optional(),
+    priority: z.number().int().optional(),
+    rotation_weight: z.number().int().optional(),
+  })).optional(),
+  exclusion_settings: z.record(z.unknown()).optional(),
+  scheduling_config: z.record(z.unknown()).optional(),
+});
+
+export const deleteCampaignSchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Campaign UUID"),
+});
+
+export const campaignTransitionSchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Campaign UUID"),
+});
+
+export const getCampaignStatsSchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Campaign UUID"),
+});
+
+export const getCampaignLeadAnalyticsSchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Campaign UUID"),
+  page: z.number().int().min(1).optional(),
+  pageSize: z.number().int().min(1).max(100).optional(),
+});
+
+export const getCampaignNodeRunCountsSchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Campaign UUID"),
+});

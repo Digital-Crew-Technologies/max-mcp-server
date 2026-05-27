@@ -24,7 +24,8 @@
     "build": "next build",
     "start": "next start",
     "type-check": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "verify": "node scripts/verify-tools.mjs"
   },
   "dependencies": {
     "mcp-handler": "^1.0.5",
