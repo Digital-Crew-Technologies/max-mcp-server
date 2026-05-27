@@ -2,9 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches-ignore: [] # run CI on every branch push
+  pull_request:        # run CI on every PR (regardless of target branch)
 
 jobs:
   ci:
