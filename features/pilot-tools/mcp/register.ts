@@ -8,6 +8,7 @@ import { registerUniboxTools } from "../unibox/tools";
 import { registerAiAgentTools } from "../ai-agent/tools";
 import { registerApolloTools } from "../apollo/tools";
 import { registerDashboardTools } from "../dashboard/tools";
+import { registerAdminTools } from "../admin/tools";
 
 export function registerPilotMcpTools(server: McpServer): void {
   registerCampaignTools(server);
@@ -19,4 +20,5 @@ export function registerPilotMcpTools(server: McpServer): void {
   registerAiAgentTools(server);
   registerApolloTools(server);
   registerDashboardTools(server);
+  registerAdminTools(server);
 }

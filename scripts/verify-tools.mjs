@@ -46,6 +46,8 @@ const EXPECTED_TOOLS = [
   "apollo_create_list", "apollo_add_more",
   // dashboard (1)
   "get_dashboard_kpis",
+  // admin (3)
+  "list_failed_requests", "clear_failed_requests", "get_circuit_status",
 ];
 
 // Safe read-only tools to live-call when a token is available

@@ -7,8 +7,14 @@
  * - Method-aware retry policy (only safe methods retry on 502)
  * - Retry-After header parsing on 429
  * - Bounded concurrency to prevent flooding upstream
+ * - Per-host circuit breaker to fail fast when upstream is dead
+ * - Dead-letter logging for permanently-failed writes
  * - Structured logging with per-request IDs
  */
+
+import { beforeRequest, recordFailure, recordSuccess, CircuitOpenError } from "./circuit-breaker";
+import { buildEntry, isWriteMethod, recordDeadLetter } from "./dead-letter";
+import { withSpan } from "./tracing";
 
 type RetryConfig = {
   maxRetries?: number;
@@ -88,16 +94,39 @@ export async function fetchWithRetry(
   init: RequestInit = {},
   config: RetryConfig = {},
 ): Promise<Response> {
+  const method = (init.method ?? "GET").toUpperCase();
+  return withSpan("max.api.fetch", { "http.method": method, "http.url": url }, () =>
+    fetchWithRetryInner(url, init, config, method));
+}
+
+async function fetchWithRetryInner(
+  url: string,
+  init: RequestInit,
+  config: RetryConfig,
+  method: string,
+): Promise<Response> {
   const maxRetries = config.maxRetries ?? DEFAULTS.maxRetries;
   const baseDelayMs = config.baseDelayMs ?? DEFAULTS.baseDelayMs;
   const maxDelayMs = config.maxDelayMs ?? DEFAULTS.maxDelayMs;
   const timeoutMs = config.timeoutMs ?? DEFAULTS.timeoutMs;
-  const method = (init.method ?? "GET").toUpperCase();
   const reqId = shortId();
+
+  // Fail fast if the breaker is open for this host
+  let breakerToken: { host: string; probing: boolean };
+  try {
+    breakerToken = beforeRequest(url);
+  } catch (e) {
+    if (e instanceof CircuitOpenError) {
+      console.warn(`[mcp:${reqId}] ${method} ${url} blocked by open circuit`);
+    }
+    throw e;
+  }
 
   await acquireSlot();
   try {
     let lastErr: unknown = null;
+    let lastStatus: number | null = null;
+    let lastReason = "unknown";
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -107,11 +136,15 @@ export async function fetchWithRetry(
         clearTimeout(timer);
 
         if (res.ok) {
+          recordSuccess(breakerToken.host, breakerToken.probing);
           if (attempt > 0) {
             console.log(`[mcp:${reqId}] ${method} ${url} → ${res.status} (recovered after ${attempt} retr${attempt === 1 ? "y" : "ies"})`);
           }
           return res;
         }
+
+        lastStatus = res.status;
+        lastReason = `HTTP ${res.status}`;
 
         if (attempt < maxRetries && shouldRetryStatus(res.status, method)) {
           const retryAfter = parseRetryAfter(res.headers.get("retry-after"), maxDelayMs);
@@ -121,21 +154,43 @@ export async function fetchWithRetry(
           continue;
         }
 
+        // 4xx counts as a caller error, not an upstream-health signal —
+        // don't trip the breaker on those. Only count 5xx + retries-exhausted.
+        if (res.status >= 500) {
+          recordFailure(breakerToken.host, breakerToken.probing);
+          if (isWriteMethod(method)) {
+            void recordDeadLetter(buildEntry({
+              method, url, status: res.status, reason: lastReason,
+              body: init.body, attempts: attempt + 1,
+            }));
+          }
+        } else {
+          // Caller error — breaker stays closed, but probe still resolves
+          recordSuccess(breakerToken.host, breakerToken.probing);
+        }
         return res;
       } catch (e) {
         clearTimeout(timer);
         lastErr = e;
         const elapsed = Date.now() - started;
         const isTimeout = isAbortError(e);
-        const reason = isTimeout ? `timeout after ${elapsed}ms` : (e instanceof Error ? e.message : String(e));
+        lastReason = isTimeout ? `timeout after ${elapsed}ms` : (e instanceof Error ? e.message : String(e));
 
         if (attempt < maxRetries) {
           const delay = jitteredBackoff(attempt, baseDelayMs, maxDelayMs);
-          console.warn(`[mcp:${reqId}] ${method} ${url} failed (${reason}), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+          console.warn(`[mcp:${reqId}] ${method} ${url} failed (${lastReason}), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
           await sleep(delay);
           continue;
         }
-        throw new Error(`${method} ${url} failed after ${maxRetries + 1} attempts: ${reason}`);
+
+        recordFailure(breakerToken.host, breakerToken.probing);
+        if (isWriteMethod(method)) {
+          void recordDeadLetter(buildEntry({
+            method, url, status: null, reason: lastReason,
+            body: init.body, attempts: attempt + 1,
+          }));
+        }
+        throw new Error(`${method} ${url} failed after ${maxRetries + 1} attempts: ${lastReason}`);
       }
     }
     throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
