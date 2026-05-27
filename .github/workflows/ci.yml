@@ -79,36 +79,39 @@ jobs:
       - name: Build
         run: pnpm run build
 
-      # Start the production server in the background. We don't need a real
-      # API for the registration-and-schema verification path; we just need
-      # the server to boot. A placeholder base URL keeps the env-var
-      # contract satisfied. If a real bearer token is provided via repo
-      # secrets, live API probes also run.
-      - name: Start MCP server
+      # Boot the server and run verify in a single step so the
+      # backgrounded server isn't killed by SIGHUP when its parent shell
+      # exits between steps. Without a token, the verify script only
+      # checks tool registration and schemas; with the DIGITALCREW_BEARER_TOKEN
+      # repo secret it also runs live read-only API probes.
+      - name: Boot server and verify tools
         env:
           DIGITALCREW_API_BASE_URL: ${{ secrets.DIGITALCREW_API_BASE_URL || 'https://max.digitalcrew.tech' }}
           DIGITALCREW_BEARER_TOKEN: ${{ secrets.DIGITALCREW_BEARER_TOKEN || '' }}
         run: |
-          pnpm run start &
-          echo $! > server.pid
-          for i in $(seq 1 30); do
+          set -e
+          pnpm run start > server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+
+          # Wait up to 60s for the server to accept requests
+          for i in $(seq 1 60); do
             if curl -fsS http://localhost:3000 > /dev/null 2>&1; then
-              echo "Server ready after ${i}s"
-              exit 0
+              echo "Server ready after ${i}s (pid $SERVER_PID)"
+              break
+            fi
+            if ! kill -0 $SERVER_PID 2>/dev/null; then
+              echo "Server process died before becoming ready:"
+              cat server.log
+              exit 1
             fi
             sleep 1
           done
-          echo "Server failed to start"
-          exit 1
 
-      - name: Verify tools
-        env:
-          DIGITALCREW_BEARER_TOKEN: ${{ secrets.DIGITALCREW_BEARER_TOKEN || '' }}
-        run: node scripts/verify-tools.mjs http://localhost:3000 "$DIGITALCREW_BEARER_TOKEN"
-
-      - name: Stop MCP server
-        if: always()
-        run: |
-          if [ -f server.pid ]; then
-            kill "$(cat server.pid)" 2>/dev/null || true
+          if ! curl -fsS http://localhost:3000 > /dev/null 2>&1; then
+            echo "Server failed to become ready within 60s:"
+            cat server.log
+            exit 1
           fi
+
+          node scripts/verify-tools.mjs http://localhost:3000 "$DIGITALCREW_BEARER_TOKEN"
