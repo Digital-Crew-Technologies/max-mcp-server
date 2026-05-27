@@ -51,3 +51,64 @@ jobs:
       - name: Audit dependencies
         run: pnpm audit --audit-level=high
         continue-on-error: true
+
+  verify:
+    name: Verify MCP tools
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: ci
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build
+
+      # Start the production server in the background. We don't need a real
+      # API for the registration-and-schema verification path; we just need
+      # the server to boot. A placeholder base URL keeps the env-var
+      # contract satisfied. If a real bearer token is provided via repo
+      # secrets, live API probes also run.
+      - name: Start MCP server
+        env:
+          DIGITALCREW_API_BASE_URL: ${{ secrets.DIGITALCREW_API_BASE_URL || 'https://max.digitalcrew.tech' }}
+          DIGITALCREW_BEARER_TOKEN: ${{ secrets.DIGITALCREW_BEARER_TOKEN || '' }}
+        run: |
+          pnpm run start &
+          echo $! > server.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3000 > /dev/null 2>&1; then
+              echo "Server ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server failed to start"
+          exit 1
+
+      - name: Verify tools
+        env:
+          DIGITALCREW_BEARER_TOKEN: ${{ secrets.DIGITALCREW_BEARER_TOKEN || '' }}
+        run: node scripts/verify-tools.mjs http://localhost:3000 "$DIGITALCREW_BEARER_TOKEN"
+
+      - name: Stop MCP server
+        if: always()
+        run: |
+          if [ -f server.pid ]; then
+            kill "$(cat server.pid)" 2>/dev/null || true
+          fi

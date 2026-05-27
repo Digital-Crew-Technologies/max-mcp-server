@@ -71,6 +71,13 @@ export const searchProspectListsSchema = z.object({
   pageSize: z.number().int().min(1).max(100).optional(),
 });
 
+export const waitForProspectListSchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Prospect list UUID to poll"),
+  timeout_seconds: z.number().int().min(5).max(300).optional().describe("Max wait time in seconds (default 120, max 300)"),
+  poll_interval_seconds: z.number().int().min(2).max(30).optional().describe("Seconds between polls (default 5)"),
+});
+
 export const importProspectListCsvSchema = z.object({
   ...withToken,
   list_name: z.string().min(1).describe("Name for the new list"),

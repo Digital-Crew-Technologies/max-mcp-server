@@ -31,6 +31,7 @@ const EXPECTED_TOOLS = [
   "list_prospect_lists", "get_prospect_list", "create_prospect_list", "update_prospect_list",
   "delete_prospect_list", "list_prospect_list_members", "add_prospects_to_list",
   "remove_prospects_from_list", "search_prospect_lists", "import_prospect_list_csv",
+  "wait_for_prospect_list",
   // organizations (7)
   "list_organizations", "get_organization", "create_organization", "update_organization",
   "delete_organization", "bulk_import_organizations", "bulk_delete_organizations",

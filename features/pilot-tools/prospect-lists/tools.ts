@@ -1,6 +1,40 @@
-import { callApi, strip, type McpServer } from "../shared";
+import { callApi, resolveBearerToken, strip, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
+
+const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
+
+async function pollUntilTerminal(
+  token: string,
+  id: string,
+  timeoutMs: number,
+  intervalMs: number,
+): Promise<{ text: string; status: string | null; timedOut: boolean }> {
+  const deadline = Date.now() + timeoutMs;
+  let lastBody = "";
+  let lastStatus: string | null = null;
+
+  while (Date.now() < deadline) {
+    const res = await repo.getProspectList(token, id);
+    lastBody = await res.text();
+    if (!res.ok) {
+      return { text: `API error (${res.status}): ${lastBody || res.statusText}`, status: null, timedOut: false };
+    }
+    try {
+      const parsed = JSON.parse(lastBody);
+      lastStatus = parsed?.data?.status ?? parsed?.status ?? null;
+      if (lastStatus && TERMINAL_STATUSES.has(lastStatus)) {
+        return { text: lastBody, status: lastStatus, timedOut: false };
+      }
+    } catch {
+      // Non-JSON response; keep polling
+    }
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    await new Promise((r) => setTimeout(r, Math.min(intervalMs, remaining)));
+  }
+  return { text: lastBody, status: lastStatus, timedOut: true };
+}
 
 export function registerProspectListTools(server: McpServer): void {
   server.registerTool("list_prospect_lists", {
@@ -70,4 +104,24 @@ export function registerProspectListTools(server: McpServer): void {
     inputSchema: S.importProspectListCsvSchema,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.importProspectListCsv(t, strip(input, "bearer_token"))));
+
+  server.registerTool("wait_for_prospect_list", {
+    title: "Wait for prospect list to finish",
+    description: "Poll a prospect list (typically Apollo-backed) until its status becomes completed, failed, or cancelled — or the timeout elapses. Use this after apollo_create_list / apollo_add_more so the agent doesn't need to manage polling itself.",
+    inputSchema: S.waitForProspectListSchema,
+  }, async (input) => {
+    try {
+      const token = resolveBearerToken(input.bearer_token);
+      const timeoutMs = (input.timeout_seconds ?? 120) * 1000;
+      const intervalMs = (input.poll_interval_seconds ?? 5) * 1000;
+      const result = await pollUntilTerminal(token, input.id, timeoutMs, intervalMs);
+      if (result.timedOut) {
+        return { content: [{ type: "text", text: `Timed out after ${timeoutMs / 1000}s (last status: ${result.status ?? "unknown"}). Last body: ${result.text}` }] };
+      }
+      return { content: [{ type: "text", text: result.text }] };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return { content: [{ type: "text", text: `Error: ${msg}` }] };
+    }
+  });
 }

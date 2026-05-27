@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { callApi, strip, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
@@ -5,10 +6,13 @@ import * as S from "./schema";
 export function registerApolloTools(server: McpServer): void {
   server.registerTool("apollo_create_list", {
     title: "Create Apollo prospect list",
-    description: "Create an Apollo-backed prospect list (async). Starts people search → ingestion. Poll the list status for progress.",
+    description: "Create an Apollo-backed prospect list (async). Starts people search → ingestion. Poll the list status (or use wait_for_prospect_list) for progress. Auto-generates an idempotency_key if not provided so retries are safe.",
     inputSchema: S.apolloCreateListSchema,
-  }, async (input) => callApi(input.bearer_token, (t) =>
-    repo.apolloCreateList(t, strip(input, "bearer_token"))));
+  }, async (input) => {
+    const body = strip(input, "bearer_token") as Record<string, unknown>;
+    if (!body.idempotency_key) body.idempotency_key = randomUUID();
+    return callApi(input.bearer_token, (t) => repo.apolloCreateList(t, body));
+  });
 
   server.registerTool("apollo_add_more", {
     title: "Add more leads from Apollo",
