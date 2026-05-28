@@ -20,6 +20,7 @@ export const simulateNewEmailSchema = z.object({
   ...withToken,
   account_id: z.string().describe("Unipile provider account_id of the receiving account"),
   email_id: z.string().describe("Unipile email ID"),
+  provider_id: z.string().describe("Provider message ID (required by Unipile schema)"),
   from_identifier: z.string().describe("Sender email address"),
   from_display_name: z.string().optional(),
   to_identifier: z.string().describe("Recipient email address"),
@@ -27,16 +28,18 @@ export const simulateNewEmailSchema = z.object({
   text: z.string().optional().describe("Plain-text body"),
   html: z.string().optional().describe("HTML body"),
   thread_id: z.string().optional().describe("Unipile thread ID for threading"),
-  in_reply_to: z.string().optional().describe("Message ID this email replies to"),
+  in_reply_to_message_id: z.string().optional().describe("message_id of the email being replied to"),
+  in_reply_to_id: z.string().optional().describe("id of the email being replied to (defaults to in_reply_to_message_id)"),
 });
 
 export const simulateEmailTrackingSchema = z.object({
   ...withToken,
   event: z.enum(["mail_opened", "mail_link_clicked"]).describe("Tracking event type"),
+  event_id: z.string().describe("Unique tracking event ID"),
+  tracking_id: z.string().describe("Tracking pixel/link ID from the sent email"),
+  email_id: z.string().describe("Unipile email ID"),
+  account_id: z.string().describe("Unipile provider account_id"),
   label: z.string().optional().describe("Format: execution_state_id:node_id — links event to campaign execution"),
-  account_id: z.string().optional(),
-  tracking_id: z.string().optional(),
-  email_id: z.string().optional(),
   url: z.string().optional().describe("Clicked URL (for mail_link_clicked)"),
   ip: z.string().optional(),
 });

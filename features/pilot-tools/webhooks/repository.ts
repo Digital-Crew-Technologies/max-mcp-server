@@ -38,6 +38,7 @@ export async function simulateAccountStatus(params: {
 export async function simulateNewEmail(params: {
   account_id: string;
   email_id: string;
+  provider_id: string;
   from_identifier: string;
   from_display_name?: string;
   to_identifier: string;
@@ -45,41 +46,50 @@ export async function simulateNewEmail(params: {
   text?: string;
   html?: string;
   thread_id?: string;
-  in_reply_to?: string;
+  in_reply_to_message_id?: string;
+  in_reply_to_id?: string;
 }): Promise<Response> {
   return jsonPost(apiUrl("/api/v1/unipile/webhook/email-events/new-email"), {
     event: "mail_received",
     email_id: params.email_id,
     account_id: params.account_id,
+    provider_id: params.provider_id,
     from_attendee: {
       identifier: params.from_identifier,
       display_name: params.from_display_name,
     },
     to_attendees: [{ identifier: params.to_identifier }],
     subject: params.subject,
-    text: params.text,
-    html: params.html,
+    body_plain: params.text,
+    body: params.html,
     thread_id: params.thread_id,
-    in_reply_to: params.in_reply_to,
+    ...(params.in_reply_to_message_id && {
+      in_reply_to: {
+        message_id: params.in_reply_to_message_id,
+        id: params.in_reply_to_id ?? params.in_reply_to_message_id,
+      },
+    }),
     date: new Date().toISOString(),
   });
 }
 
 export async function simulateEmailTracking(params: {
   event: "mail_opened" | "mail_link_clicked";
+  event_id: string;
+  tracking_id: string;
+  email_id: string;
+  account_id: string;
   label?: string;
-  account_id?: string;
-  tracking_id?: string;
-  email_id?: string;
   url?: string;
   ip?: string;
 }): Promise<Response> {
   return jsonPost(apiUrl("/api/v1/unipile/webhook/email-events/tracking-email"), {
     event: params.event,
-    label: params.label,
-    account_id: params.account_id,
+    event_id: params.event_id,
     tracking_id: params.tracking_id,
     email_id: params.email_id,
+    account_id: params.account_id,
+    label: params.label,
     url: params.url,
     ip: params.ip,
     date: new Date().toISOString(),

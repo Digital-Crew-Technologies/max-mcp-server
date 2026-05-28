@@ -49,6 +49,7 @@ export function registerWebhookTools(server: McpServer): void {
     callWebhook(() => repo.simulateNewEmail({
       account_id: input.account_id,
       email_id: input.email_id,
+      provider_id: input.provider_id,
       from_identifier: input.from_identifier,
       from_display_name: input.from_display_name,
       to_identifier: input.to_identifier,
@@ -56,7 +57,8 @@ export function registerWebhookTools(server: McpServer): void {
       text: input.text,
       html: input.html,
       thread_id: input.thread_id,
-      in_reply_to: input.in_reply_to,
+      in_reply_to_message_id: input.in_reply_to_message_id,
+      in_reply_to_id: input.in_reply_to_id,
     })));
 
   server.registerTool("simulate_email_tracking", {
@@ -66,10 +68,11 @@ export function registerWebhookTools(server: McpServer): void {
   }, async (input) =>
     callWebhook(() => repo.simulateEmailTracking({
       event: input.event,
-      label: input.label,
-      account_id: input.account_id,
+      event_id: input.event_id,
       tracking_id: input.tracking_id,
       email_id: input.email_id,
+      account_id: input.account_id,
+      label: input.label,
       url: input.url,
       ip: input.ip,
     })));
