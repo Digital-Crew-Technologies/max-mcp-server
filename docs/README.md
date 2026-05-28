@@ -6,7 +6,8 @@ This server exposes the Digital Crew Max Agent API as a [Model Context Protocol]
 
 | File | Purpose |
 |---|---|
-| [`TOOL_REFERENCE.md`](TOOL_REFERENCE.md) | Catalog of every tool — endpoint, scope, description |
+| [`ENDPOINT_CHECKLIST.md`](ENDPOINT_CHECKLIST.md) | Master inventory of all max-agent endpoints with MCP coverage + verification status |
+| [`TOOL_REFERENCE.md`](TOOL_REFERENCE.md) | Catalog of every MCP tool — endpoint, scope, description |
 | [`TESTING.md`](TESTING.md) | How to verify each endpoint works; coverage matrix |
 | [`TOOL_AUDIT.md`](TOOL_AUDIT.md) | Auto-generated per-tool test report (regenerate with `node scripts/audit-endpoints.mjs`) |
 
