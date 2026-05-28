@@ -13,7 +13,7 @@ const mcpHandler = createMcpHandler(
   {
     basePath: "",
     verboseLogs: true,
-    maxDuration: 60,
+    maxDuration: 300,
     disableSse: true,
   },
 );
