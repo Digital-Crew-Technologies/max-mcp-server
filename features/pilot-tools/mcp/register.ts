@@ -9,6 +9,7 @@ import { registerAiAgentTools } from "../ai-agent/tools";
 import { registerApolloTools } from "../apollo/tools";
 import { registerDashboardTools } from "../dashboard/tools";
 import { registerAdminTools } from "../admin/tools";
+import { registerWebhookTools } from "../webhooks/tools";
 
 export function registerPilotMcpTools(server: McpServer): void {
   registerCampaignTools(server);
@@ -21,4 +22,5 @@ export function registerPilotMcpTools(server: McpServer): void {
   registerApolloTools(server);
   registerDashboardTools(server);
   registerAdminTools(server);
+  registerWebhookTools(server);
 }
