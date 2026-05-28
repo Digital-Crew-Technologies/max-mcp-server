@@ -29,8 +29,8 @@
     "test:endpoints": "node scripts/test-endpoints.mjs"
   },
   "dependencies": {
-    "mcp-handler": "^1.0.5",
-    "next": "^15.2.6",
+    "mcp-handler": "^1.1.0",
+    "next": "^15.5.18",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "redis": "^4.7.0",
@@ -38,13 +38,32 @@
   },
   "devDependencies": {
     "@eslint/compat": "^2.0.0",
-    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@modelcontextprotocol/sdk": "1.26.0",
     "@eslint/eslintrc": "^3.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "eslint": "^9",
     "eslint-config-next": "^15.2.6",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "overrides": {
+      "minimatch@<3.1.4": "^3.1.4",
+      "minimatch@>=9.0.0 <9.0.7": "^9.0.7",
+      "flatted": "^3.4.2",
+      "picomatch": "^4.0.4",
+      "fast-uri": "^3.1.2",
+      "path-to-regexp@>=8.0.0 <8.4.0": "^8.4.0",
+      "postcss@<8.5.10": "^8.5.10"
+    }
+  },
+  "overrides": {
+    "minimatch": "^9.0.7",
+    "flatted": "^3.4.2",
+    "picomatch": "^4.0.4",
+    "fast-uri": "^3.1.2",
+    "path-to-regexp": "^8.4.0",
+    "postcss": "^8.5.10"
   },
   "packageManager": "pnpm@8.15.7+sha512.c85cd21b6da10332156b1ca2aa79c0a61ee7ad2eb0453b88ab299289e9e8ca93e6091232b25c07cbf61f6df77128d9c849e5c9ac6e44854dbd211c49f3a67adc"
 }
