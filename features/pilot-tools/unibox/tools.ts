@@ -42,4 +42,11 @@ export function registerUniboxTools(server: McpServer): void {
     inputSchema: S.sendChatMessageSchema,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.sendChatMessage(t, input.chat_id, input.text)));
+
+  server.registerTool("send_new_email", {
+    title: "Send new email",
+    description: "Compose and send a brand-new email to any recipient, outside any chat or campaign. Sends from the workspace's connected email account. Use send_chat_message instead to reply within an existing conversation.",
+    inputSchema: S.sendNewEmailSchema,
+  }, async (input) => callApi(input.bearer_token, (t) =>
+    repo.sendNewEmail(t, strip(input, "bearer_token"))));
 }

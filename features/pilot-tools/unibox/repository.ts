@@ -45,3 +45,11 @@ export async function sendChatMessage(token: string, chatId: string, text: strin
     body: JSON.stringify({ text }),
   });
 }
+
+export async function sendNewEmail(token: string, body: Record<string, unknown>): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/unibox/send-email`), {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+}

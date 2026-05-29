@@ -42,3 +42,17 @@ export const sendChatMessageSchema = z.object({
   chat_id: z.string().uuid().describe("Chat UUID to reply in"),
   text: z.string().min(1).describe("Message text to send"),
 });
+
+export const sendNewEmailSchema = z.object({
+  ...withToken,
+  to: z.string().email().describe("Recipient email address"),
+  subject: z.string().min(1).describe("Email subject"),
+  body: z.string().min(1).describe("Email body (plain text; newlines become <br>)"),
+  to_name: z.string().optional().describe("Recipient display name"),
+  cc: z.array(z.string().email()).optional().describe("CC email addresses"),
+  account_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe("Which connected email account to send from; defaults to the first connected one"),
+});
