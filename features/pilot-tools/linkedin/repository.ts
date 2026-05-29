@@ -43,8 +43,6 @@ export const invitationsReceived = (token: string, limit?: number) =>
   get(token, "invitations-received", { limit });
 export const invitationsSent = (token: string, limit?: number) =>
   get(token, "invitations-sent", { limit });
-export const handleInvitation = (token: string, body: Record<string, unknown>) =>
-  post(token, "handle-invitation", body);
 export const cancelInvitation = (token: string, body: Record<string, unknown>) =>
   post(token, "cancel-invitation", body);
 

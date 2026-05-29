@@ -63,13 +63,6 @@ export function registerLinkedinTools(server: McpServer): void {
     inputSchema: S.invitationsSentSchema,
   }, async (input) => callApi(input.bearer_token, (t) => repo.invitationsSent(t, input.limit)));
 
-  server.registerTool("linkedin_handle_invitation", {
-    title: "Handle received LinkedIn invitation",
-    description: "Accept or ignore a received LinkedIn invitation.",
-    inputSchema: S.handleInvitationSchema,
-  }, async (input) => callApi(input.bearer_token, (t) =>
-    repo.handleInvitation(t, strip(input, "bearer_token"))));
-
   server.registerTool("linkedin_cancel_invitation", {
     title: "Cancel sent LinkedIn invitation",
     description: "Cancel/withdraw a sent LinkedIn invitation.",
