@@ -7,6 +7,7 @@ import { registerAccountTools } from "../accounts/tools";
 import { registerUniboxTools } from "../unibox/tools";
 import { registerAiAgentTools } from "../ai-agent/tools";
 import { registerApolloTools } from "../apollo/tools";
+import { registerLinkedinTools } from "../linkedin/tools";
 import { registerDashboardTools } from "../dashboard/tools";
 import { registerAdminTools } from "../admin/tools";
 import { registerWebhookTools } from "../webhooks/tools";
@@ -20,6 +21,7 @@ export function registerPilotMcpTools(server: McpServer): void {
   registerUniboxTools(server);
   registerAiAgentTools(server);
   registerApolloTools(server);
+  registerLinkedinTools(server);
   registerDashboardTools(server);
   registerAdminTools(server);
   registerWebhookTools(server);
