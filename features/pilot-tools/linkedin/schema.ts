@@ -49,7 +49,9 @@ export const invitationsSentSchema = z.object({
 
 export const cancelInvitationSchema = z.object({
   ...withToken,
-  provider_id: z.string().describe("Provider_id of the person you invited"),
+  invitation_id: z
+    .string()
+    .describe("Invitation ID to withdraw (from linkedin_list_invitations_sent)"),
 });
 
 // ── Messaging ───────────────────────────────────────────────────────────────
