@@ -47,12 +47,6 @@ export const invitationsSentSchema = z.object({
   limit: z.number().int().min(1).max(100).optional().describe("Max results (default 20)"),
 });
 
-export const handleInvitationSchema = z.object({
-  ...withToken,
-  invitation_id: z.string().describe("Invitation ID from linkedin_invitations_received"),
-  action: z.enum(["accept", "ignore"]).describe("'accept' to connect, 'ignore' to decline"),
-});
-
 export const cancelInvitationSchema = z.object({
   ...withToken,
   provider_id: z.string().describe("Provider_id of the person you invited"),
