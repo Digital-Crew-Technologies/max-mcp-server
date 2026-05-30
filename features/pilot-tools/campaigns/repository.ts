@@ -13,6 +13,22 @@ export async function getCampaign(token: string, id: string): Promise<Response> 
   return fetchWithRetry(apiUrl(`/api/v1/campaigns/${id}`), { headers: authHeaders(token) });
 }
 
+export async function getCampaignMemory(token: string, id: string): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/campaigns/${id}/memory`), { headers: authHeaders(token) });
+}
+
+export async function updateCampaignMemory(
+  token: string,
+  id: string,
+  patch: Record<string, unknown>,
+): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/campaigns/${id}/memory`), {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(patch),
+  });
+}
+
 export async function createCampaign(token: string, body: Record<string, unknown>): Promise<Response> {
   return fetchWithRetry(apiUrl(`/api/v1/campaigns`), {
     method: "POST",

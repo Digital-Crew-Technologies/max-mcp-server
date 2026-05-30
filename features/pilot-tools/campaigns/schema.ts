@@ -16,6 +16,21 @@ export const getCampaignSchema = z.object({
   id: z.string().uuid().describe("Campaign UUID"),
 });
 
+export const getCampaignMemorySchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Campaign UUID"),
+});
+
+export const updateCampaignMemorySchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Campaign UUID"),
+  memory: z
+    .record(z.unknown())
+    .describe(
+      "Partial memory object to merge; top-level keys replace (send the full array to change decisions/notes). e.g. { summary, icp, decisions: [], notes: [] }",
+    ),
+});
+
 export const createCampaignSchema = z.object({
   ...withToken,
   name: z.string().min(1).max(255).describe("Campaign name"),
