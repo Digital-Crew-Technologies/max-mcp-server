@@ -16,6 +16,19 @@ export function registerCampaignTools(server: McpServer): void {
     inputSchema: S.getCampaignSchema,
   }, async (input) => callApi(input.bearer_token, (t) => repo.getCampaign(t, input.id)));
 
+  server.registerTool("get_campaign_memory", {
+    title: "Get campaign memory",
+    description: "Read Max's durable memory for a campaign (ICP, decisions, notes). Recall this when working on one of several simultaneous campaigns so you keep them straight.",
+    inputSchema: S.getCampaignMemorySchema,
+  }, async (input) => callApi(input.bearer_token, (t) => repo.getCampaignMemory(t, input.id)));
+
+  server.registerTool("update_campaign_memory", {
+    title: "Update campaign memory",
+    description: "Record/update Max's durable memory for a campaign. Pass a partial 'memory' object (top-level keys merge; send the full array to change decisions/notes). Use it to remember ICP, decisions, and progress per campaign.",
+    inputSchema: S.updateCampaignMemorySchema,
+  }, async (input) => callApi(input.bearer_token, (t) =>
+    repo.updateCampaignMemory(t, input.id, input.memory as Record<string, unknown>)));
+
   server.registerTool("create_campaign", {
     title: "Create campaign",
     description: "Create a new campaign in draft state. Requires name, included_lists, and accounts. Won't send until launched.",
