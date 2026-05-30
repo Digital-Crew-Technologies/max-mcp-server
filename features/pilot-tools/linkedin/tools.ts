@@ -38,10 +38,15 @@ export function registerLinkedinTools(server: McpServer): void {
 
   server.registerTool("linkedin_search_people", {
     title: "Search LinkedIn people",
-    description: "Search LinkedIn for people by keywords.",
+    description: "Search LinkedIn for people by keywords. Returns up to 25 by default (hard max 50). When the user asks for a specific number (e.g. 'find 30 X'), pass `limit` to match.",
     inputSchema: S.searchPeopleSchema,
-  }, async (input) => callApi(input.bearer_token, (t) =>
-    repo.searchPeople(t, strip(input, "bearer_token"))));
+  }, async (input) => callApi(input.bearer_token, (t) => {
+    const args = strip(input, "bearer_token") as Record<string, unknown>;
+    // Default to 25 when caller doesn't specify — Unipile's silent default of 10
+    // surprised users asking for more.
+    if (args.limit === undefined) args.limit = 25;
+    return repo.searchPeople(t, args);
+  }));
 
   // ── Invitations ─────────────────────────────────────────────────────────────
   server.registerTool("linkedin_send_invitation", {
