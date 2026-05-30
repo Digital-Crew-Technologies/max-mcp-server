@@ -27,7 +27,7 @@ export const connectionsSchema = z.object({ ...withToken });
 export const searchPeopleSchema = z.object({
   ...withToken,
   keywords: z.string().describe("Search query (name, title, company, etc.)"),
-  limit: z.number().int().min(1).max(50).optional().describe("Max results (default 10)"),
+  limit: z.number().int().min(1).max(50).optional().describe("Max results (default 25, hard max 50). ALWAYS pass this when the user asks for a specific number (e.g. 'find 25 founders' -> limit: 25)."),
 });
 
 // ── Invitations ───────────────────────────────────────────────────────────────
