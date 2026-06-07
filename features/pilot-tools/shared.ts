@@ -74,3 +74,108 @@ export function strip(input: Record<string, unknown>, ...keys: string[]): Record
 }
 
 export const withToken = { bearer_token: z.string().optional() };
+
+// ── Grouped tool registration ──────────────────────────────────────────────
+//
+// Domain-grouped tool registration. Instead of exposing one MCP tool per
+// action (e.g. linkedin_find_profile, linkedin_send_invitation, ...), this
+// exposes ONE tool per domain (e.g. `linkedin`) whose inputSchema is a
+// Zod discriminated union over its actions. The LLM still sees each action's
+// original required + typed args — no specificity loss — but the catalog
+// shrinks from ~90 flat tools to ~13 domain groups.
+//
+// Why server-side: smaller catalog = ~80% fewer schema tokens shipped to
+// every model in the wider ecosystem, not just our own max-agent client.
+
+/** A single action inside a grouped tool. */
+export type GroupedActionDef = {
+  /** Short action name (e.g. "find_profile"). Becomes the `action` literal. */
+  action: string;
+  /** Human-readable title. */
+  title: string;
+  /** Description shown to the model. */
+  description: string;
+  /** Zod shape (Record<string, ZodType>) for this action's args. */
+  inputShape: Record<string, z.ZodTypeAny>;
+  /** Handler — receives the parsed input (still includes bearer_token). */
+  handler: (
+    input: Record<string, unknown>,
+  ) => Promise<{ content: Array<{ type: "text"; text: string }> }>;
+};
+
+/**
+ * Register a single grouped tool whose inputSchema is a discriminated union
+ * over all `actions`. Each branch carries its own typed args, so the model
+ * sees identical per-action specificity to the flat catalog.
+ *
+ * The resulting tool's description lists every action so the model can
+ * pick the right one before generating args.
+ */
+export function registerGroupedTool(
+  server: McpServer,
+  groupName: string,
+  blurb: string,
+  actions: GroupedActionDef[],
+): void {
+  if (actions.length === 0) return;
+
+  // Build per-action z.object with an `action` literal discriminator.
+  // Each branch is z.object({ action: z.literal(name), ...args }) — the
+  // shape Zod's discriminatedUnion requires.
+  const branches = actions.map((a) =>
+    z.object({
+      action: z
+        .literal(a.action)
+        .describe(`${a.title}: ${a.description.split("\n")[0].slice(0, 140)}`),
+      ...a.inputShape,
+    }),
+  );
+
+  // Discriminated union over `action` — renders as JSON Schema oneOf, which
+  // is what the model uses to pick the right per-action arg shape.
+  // Zod's discriminatedUnion requires a tuple typed against the literal
+  // discriminator field. Our branches array is correctly shaped at runtime
+  // (we guarded actions.length above) but TS can't see the literal on each
+  // branch through the .map(). Use a parameterized cast to the exact tuple
+  // type the API expects.
+  type ActionBranch = (typeof branches)[number];
+  const unionSchema = z.discriminatedUnion(
+    "action",
+    branches as unknown as readonly [ActionBranch, ...ActionBranch[]],
+  );
+
+  const actionsList = actions
+    .map((a) => `  • ${a.action} — ${a.description.split("\n")[0]}`)
+    .join("\n");
+
+  server.registerTool(
+    groupName,
+    {
+      title: `${groupName.charAt(0).toUpperCase()}${groupName.slice(1)} (grouped)`,
+      description: `${blurb}\n\nActions (set "action": "<one of>"):\n${actionsList}`,
+      // mcp-handler accepts a Zod schema as inputSchema; the discriminated
+      // union flattens to oneOf in JSON Schema for the client.
+      inputSchema: unionSchema,
+    } as Record<string, unknown>,
+    async (input: Record<string, unknown>) => {
+      const action = String((input as { action?: unknown }).action ?? "");
+      const handler = actions.find((a) => a.action === action)?.handler;
+      if (!handler) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Unknown action "${action}" for group "${groupName}". Valid: ${actions
+                .map((a) => a.action)
+                .join(", ")}`,
+            },
+          ],
+        };
+      }
+      // Strip the discriminator before forwarding to the handler.
+      const { action: _drop, ...args } = input;
+      void _drop;
+      return handler(args);
+    },
+  );
+}
