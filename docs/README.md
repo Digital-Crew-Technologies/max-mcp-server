@@ -53,7 +53,7 @@ features/pilot-tools/
 ├── dead-letter.ts            # Redis-backed failed-write log (in-mem fallback)
 ├── tracing.ts                # structured JSON span logs to stdout
 ├── {campaigns,prospects,prospect-lists,organizations,
-│   accounts,unibox,ai-agent,apollo,dashboard}/
+│   accounts,unibox,ai-agent,apollo,explorium,dashboard}/
 │   ├── repository.ts         # API call functions
 │   ├── schema.ts             # Zod input schemas
 │   └── tools.ts              # register*Tools(server)

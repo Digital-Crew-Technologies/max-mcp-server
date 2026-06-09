@@ -6,7 +6,7 @@
 
 HTTP API for Digital Crew **Max Agent** — an AI-powered outbound sales automation platform.
 Covers: campaigns, prospects, organizations, prospect lists, connected accounts (Unipile),
-Unibox (unified inbox), Apollo integration, AI agent, billing, and workspace tooling.
+Unibox (unified inbox), Apollo & Explorium data suppliers, AI agent, billing, and workspace tooling.
 
 Production base URL: https://max.digitalcrew.tech
 Local dev base URL:  http://localhost:3006
@@ -43,6 +43,7 @@ The server detects auth type by token shape: three dots → JWT, `max_live_…` 
 | Workspace profile  | workspace:read              | workspace:write              |
 | AI agent           | (uses related scope per op) |                              |
 | Apollo             | —                           | prospect-lists:write         |
+| Explorium          | —                           | prospect-lists:write         |
 
 JWT-only tags (API keys rejected): Billing, Notifications, API keys, Onboarding.
 
@@ -297,7 +298,8 @@ GET    /api/v1/prospect-lists
 
 POST   /api/v1/prospect-lists
   Create empty platform list. Scope: prospect-lists:write
-  For Apollo-sourced lists use POST /api/v1/apollo/people/create-list instead.
+  For Apollo-sourced lists use POST /api/v1/apollo/people/create-list, or for
+  Explorium-sourced lists POST /api/v1/explorium/people/create-list instead.
   Body: { list_name, search_source: "platform" }
 
 GET    /api/v1/prospect-lists/{id}
@@ -335,7 +337,7 @@ POST   /api/v1/prospect-lists/import-csv
 pending, processing, completed, failed, cancelled
 
 --- Prospect List Object Fields ---
-id, list_name, search_source (apollo|platform), search_type (people|organizations),
+id, list_name, search_source (apollo|explorium|platform), search_type (people|organizations),
 search_criteria, apollo_search_payload, apollo_search_url, apollo_search_id,
 platform_search_config (PlatformSearchConfig), status, total_results,
 processed_results, failed_results, retry_count, error_message, error_details,
@@ -564,6 +566,36 @@ POST   /api/v1/apollo/people/create-list
 POST   /api/v1/apollo/people/add-more
   Append more leads to existing Apollo list (async). Scope: prospect-lists:write
   Re-runs saved apollo_search_payload to pull next N results.
+  Body: { list_id: uuid, count?: int (1-10000, default: 100) }
+  Response: { data: { list: ProspectList, message: string } }
+
+=============================================================================
+### EXPLORIUM
+Prospect-search → contact enrichment → prospect-list ingestion (async).
+Alternative data supplier to Apollo. Scope: prospect-lists:write
+=============================================================================
+
+POST   /api/v1/explorium/people/create-list
+  Create Explorium-backed prospect list (async). Scope: prospect-lists:write
+  Creates prospect_list with status:"pending", then cron processes every 5 min.
+  Status progression: pending → processing → completed (or failed after 3 retries).
+  Poll GET /prospect-lists/{id} for progress.
+  Body: {
+    list_name: string,
+    explorium_search_criteria: object,  // job_level, job_department, company_size,
+                                        // company_revenue, country_code, has_email,
+                                        // searchLimit, ...
+    idempotency_key?: string            // safe to retry with same key
+  }
+  Example explorium_search_criteria:
+    { job_level: ["cxo","vp"], job_department: ["engineering"],
+      company_size: ["1-10","11-50"], country_code: ["us"],
+      has_email: true, searchLimit: 100 }
+  Response: { data: ProspectList } (status: "pending")
+
+POST   /api/v1/explorium/people/add-more
+  Append more leads to existing Explorium list (async). Scope: prospect-lists:write
+  Re-runs saved explorium_search_criteria to pull next N results.
   Body: { list_id: uuid, count?: int (1-10000, default: 100) }
   Response: { data: { list: ProspectList, message: string } }
 

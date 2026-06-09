@@ -68,6 +68,8 @@ node scripts/audit-endpoints.mjs http://localhost:3000 <BEARER>
 | billing | `generate_message_preview` | Charges credits per invocation |
 | billing | `apollo_create_list` | Charges credits + creates real Apollo data |
 | billing | `apollo_add_more` | Charges credits per lead |
+| billing | `explorium_create_list` | Charges credits + creates real Explorium data |
+| billing | `explorium_add_more` | Charges credits per lead |
 | state | `pause_campaign`, `resume_campaign`, `stop_campaign` | Require an actually-launched campaign with a valid `workflow_config` |
 | external | `wait_for_prospect_list` | Requires an Apollo list in `pending` state |
 | external | `hosted_auth_link` | Returns `401` with the pilot API key (requires `accounts:write` scope) |
@@ -87,6 +89,7 @@ node scripts/audit-endpoints.mjs http://localhost:3000 <BEARER>
 | `generate_workflow` | Pass a short prompt; verify response has `workflow_config`, `campaign_name`, `campaign_description` |
 | `generate_message_preview` | Pass `channel: "linkedin_message"` and a real prospect ID; expect `{ message }` |
 | `apollo_create_list` | Pass a valid Apollo `mixed_people/search` payload; poll with `wait_for_prospect_list` |
+| `explorium_create_list` | Pass a valid `explorium_search_criteria` object (e.g. `{ job_level: ["cxo"], country_code: ["us"], has_email: true }`); poll with `wait_for_prospect_list` |
 | `hosted_auth_link` | Requires `accounts:write` scope on the bearer token (workspace API key) |
 
 ---

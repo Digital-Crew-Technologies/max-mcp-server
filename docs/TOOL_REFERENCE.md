@@ -1,6 +1,6 @@
 # MCP Tool Reference
 
-Complete catalog of all **63 MCP tools** exposed by `max-mcp-server`. Each entry includes the underlying HTTP endpoint, required scope, key inputs, and a one-line description.
+Complete catalog of all **65 MCP tools** exposed by `max-mcp-server`. Each entry includes the underlying HTTP endpoint, required scope, key inputs, and a one-line description.
 
 Every tool accepts an optional `bearer_token` argument that overrides the bearer extracted from the MCP request or environment.
 
@@ -159,6 +159,21 @@ Both charge credits. Check balance with `get_workspace_balance` (JWT-only). On `
 | `apollo_add_more` | `POST /api/v1/apollo/people/add-more` | `prospect-lists:write` + _credits_ | Append leads to an existing Apollo list |
 
 Both are async — poll the resulting list's status (or use `wait_for_prospect_list`).
+
+---
+
+## Explorium (2)
+
+| Tool | HTTP | Scope | Description |
+|---|---|---|---|
+| `explorium_create_list` | `POST /api/v1/explorium/people/create-list` | `prospect-lists:write` + _credits_ | Async Explorium prospect-search → contact enrichment → list ingestion. Auto-injects `idempotency_key` if not provided |
+| `explorium_add_more` | `POST /api/v1/explorium/people/add-more` | `prospect-lists:write` + _credits_ | Append leads to an existing Explorium list |
+
+Both are async — poll the resulting list's status (or use `wait_for_prospect_list`).
+
+Apollo and Explorium are interchangeable data suppliers for prospect lists. A
+list's `search_source` (`apollo` or `explorium`) determines which provider's
+endpoints accept it; pick whichever supplier the workspace has an API key for.
 
 ---
 

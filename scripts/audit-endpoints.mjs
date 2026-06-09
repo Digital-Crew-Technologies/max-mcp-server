@@ -127,6 +127,10 @@ const tools = [
   { name: "apollo_create_list", category: "Apollo", skip: "billing", reason: "charges credits + creates real list" },
   { name: "apollo_add_more", category: "Apollo", skip: "billing", reason: "charges credits per lead" },
 
+  // ── Explorium ──────────────────────────────────────────────────────────
+  { name: "explorium_create_list", category: "Explorium", skip: "billing", reason: "charges credits + creates real list" },
+  { name: "explorium_add_more", category: "Explorium", skip: "billing", reason: "charges credits per lead" },
+
   // ── Dashboard ──────────────────────────────────────────────────────────
   { name: "get_dashboard_kpis", category: "Dashboard", action: "ctx => call('get_dashboard_kpis')" },
 
