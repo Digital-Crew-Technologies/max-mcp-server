@@ -94,6 +94,14 @@ Last verified: 2026-05-27.
 | POST | `/api/v1/apollo/cron/process-pending` | Process pending Apollo jobs | — | ⛔ Internal cron. Not appropriate as agent tool unless we want a manual "kick the queue" admin tool. |
 | GET | `/api/v1/billing/apollo-search-quote` | Cost quote before search | — | ⛔ JWT-only |
 
+## EXPLORIUM
+
+| Method | Endpoint | Description | MCP Tool | Status |
+|---|---|---|---|---|
+| POST | `/api/v1/explorium/people/create-list` | Async create from Explorium search | `explorium_create_list` | 🟡 Not tested (charges credits). MCP wraps + auto-injects `idempotency_key`. |
+| POST | `/api/v1/explorium/people/add-more` | Append to existing list | `explorium_add_more` | 🟡 Not tested (charges credits) |
+| POST | `/api/v1/explorium/cron/process-pending` | Process pending Explorium jobs | — | ⛔ Internal cron. Not appropriate as agent tool unless we want a manual "kick the queue" admin tool. |
+
 ## AI AGENT
 
 | Method | Endpoint | Description | MCP Tool | Status |
@@ -199,6 +207,7 @@ Last verified: 2026-05-27.
 | Prospects | 8 | 8 | 8 | 0 | 0 |
 | Prospect Lists | 10 | 10 | 9 | 1 | 0 |
 | Apollo | 4 | 2 | 0 | 2 | 2 (cron + JWT quote) |
+| Explorium | 3 | 2 | 0 | 2 | 1 (cron) |
 | AI Agent | 2 | 2 | 0 | 2 | 0 |
 | Onboarding | 7 | 0 | 0 | 0 | 7 (JWT-only) |
 | Organizations | 7 | 7 | 5 | 2 | 0 |
@@ -233,6 +242,7 @@ Last verified: 2026-05-27.
 ### Live-verify items still needing real data
 - [ ] Unibox full flow (`send_chat_message`, `list_chat_messages`, `update_chat`, `archive_chat`) — needs at least one chat in workspace
 - [ ] Apollo flow (`apollo_create_list`, `apollo_add_more`, `wait_for_prospect_list`) — costs credits
+- [ ] Explorium flow (`explorium_create_list`, `explorium_add_more`, `wait_for_prospect_list`) — costs credits
 - [ ] AI agent (`generate_workflow`, `generate_message_preview`) — costs credits
 - [ ] `hosted_auth_link` — needs bearer with `accounts:write` scope
 - [ ] Campaign state machine (`launch`/`pause`/`resume`/`stop`) — needs a valid `workflow_config`

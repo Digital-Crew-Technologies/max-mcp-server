@@ -7,6 +7,7 @@ import { registerAccountTools } from "../accounts/tools";
 import { registerUniboxTools } from "../unibox/tools";
 import { registerAiAgentTools } from "../ai-agent/tools";
 import { registerApolloTools } from "../apollo/tools";
+import { registerExploriumTools } from "../explorium/tools";
 import {
   registerLinkedinTools,
   registerLinkedinToolsGrouped,
@@ -37,6 +38,7 @@ export function registerPilotMcpTools(server: McpServer): void {
   registerUniboxTools(server);
   registerAiAgentTools(server);
   registerApolloTools(server);
+  registerExploriumTools(server);
 
   if (useGrouped) {
     registerLinkedinToolsGrouped(server);
