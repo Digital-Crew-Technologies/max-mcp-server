@@ -1,6 +1,6 @@
 # MCP Tool Reference
 
-Complete catalog of all **65 MCP tools** exposed by `max-mcp-server`. Each entry includes the underlying HTTP endpoint, required scope, key inputs, and a one-line description.
+Complete catalog of all **66 MCP tools** exposed by `max-mcp-server`. Each entry includes the underlying HTTP endpoint, required scope, key inputs, and a one-line description.
 
 Every tool accepts an optional `bearer_token` argument that overrides the bearer extracted from the MCP request or environment.
 
@@ -162,12 +162,13 @@ Both are async — poll the resulting list's status (or use `wait_for_prospect_l
 
 ---
 
-## Explorium (2)
+## Explorium (3)
 
 | Tool | HTTP | Scope | Description |
 |---|---|---|---|
 | `explorium_create_list` | `POST /api/v1/explorium/people/create-list` | `prospect-lists:write` + _credits_ | Async Explorium prospect-search → contact enrichment → list ingestion. Auto-injects `idempotency_key` if not provided |
-| `explorium_add_more` | `POST /api/v1/explorium/people/add-more` | `prospect-lists:write` + _credits_ | Append leads to an existing Explorium list |
+| `explorium_create_company_list` | `POST /api/v1/explorium/companies/create-list` | `prospect-lists:write` + _credits_ | Async Explorium company-search → organization list (`search_type=organizations`) + company enrichment. Auto-injects `idempotency_key` if not provided. Add-more is not supported for organization lists |
+| `explorium_add_more` | `POST /api/v1/explorium/people/add-more` | `prospect-lists:write` + _credits_ | Append leads to an existing Explorium (people) list |
 
 Both are async — poll the resulting list's status (or use `wait_for_prospect_list`).
 

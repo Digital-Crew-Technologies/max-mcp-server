@@ -593,6 +593,29 @@ POST   /api/v1/explorium/people/create-list
       has_email: true, searchLimit: 100 }
   Response: { data: ProspectList } (status: "pending")
 
+POST   /api/v1/explorium/companies/create-list
+  Create Explorium-backed organization list from a company search (async).
+  Scope: prospect-lists:write. Creates prospect_list with
+  search_type:"organizations", status:"pending"; cron processes every 5 min.
+  Poll GET /prospect-lists/{id} for progress.
+  Body: {
+    list_name: string,
+    explorium_search_criteria: object,  // country_code, region_country_code,
+                                        // city_region_country, company_name,
+                                        // company_size, company_revenue,
+                                        // company_age, number_of_locations,
+                                        // website_keywords, company_tech_stack_tech,
+                                        // company_tech_stack_category, one of
+                                        // linkedin_category/google_category/
+                                        // naics_category, searchLimit, ...
+    idempotency_key?: string            // safe to retry with same key
+  }
+  Example explorium_search_criteria:
+    { country_code: ["us"], company_size: ["11-50","51-200"],
+      company_tech_stack_category: ["crm"], searchLimit: 100 }
+  Response: { data: ProspectList } (status: "pending")
+  Note: add-more is not supported for organization lists.
+
 POST   /api/v1/explorium/people/add-more
   Append more leads to existing Explorium list (async). Scope: prospect-lists:write
   Re-runs saved explorium_search_criteria to pull next N results.

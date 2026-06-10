@@ -129,6 +129,7 @@ const tools = [
 
   // ── Explorium ──────────────────────────────────────────────────────────
   { name: "explorium_create_list", category: "Explorium", skip: "billing", reason: "charges credits + creates real list" },
+  { name: "explorium_create_company_list", category: "Explorium", skip: "billing", reason: "charges credits + creates real org list" },
   { name: "explorium_add_more", category: "Explorium", skip: "billing", reason: "charges credits per lead" },
 
   // ── Dashboard ──────────────────────────────────────────────────────────

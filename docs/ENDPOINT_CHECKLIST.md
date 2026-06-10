@@ -98,9 +98,10 @@ Last verified: 2026-05-27.
 
 | Method | Endpoint | Description | MCP Tool | Status |
 |---|---|---|---|---|
-| POST | `/api/v1/explorium/people/create-list` | Async create from Explorium search | `explorium_create_list` | 🟡 Not tested (charges credits). MCP wraps + auto-injects `idempotency_key`. |
-| POST | `/api/v1/explorium/people/add-more` | Append to existing list | `explorium_add_more` | 🟡 Not tested (charges credits) |
-| POST | `/api/v1/explorium/cron/process-pending` | Process pending Explorium jobs | — | ⛔ Internal cron. Not appropriate as agent tool unless we want a manual "kick the queue" admin tool. |
+| POST | `/api/v1/explorium/people/create-list` | Async create people list from Explorium prospect search | `explorium_create_list` | 🟡 Not tested (charges credits). MCP wraps + auto-injects `idempotency_key`. |
+| POST | `/api/v1/explorium/companies/create-list` | Async create organization list from Explorium company search | `explorium_create_company_list` | 🟡 Not tested (charges credits). MCP wraps + auto-injects `idempotency_key`. |
+| POST | `/api/v1/explorium/people/add-more` | Append to existing people list | `explorium_add_more` | 🟡 Not tested (charges credits). People lists only — organization lists are not supported. |
+| POST | `/api/v1/explorium/cron/process-pending` | Process pending Explorium jobs (people + company) | — | ⛔ Internal cron. Not appropriate as agent tool unless we want a manual "kick the queue" admin tool. |
 
 ## AI AGENT
 
@@ -207,7 +208,7 @@ Last verified: 2026-05-27.
 | Prospects | 8 | 8 | 8 | 0 | 0 |
 | Prospect Lists | 10 | 10 | 9 | 1 | 0 |
 | Apollo | 4 | 2 | 0 | 2 | 2 (cron + JWT quote) |
-| Explorium | 3 | 2 | 0 | 2 | 1 (cron) |
+| Explorium | 4 | 3 | 0 | 3 | 1 (cron) |
 | AI Agent | 2 | 2 | 0 | 2 | 0 |
 | Onboarding | 7 | 0 | 0 | 0 | 7 (JWT-only) |
 | Organizations | 7 | 7 | 5 | 2 | 0 |
@@ -219,9 +220,9 @@ Last verified: 2026-05-27.
 | Dashboard | 1 | 1 | 1 | 0 | 0 |
 | Worker & Workspace | 3 | 2 | 1 | 1 | 1 (internal worker) |
 | Mattermost & Auth | 2 | 0 | 0 | 0 | 2 (internal) |
-| **TOTAL** | **89** | **59** | **39** | **17** | **29** |
+| **TOTAL** | **90** | **60** | **39** | **18** | **29** |
 
-(MCP server registers 63 tools — 59 wrap unique API endpoints + 1 `wait_for_prospect_list` polling helper + 3 local admin tools `get_circuit_status`, `list_failed_requests`, `clear_failed_requests`.)
+(MCP server registers 64 tools — 60 wrap unique API endpoints + 1 `wait_for_prospect_list` polling helper + 3 local admin tools `get_circuit_status`, `list_failed_requests`, `clear_failed_requests`.)
 
 ---
 
@@ -242,7 +243,7 @@ Last verified: 2026-05-27.
 ### Live-verify items still needing real data
 - [ ] Unibox full flow (`send_chat_message`, `list_chat_messages`, `update_chat`, `archive_chat`) — needs at least one chat in workspace
 - [ ] Apollo flow (`apollo_create_list`, `apollo_add_more`, `wait_for_prospect_list`) — costs credits
-- [ ] Explorium flow (`explorium_create_list`, `explorium_add_more`, `wait_for_prospect_list`) — costs credits
+- [ ] Explorium flow (`explorium_create_list`, `explorium_create_company_list`, `explorium_add_more`, `wait_for_prospect_list`) — costs credits
 - [ ] AI agent (`generate_workflow`, `generate_message_preview`) — costs credits
 - [ ] `hosted_auth_link` — needs bearer with `accounts:write` scope
 - [ ] Campaign state machine (`launch`/`pause`/`resume`/`stop`) — needs a valid `workflow_config`

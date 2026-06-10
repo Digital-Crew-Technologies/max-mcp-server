@@ -8,6 +8,14 @@ export async function exploriumCreateList(token: string, body: Record<string, un
   });
 }
 
+export async function exploriumCreateCompanyList(token: string, body: Record<string, unknown>): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/explorium/companies/create-list`), {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+}
+
 export async function exploriumAddMore(token: string, body: Record<string, unknown>): Promise<Response> {
   return fetchWithRetry(apiUrl(`/api/v1/explorium/people/add-more`), {
     method: "POST",
