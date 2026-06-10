@@ -1,6 +1,6 @@
 # `max-mcp-server` Documentation
 
-This server exposes the Digital Crew Max Agent API as a [Model Context Protocol](https://modelcontextprotocol.io) endpoint at `POST /mcp`. **63 tools** are registered across 11 domains.
+This server exposes the Digital Crew Max Agent API as a [Model Context Protocol](https://modelcontextprotocol.io) endpoint at `POST /mcp`. **64 tools** are registered across 11 domains.
 
 ## Documents
 
@@ -87,4 +87,4 @@ Token precedence (highest first):
 npm run verify -- http://localhost:3000
 ```
 
-If all 63 tools register with schemas, output ends with `All verifications passed.` and exit code is 0. CI runs lint + type-check + build + audit on every push.
+If all 64 tools register with schemas, output ends with `All verifications passed.` and exit code is 0. CI runs lint + type-check + build + audit on every push.
