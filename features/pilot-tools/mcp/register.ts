@@ -9,6 +9,7 @@ import { registerAiAgentTools } from "../ai-agent/tools";
 import { registerApolloTools } from "../apollo/tools";
 import { registerExploriumTools } from "../explorium/tools";
 import { registerClaireTools } from "../claire/tools";
+import { registerEnrichmentTools } from "../enrichment/tools";
 import { registerCrmTools } from "../crm/tools";
 import {
   registerLinkedinTools,
@@ -42,6 +43,7 @@ export function registerPilotMcpTools(server: McpServer): void {
   registerApolloTools(server);
   registerExploriumTools(server);
   registerClaireTools(server);
+  registerEnrichmentTools(server);
   registerCrmTools(server);
 
   if (useGrouped) {
