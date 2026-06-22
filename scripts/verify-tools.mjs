@@ -50,6 +50,9 @@ const EXPECTED_TOOLS = [
   "get_dashboard_kpis",
   // admin (3)
   "list_failed_requests", "clear_failed_requests", "get_circuit_status",
+  // enrichment (5)
+  "enrich_prospect", "enrich_organization", "bulk_enrich",
+  "get_enrichment_status", "get_enrichment_credits",
 ];
 
 // Safe read-only tools to live-call when a token is available
