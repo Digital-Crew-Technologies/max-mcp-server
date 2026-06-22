@@ -53,7 +53,7 @@ export function registerEmailAnalyticsTools(server: McpServer): void {
     {
       title: "Get campaign engagement summary",
       description:
-        "Engagement summary for a campaign: open/click/reply/bounce rates plus per-link click detail (top links, unique links clicked).",
+        "Engagement summary for a campaign: open/click/reply/bounce rates plus per-link click detail (top links, distinct URLs clicked).",
       inputSchema: S.getCampaignEngagementSummarySchema,
     },
     async (input) =>
