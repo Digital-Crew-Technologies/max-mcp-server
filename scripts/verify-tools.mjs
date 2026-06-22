@@ -50,6 +50,9 @@ const EXPECTED_TOOLS = [
   "get_dashboard_kpis",
   // admin (3)
   "list_failed_requests", "clear_failed_requests", "get_circuit_status",
+  // enrichment (5)
+  "enrich_prospect", "enrich_organization", "bulk_enrich",
+  "get_enrichment_status", "get_enrichment_credits",
   // email-analytics (4)
   "get_email_tracking_events", "get_prospect_engagement_timeline",
   "get_link_click_details", "get_campaign_engagement_summary",
