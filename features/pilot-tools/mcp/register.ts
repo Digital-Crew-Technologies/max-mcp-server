@@ -11,6 +11,7 @@ import { registerExploriumTools } from "../explorium/tools";
 import { registerClaireTools } from "../claire/tools";
 import { registerEnrichmentTools } from "../enrichment/tools";
 import { registerCrmTools } from "../crm/tools";
+import { registerEmailAnalyticsTools } from "../email-analytics/tools";
 import {
   registerLinkedinTools,
   registerLinkedinToolsGrouped,
@@ -45,6 +46,7 @@ export function registerPilotMcpTools(server: McpServer): void {
   registerClaireTools(server);
   registerEnrichmentTools(server);
   registerCrmTools(server);
+  registerEmailAnalyticsTools(server);
 
   if (useGrouped) {
     registerLinkedinToolsGrouped(server);

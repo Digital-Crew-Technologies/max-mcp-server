@@ -53,6 +53,9 @@ const EXPECTED_TOOLS = [
   // enrichment (5)
   "enrich_prospect", "enrich_organization", "bulk_enrich",
   "get_enrichment_status", "get_enrichment_credits",
+  // email-analytics (4)
+  "get_email_tracking_events", "get_prospect_engagement_timeline",
+  "get_link_click_details", "get_campaign_engagement_summary",
 ];
 
 // Safe read-only tools to live-call when a token is available
