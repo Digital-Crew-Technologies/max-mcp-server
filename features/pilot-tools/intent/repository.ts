@@ -85,3 +85,15 @@ export async function rejectProposal(token: string, id: string): Promise<Respons
     body: JSON.stringify({}),
   });
 }
+
+export async function modifyProposal(
+  token: string,
+  id: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/intent/proposals/${id}/modify`), {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+}

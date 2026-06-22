@@ -15,7 +15,7 @@ const signalTypeSchema = z
 const frequencySchema = z
   .enum(["daily", "weekly", "monthly"])
   .optional()
-  .describe("How often the trigger re-polls the target URL (default weekly).");
+  .describe("How often the trigger re-polls the target URL (default daily).");
 
 export const createIntentTriggerSchema = z.object({
   ...withToken,
@@ -109,4 +109,15 @@ export const approveProposalSchema = z.object({
 export const rejectProposalSchema = z.object({
   ...withToken,
   proposal_id: z.string().uuid().describe("Proposal UUID to reject."),
+});
+
+export const modifyProposalSchema = z.object({
+  ...withToken,
+  proposal_id: z.string().uuid().describe("Proposal UUID to modify (must be pending)."),
+  modifications: z
+    .object(modificationsShape)
+    .strict()
+    .describe(
+      "Adjustments to apply to the pending proposal (titles, target_prospect_ids, campaign_name, campaign_description). The workflow is regenerated and the proposal stays pending.",
+    ),
 });

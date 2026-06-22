@@ -116,4 +116,18 @@ export function registerIntentTools(server: McpServer): void {
         repo.rejectProposal(t, input.proposal_id),
       ),
   );
+
+  server.registerTool(
+    "modify_proposal",
+    {
+      title: "Modify a pending signal proposal",
+      description:
+        "Adjust a pending proposal WITHOUT launching it: pass modifications (titles, target_prospect_ids, campaign_name, campaign_description) to re-select prospects and regenerate the campaign workflow. The proposal stays pending so it can be reviewed and approved later. Returns the updated {data: SignalProposal}. Fails with 409 if the proposal is not pending, or 404 if not found.",
+      inputSchema: S.modifyProposalSchema,
+    },
+    async (input) =>
+      callApi(input.bearer_token, (t) =>
+        repo.modifyProposal(t, input.proposal_id, input.modifications),
+      ),
+  );
 }

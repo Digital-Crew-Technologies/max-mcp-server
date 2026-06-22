@@ -56,10 +56,10 @@ const EXPECTED_TOOLS = [
   // email-analytics (4)
   "get_email_tracking_events", "get_prospect_engagement_timeline",
   "get_link_click_details", "get_campaign_engagement_summary",
-  // intent (8)
+  // intent (9)
   "create_intent_trigger", "list_intent_signals", "get_signal_history",
   "disable_trigger", "list_signal_proposals", "get_signal_proposal",
-  "approve_proposal", "reject_proposal",
+  "approve_proposal", "reject_proposal", "modify_proposal",
 ];
 
 // Safe read-only tools to live-call when a token is available
