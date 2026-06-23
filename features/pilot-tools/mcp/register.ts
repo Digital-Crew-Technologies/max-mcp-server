@@ -8,6 +8,7 @@ import { registerUniboxTools } from "../unibox/tools";
 import { registerAiAgentTools } from "../ai-agent/tools";
 import { registerApolloTools } from "../apollo/tools";
 import { registerExploriumTools } from "../explorium/tools";
+import { registerGetleadsTools } from "../getleads/tools";
 import { registerClaireTools } from "../claire/tools";
 import { registerEnrichmentTools } from "../enrichment/tools";
 import { registerIntentTools } from "../intent/tools";
@@ -44,6 +45,7 @@ export function registerPilotMcpTools(server: McpServer): void {
   registerAiAgentTools(server);
   registerApolloTools(server);
   registerExploriumTools(server);
+  registerGetleadsTools(server);
   registerClaireTools(server);
   registerEnrichmentTools(server);
   registerIntentTools(server);
