@@ -10,6 +10,7 @@ import { registerApolloTools } from "../apollo/tools";
 import { registerExploriumTools } from "../explorium/tools";
 import { registerClaireTools } from "../claire/tools";
 import { registerCrmTools } from "../crm/tools";
+import { registerCrmLeadDispatchTools } from "../crm/lead-dispatch";
 import {
   registerLinkedinTools,
   registerLinkedinToolsGrouped,
@@ -43,6 +44,7 @@ export function registerPilotMcpTools(server: McpServer): void {
   registerExploriumTools(server);
   registerClaireTools(server);
   registerCrmTools(server);
+  registerCrmLeadDispatchTools(server);
 
   if (useGrouped) {
     registerLinkedinToolsGrouped(server);

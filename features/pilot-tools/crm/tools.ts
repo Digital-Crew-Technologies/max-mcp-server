@@ -1,6 +1,6 @@
 import { resolveBearerToken, type McpServer } from "../shared";
 import * as S from "./schema";
-import { HubSpotClient, HubSpotMcpError } from "./hubspot-client";
+import { HubSpotClient } from "./hubspot-client";
 import {
   getHubSpotAccessToken,
   invalidateHubSpotToken,
@@ -285,6 +285,3 @@ export function registerCrmTools(server: McpServer): void {
       withClient(input.bearer_token, (c) => c.listPipelineStages(input.pipelineId)),
   );
 }
-
-// Re-export so Task B2 (Lead Dispatch tools) can share the client/error helpers.
-export { withClient, ok, err, mapError, HubSpotMcpError };
