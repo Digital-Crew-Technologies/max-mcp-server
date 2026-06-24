@@ -54,3 +54,26 @@ export const notionSearchPagesSchema = z.object({
     .min(1)
     .describe("Free-text query to search the workspace's pages by title/content."),
 });
+
+// ── Composite workflow tool (Task D2) ────────────────────────────────────────
+
+export const notionPublishWeeklyBriefSchema = z.object({
+  ...withToken,
+  brief: z
+    .record(z.string(), z.unknown())
+    .describe(
+      "The structured brief object returned by crm_weekly_brief_compose (week_ending, last_week_summary, this_week_priorities, stale_deals, deals_without_next_step, top_risks, per_rep_questions, suggested_bj_notes, action_items).",
+    ),
+  template_page_id: z
+    .string()
+    .optional()
+    .describe(
+      "Optional Notion template page id to inspect for section structure (best-effort). Defaults to super_bj.notion_weekly_template_id.",
+    ),
+  parent_page_id: z
+    .string()
+    .optional()
+    .describe(
+      "Notion parent page id to create the draft brief under. Defaults to super_bj.notion_drafts_parent_id; required if that is unset.",
+    ),
+});

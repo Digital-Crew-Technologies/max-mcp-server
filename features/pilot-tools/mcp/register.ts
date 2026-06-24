@@ -11,7 +11,9 @@ import { registerExploriumTools } from "../explorium/tools";
 import { registerClaireTools } from "../claire/tools";
 import { registerCrmTools } from "../crm/tools";
 import { registerCrmLeadDispatchTools } from "../crm/lead-dispatch";
+import { registerCrmComposerTools } from "../crm/composers";
 import { registerNotionTools } from "../notion/tools";
+import { registerNotionComposerTools } from "../notion/composers";
 import {
   registerLinkedinTools,
   registerLinkedinToolsGrouped,
@@ -46,7 +48,9 @@ export function registerPilotMcpTools(server: McpServer): void {
   registerClaireTools(server);
   registerCrmTools(server);
   registerCrmLeadDispatchTools(server);
+  registerCrmComposerTools(server);
   registerNotionTools(server);
+  registerNotionComposerTools(server);
 
   if (useGrouped) {
     registerLinkedinToolsGrouped(server);
