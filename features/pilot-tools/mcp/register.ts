@@ -12,6 +12,7 @@ import { registerClaireTools } from "../claire/tools";
 import { registerEnrichmentTools } from "../enrichment/tools";
 import { registerIntentTools } from "../intent/tools";
 import { registerCrmTools } from "../crm/tools";
+import { registerCalendarTools } from "../calendar/tools";
 import { registerEmailAnalyticsTools } from "../email-analytics/tools";
 import {
   registerLinkedinTools,
@@ -48,6 +49,7 @@ export function registerPilotMcpTools(server: McpServer): void {
   registerEnrichmentTools(server);
   registerIntentTools(server);
   registerCrmTools(server);
+  registerCalendarTools(server);
   registerEmailAnalyticsTools(server);
 
   if (useGrouped) {
