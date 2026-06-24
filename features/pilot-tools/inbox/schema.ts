@@ -60,12 +60,3 @@ export const rejectInboxDraftSchema = z.object({
     .uuid()
     .describe("InboxAutopilotAction UUID of the draft to reject (no reply is sent)."),
 });
-
-export const processInboxMessageSchema = z.object({
-  ...withToken,
-  message_id: z
-    .string()
-    .describe(
-      "Provider message id of the inbound email to classify and act on now (manual trigger). Honors the workspace autopilot setting: may auto-send, draft, or suppress.",
-    ),
-});

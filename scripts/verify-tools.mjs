@@ -60,9 +60,9 @@ const EXPECTED_TOOLS = [
   "create_intent_trigger", "list_intent_signals", "get_signal_history",
   "disable_trigger", "list_signal_proposals", "get_signal_proposal",
   "approve_proposal", "reject_proposal", "modify_proposal",
-  // inbox (6)
+  // inbox (5)
   "set_inbox_autopilot", "get_inbox_autopilot_status", "list_inbox_drafts",
-  "approve_inbox_draft", "reject_inbox_draft", "process_inbox_message",
+  "approve_inbox_draft", "reject_inbox_draft",
 ];
 
 // Safe read-only tools to live-call when a token is available

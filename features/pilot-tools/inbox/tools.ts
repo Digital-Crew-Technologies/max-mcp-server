@@ -79,17 +79,4 @@ export function registerInboxTools(server: McpServer): void {
       callApi(input.bearer_token, (t) => repo.rejectDraft(t, input.action_id)),
   );
 
-  server.registerTool(
-    "process_inbox_message",
-    {
-      title: "Process an inbox message now",
-      description:
-        "Manually run a single inbound email through the autopilot pipeline now (instead of waiting for the cron): classify it and, per the workspace setting, auto-send a safe reply, store a draft, or suppress it. Provide the provider message_id. Returns the resulting {data: InboxAutopilotAction} with its status (e.g. 'sent', 'draft', 'suppressed', 'failed'). Honors the current autopilot setting and daily cap.",
-      inputSchema: S.processInboxMessageSchema,
-    },
-    async (input) =>
-      callApi(input.bearer_token, (t) =>
-        repo.processMessage(t, strip(input, "bearer_token")),
-      ),
-  );
 }
