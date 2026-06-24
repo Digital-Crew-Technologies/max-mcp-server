@@ -147,3 +147,67 @@ export const crmListPipelineStagesSchema = z.object({
     .optional()
     .describe("Restrict stages to this deal pipeline id. Omit for all pipelines."),
 });
+
+// ── Lead Dispatch (Task B2) ─────────────────────────────────────────────────
+
+export const prospectSchema = z.object({
+  id: z.string().optional().describe("Optional caller-supplied prospect id (used as the result key when present)."),
+  email: z.string().optional().describe("Prospect email (used as the result key when id is absent; also the dedup identity for CSV export)."),
+  firstName: z.string().optional().describe("First name."),
+  lastName: z.string().optional().describe("Last name."),
+  jobTitle: z.string().optional().describe("Job title — matched against ICP title_keywords (case-insensitive substring)."),
+  company: z.string().optional().describe("Company name."),
+  companyDomain: z.string().optional().describe("Company domain (e.g. acme.com)."),
+  country: z.string().optional().describe("Country — matched against ICP countries / assignment rule country list."),
+  industry: z.string().optional().describe("Industry — matched against ICP industries / assignment rule industry list."),
+  employeeCount: z.number().optional().describe("Employee count — matched against ICP employee_min/employee_max range."),
+  score: z.number().optional().describe("Optional precomputed score (0–100); drives assignment priority when present."),
+});
+
+export const crmScoreProspectsSchema = z.object({
+  ...withToken,
+  prospects: z
+    .array(prospectSchema)
+    .min(1)
+    .describe("Prospects to score against the workspace ICP rules (super_bj.icp_rules)."),
+});
+
+const assignmentRuleSchema = z.object({
+  if: z
+    .object({
+      country: z.array(z.string()).optional().describe("Match if prospect.country is in this list."),
+      industry: z.array(z.string()).optional().describe("Match if prospect.industry is in this list."),
+      product: z.string().optional().describe("Optional product tag (informational; not matched against prospect fields)."),
+    })
+    .optional()
+    .describe("Conditions; all present conditions must match. Omit for a catch-all rule."),
+  assign_to_owner_id: z.string().describe("HubSpot owner id to assign matching prospects to."),
+});
+
+export const crmAssignProspectsSchema = z.object({
+  ...withToken,
+  prospects: z
+    .array(prospectSchema)
+    .min(1)
+    .describe("Prospects to assign to owners. Include `score` to drive priority."),
+  assignment_rules_override: z
+    .array(assignmentRuleSchema)
+    .optional()
+    .describe("Override super_bj.assignment_rules for this call. First matching rule wins."),
+});
+
+export const crmExportImportCsvSchema = z.object({
+  ...withToken,
+  prospects: z
+    .array(prospectSchema)
+    .min(1)
+    .describe("Prospects to export as a HubSpot-import CSV (base64-encoded)."),
+  dedup_against_hubspot: z
+    .boolean()
+    .optional()
+    .describe("If true (default), drop prospects whose email already exists in HubSpot (concurrency capped at 5)."),
+  include_assignment: z
+    .boolean()
+    .optional()
+    .describe("If true (default), include a `HubSpot Owner ID` column sourced from prospect.ownerId/owner_id."),
+});
