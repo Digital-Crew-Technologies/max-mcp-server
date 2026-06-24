@@ -148,6 +148,35 @@ export const crmListPipelineStagesSchema = z.object({
     .describe("Restrict stages to this deal pipeline id. Omit for all pipelines."),
 });
 
+// ── Composite workflow tools (Task D2) ──────────────────────────────────────
+
+export const crmPipelineRiskScanSchema = z.object({
+  ...withToken,
+  window_days: z
+    .number()
+    .int()
+    .min(1)
+    .max(365)
+    .optional()
+    .describe("Activity look-back window in days for the high-value-low-activity signal (default 30)."),
+  owner_id: z
+    .string()
+    .optional()
+    .describe("Restrict the scan to deals/activities owned by this HubSpot owner id."),
+});
+
+export const crmWeeklyBriefComposeSchema = z.object({
+  ...withToken,
+  week_ending: z
+    .string()
+    .optional()
+    .describe("ISO date the brief covers up to (YYYY-MM-DD). Defaults to the most recent Sunday."),
+  owner_id: z
+    .string()
+    .optional()
+    .describe("Restrict the brief to one HubSpot owner id. Omit for the whole team."),
+});
+
 // ── Lead Dispatch (Task B2) ─────────────────────────────────────────────────
 
 export const prospectSchema = z.object({
