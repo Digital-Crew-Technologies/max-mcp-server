@@ -11,6 +11,7 @@ import { registerExploriumTools } from "../explorium/tools";
 import { registerClaireTools } from "../claire/tools";
 import { registerEnrichmentTools } from "../enrichment/tools";
 import { registerIntentTools } from "../intent/tools";
+import { registerInboxTools } from "../inbox/tools";
 import { registerCrmTools } from "../crm/tools";
 import { registerEmailAnalyticsTools } from "../email-analytics/tools";
 import {
@@ -47,6 +48,7 @@ export function registerPilotMcpTools(server: McpServer): void {
   registerClaireTools(server);
   registerEnrichmentTools(server);
   registerIntentTools(server);
+  registerInboxTools(server);
   registerCrmTools(server);
   registerEmailAnalyticsTools(server);
 
