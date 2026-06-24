@@ -60,6 +60,9 @@ const EXPECTED_TOOLS = [
   "create_intent_trigger", "list_intent_signals", "get_signal_history",
   "disable_trigger", "list_signal_proposals", "get_signal_proposal",
   "approve_proposal", "reject_proposal", "modify_proposal",
+  // calendar (8)
+  "connect_calendar", "calendar_status", "get_availability", "propose_times",
+  "book_meeting", "send_booking_link", "get_upcoming_meetings", "cancel_meeting",
   // inbox (5)
   "set_inbox_autopilot", "get_inbox_autopilot_status", "list_inbox_drafts",
   "approve_inbox_draft", "reject_inbox_draft",
