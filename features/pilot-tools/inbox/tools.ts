@@ -17,7 +17,7 @@ export function registerInboxTools(server: McpServer): void {
     {
       title: "Configure inbox autopilot",
       description:
-        "Set the workspace's inbox autopilot configuration. enabled is the master kill switch (false = do nothing). mode is 'auto_safe' (auto-send safe high-confidence replies under the daily cap, draft the rest), 'draft_all' (always draft), or 'off' (suppress). Optionally set daily_cap (max auto-sends per UTC day, mode 'auto_safe' only; omit to leave unchanged, default 50). Returns the saved {data: inboxAutopilot}. Auto-send happens only when enabled=true AND mode='auto_safe' AND intent is safe (interested/meeting_request) AND confidence>=0.75 AND under the cap.",
+        "Set the workspace's inbox autopilot configuration. enabled is the master kill switch (false = do nothing). When enabled, the autopilot reads each inbound email reply, drafts a suggested reply in the rep's voice, and NOTIFIES the user to review/approve it — it NEVER auto-sends; a human approves every reply (via list_inbox_drafts + approve_inbox_draft). mode: 'off' suppresses entirely; 'auto_safe' and 'draft_all' both draft-and-notify (auto-send is disabled in v1). daily_cap is reserved for a future auto-send mode. Returns the saved {data: inboxAutopilot}.",
       inputSchema: S.setInboxAutopilotSchema,
     },
     async (input) =>
