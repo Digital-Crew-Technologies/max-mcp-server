@@ -15,6 +15,7 @@ import { registerCrmComposerTools } from "../crm/composers";
 import { registerCrmForecastTools } from "../crm/forecast";
 import { registerNotionTools } from "../notion/tools";
 import { registerNotionComposerTools } from "../notion/composers";
+import { registerInboxTools } from "../inbox/tools";
 import {
   registerLinkedinTools,
   registerLinkedinToolsGrouped,
@@ -53,6 +54,7 @@ export function registerPilotMcpTools(server: McpServer): void {
   registerCrmForecastTools(server);
   registerNotionTools(server);
   registerNotionComposerTools(server);
+  registerInboxTools(server);
 
   if (useGrouped) {
     registerLinkedinToolsGrouped(server);
