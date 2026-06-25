@@ -1,6 +1,6 @@
-// Lead Dispatch tools (Super-BJ Task B2): score → assign → export CSV.
+// Lead Dispatch tools (the assistant Task B2): score → assign → export CSV.
 // Reuses B1's HubSpotClient + token-resolver (via tools.ts withClient) and the
-// Super-BJ workspace-profile reader.
+// the assistant workspace-profile reader.
 // ⚠️ Server-only.
 
 import { resolveBearerToken, type McpServer } from "../shared";
@@ -8,10 +8,10 @@ import * as S from "./schema";
 import { HubSpotClient } from "./hubspot-client";
 import { getHubSpotAccessToken } from "./token-resolver";
 import {
-  getSuperBjConfig,
+  getAgentSettingsConfig,
   type AssignmentRule,
   type IcpRules,
-} from "./super-bj-profile";
+} from "./agent-settings";
 import type { CrmOwner } from "./hubspot-client.types";
 
 type McpEnvelope = {
@@ -204,7 +204,7 @@ export function registerCrmLeadDispatchTools(server: McpServer): void {
     {
       title: "Score prospects against ICP",
       description:
-        "Score prospects 0–100 against the workspace ICP rules (super_bj.icp_rules): country 25, industry 25, employee-in-range 20, any title keyword 30. With no rules configured, every prospect scores 50 (reason no_icp_rules_configured). Returns { scored: [{ id|email, score, matched[], missed[] }] }.",
+        "Score prospects 0–100 against the workspace ICP rules (agent_settings.icp_rules): country 25, industry 25, employee-in-range 20, any title keyword 30. With no rules configured, every prospect scores 50 (reason no_icp_rules_configured). Returns { scored: [{ id|email, score, matched[], missed[] }] }.",
       inputSchema: S.crmScoreProspectsSchema,
     },
     async (input) => {
@@ -216,7 +216,7 @@ export function registerCrmLeadDispatchTools(server: McpServer): void {
       }
       let rules: IcpRules | undefined;
       try {
-        rules = (await getSuperBjConfig(bearer)).icp_rules;
+        rules = (await getAgentSettingsConfig(bearer)).icp_rules;
       } catch (e) {
         return mapError(e);
       }
@@ -249,7 +249,7 @@ export function registerCrmLeadDispatchTools(server: McpServer): void {
     {
       title: "Assign prospects to owners",
       description:
-        "Assign prospects to HubSpot owners using super_bj.assignment_rules (or assignment_rules_override). First matching rule wins; no match → owner_id null, reason 'no rule matched', priority 'low'. Priority otherwise derives from prospect.score (>=75 high, 50–74 med, <50 low) else 'med'. Returns { assignments: [{ id|email, owner_id, owner_name, owner_email, reasoning, priority }] }.",
+        "Assign prospects to HubSpot owners using agent_settings.assignment_rules (or assignment_rules_override). First matching rule wins; no match → owner_id null, reason 'no rule matched', priority 'low'. Priority otherwise derives from prospect.score (>=75 high, 50–74 med, <50 low) else 'med'. Returns { assignments: [{ id|email, owner_id, owner_name, owner_email, reasoning, priority }] }.",
       inputSchema: S.crmAssignProspectsSchema,
     },
     async (input) => {
@@ -263,7 +263,7 @@ export function registerCrmLeadDispatchTools(server: McpServer): void {
       const override = input.assignment_rules_override as AssignmentRule[] | undefined;
       let rules: AssignmentRule[];
       try {
-        rules = override ?? (await getSuperBjConfig(bearer)).assignment_rules ?? [];
+        rules = override ?? (await getAgentSettingsConfig(bearer)).assignment_rules ?? [];
       } catch (e) {
         return mapError(e);
       }

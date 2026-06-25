@@ -541,7 +541,7 @@ export class HubSpotClient implements CrmClient {
     });
   }
 
-  // ── Read-only Super-BJ methods ────────────────────────────────────────────
+  // ── Read-only the assistant methods ────────────────────────────────────────────
   //
   // ⚠️ UNVERIFIED objectTypes: deals/owners/pipelines/engagements support on
   // mcp.hubspot.com is not confirmed in this env. searchObjects() fails loud on

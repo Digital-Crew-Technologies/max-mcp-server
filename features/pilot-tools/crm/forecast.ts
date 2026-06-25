@@ -1,4 +1,4 @@
-// CRM forecast change detection (Super-BJ Task M-F1):
+// CRM forecast change detection (the assistant Task M-F1):
 //   • crm_detect_forecast_changes — diff current open deals against a prior
 //     snapshot (amount, stage, close_date), surfacing material changes.
 //

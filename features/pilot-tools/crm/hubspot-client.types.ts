@@ -3,7 +3,7 @@
 // implementation; Salesforce can implement the same shape later.
 //
 // Extended here (vs. max-agent) with read-only Deal / Activity / Owner /
-// PipelineStage shapes needed by the Super-BJ deal/activity read tools.
+// PipelineStage shapes needed by the the assistant deal/activity read tools.
 // ⚠️ Server-only.
 
 export interface CrmContact {
@@ -42,7 +42,7 @@ export interface UpsertCompanyInput {
   properties?: Record<string, unknown>;
 }
 
-// ── Read-only Super-BJ shapes ───────────────────────────────────────────────
+// ── Read-only the assistant shapes ───────────────────────────────────────────────
 
 export interface CrmDeal {
   id: string;

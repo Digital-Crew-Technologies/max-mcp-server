@@ -50,7 +50,7 @@ export const crmStatusSchema = z.object({
   ...withToken,
 });
 
-// ── Super-BJ deal / activity / owner / stage reads ──────────────────────────
+// ── the assistant deal / activity / owner / stage reads ──────────────────────────
 
 export const crmListDealsSchema = z.object({
   ...withToken,
@@ -177,7 +177,7 @@ export const crmWeeklyBriefComposeSchema = z.object({
     .describe("Restrict the brief to one HubSpot owner id. Omit for the whole team."),
 });
 
-// ── Forecast change detection (Super-BJ Task M-F1) ──────────────────────────
+// ── Forecast change detection (the assistant Task M-F1) ──────────────────────────
 
 export const crmDetectForecastChangesSchema = z.object({
   ...withToken,
@@ -230,7 +230,7 @@ export const crmScoreProspectsSchema = z.object({
   prospects: z
     .array(prospectSchema)
     .min(1)
-    .describe("Prospects to score against the workspace ICP rules (super_bj.icp_rules)."),
+    .describe("Prospects to score against the workspace ICP rules (agent_settings.icp_rules)."),
 });
 
 const assignmentRuleSchema = z.object({
@@ -254,7 +254,7 @@ export const crmAssignProspectsSchema = z.object({
   assignment_rules_override: z
     .array(assignmentRuleSchema)
     .optional()
-    .describe("Override super_bj.assignment_rules for this call. First matching rule wins."),
+    .describe("Override agent_settings.assignment_rules for this call. First matching rule wins."),
 });
 
 export const crmExportImportCsvSchema = z.object({

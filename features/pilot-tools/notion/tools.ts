@@ -1,4 +1,4 @@
-// Notion tools (Super-BJ Task D1): create_page / append_blocks / get_page /
+// Notion tools (the assistant Task D1): create_page / append_blocks / get_page /
 // search_pages. Talk DIRECTLY to the Notion REST API via NotionClient (no SDK
 // dep). The per-workspace Notion OAuth token is resolved from max-agent via
 // GET /api/v1/notion/access-token, cached per-bearer (token-resolver.ts).
@@ -8,14 +8,14 @@
 //   NotionApiError / others → { isError: true, content: [{ text: "<Cls>: <msg>" }] }
 //
 // WRITE-GATE: notion_create_page and notion_append_blocks check
-// super_bj.allow_notion_writes (default TRUE; only an explicit false blocks).
+// agent_settings.allow_notion_writes (default TRUE; only an explicit false blocks).
 // ⚠️ Server-only.
 
 import { resolveBearerToken, type McpServer } from "../shared";
 import * as S from "./schema";
 import { NotionClient, type NotionBlock } from "./notion-client";
 import { getNotionAccessToken, invalidateNotionToken } from "./token-resolver";
-import { areNotionWritesAllowed } from "../crm/super-bj-profile";
+import { areNotionWritesAllowed } from "../crm/agent-settings";
 
 type McpEnvelope = {
   content: Array<{ type: "text"; text: string }>;
@@ -23,7 +23,7 @@ type McpEnvelope = {
 };
 
 const WRITES_DISABLED_MSG =
-  "Notion writes are disabled for this workspace (super_bj.allow_notion_writes is false). Enable in workspace settings.";
+  "Notion writes are disabled for this workspace (agent_settings.allow_notion_writes is false). Enable in workspace settings.";
 
 function ok(payload: unknown): McpEnvelope {
   const text = typeof payload === "string" ? payload : JSON.stringify(payload);
@@ -93,7 +93,7 @@ export function registerNotionTools(server: McpServer): void {
     {
       title: "Create a Notion page",
       description:
-        "Create a new Notion page under a parent page, with an optional body of Notion block JSON. Requires super_bj.allow_notion_writes (default true). Returns { id, url }.",
+        "Create a new Notion page under a parent page, with an optional body of Notion block JSON. Requires agent_settings.allow_notion_writes (default true). Returns { id, url }.",
       inputSchema: S.notionCreatePageSchema,
     },
     async (input) => {
@@ -124,7 +124,7 @@ export function registerNotionTools(server: McpServer): void {
     {
       title: "Append blocks to a Notion page",
       description:
-        "Append an array of Notion block JSON objects to an existing page (chunked into ≤100-block requests). Requires super_bj.allow_notion_writes (default true). Returns { appended }.",
+        "Append an array of Notion block JSON objects to an existing page (chunked into ≤100-block requests). Requires agent_settings.allow_notion_writes (default true). Returns { appended }.",
       inputSchema: S.notionAppendBlocksSchema,
     },
     async (input) => {

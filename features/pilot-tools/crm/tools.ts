@@ -5,7 +5,7 @@ import {
   getHubSpotAccessToken,
   invalidateHubSpotToken,
 } from "./token-resolver";
-import { areCrmWritesAllowed } from "./super-bj-profile";
+import { areCrmWritesAllowed } from "./agent-settings";
 
 // CRM (HubSpot) tools. v1 of these proxied to max-agent /api/v1/crm/*; they now
 // call HubSpot's official MCP (mcp.hubspot.com) DIRECTLY via HubSpotClient. The
@@ -22,7 +22,7 @@ type McpEnvelope = {
 };
 
 const WRITES_DISABLED_MSG =
-  "HubSpot writes are disabled for this workspace (super_bj.allow_crm_writes is false). Enable in workspace settings.";
+  "HubSpot writes are disabled for this workspace (agent_settings.allow_crm_writes is false). Enable in workspace settings.";
 
 function ok(payload: unknown): McpEnvelope {
   const text = typeof payload === "string" ? payload : JSON.stringify(payload);
@@ -119,7 +119,7 @@ export function registerCrmTools(server: McpServer): void {
     {
       title: "Create or update a CRM contact",
       description:
-        "Create-or-update a contact in the connected CRM, matched by email — never creates a duplicate. Use when the user asks to add or update a contact in HubSpot. Requires super_bj.allow_crm_writes.",
+        "Create-or-update a contact in the connected CRM, matched by email — never creates a duplicate. Use when the user asks to add or update a contact in HubSpot. Requires agent_settings.allow_crm_writes.",
       inputSchema: S.crmUpsertContactSchema,
     },
     async (input) => {
@@ -153,7 +153,7 @@ export function registerCrmTools(server: McpServer): void {
     {
       title: "Create or update a CRM company",
       description:
-        "Create-or-update a company in the connected CRM, matched by domain — never creates a duplicate. Requires super_bj.allow_crm_writes.",
+        "Create-or-update a company in the connected CRM, matched by domain — never creates a duplicate. Requires agent_settings.allow_crm_writes.",
       inputSchema: S.crmUpsertCompanySchema,
     },
     async (input) => {
@@ -204,7 +204,7 @@ export function registerCrmTools(server: McpServer): void {
     },
   );
 
-  // ── Super-BJ deal / activity / owner / stage reads ────────────────────────
+  // ── the assistant deal / activity / owner / stage reads ────────────────────────
 
   server.registerTool(
     "crm_list_deals",

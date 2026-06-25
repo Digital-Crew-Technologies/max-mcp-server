@@ -1,8 +1,8 @@
-// Notion composite workflow tool (Super-BJ Task D2):
+// Notion composite workflow tool (the assistant Task D2):
 //   • notion_publish_weekly_brief — render a crm_weekly_brief_compose output as
-//     a Notion DRAFT page under the workspace's Drafts/Super-BJ parent.
+//     a Notion DRAFT page under the workspace's Drafts/the assistant parent.
 //
-// Write-gated by super_bj.allow_notion_writes (default TRUE). The Notion token
+// Write-gated by agent_settings.allow_notion_writes (default TRUE). The Notion token
 // is resolved from max-agent (token-resolver.ts) and pages are created via the
 // direct-API NotionClient. Large briefs are created with the first ≤100 blocks
 // then appended in ≤100-block chunks; a failed chunk yields partial_success.
@@ -12,7 +12,7 @@ import { resolveBearerToken, type McpServer } from "../shared";
 import * as S from "./schema";
 import { NotionClient, type NotionBlock } from "./notion-client";
 import { getNotionAccessToken, invalidateNotionToken } from "./token-resolver";
-import { getSuperBjResolved, areNotionWritesAllowed } from "../crm/super-bj-profile";
+import { getAgentSettingsResolved, areNotionWritesAllowed } from "../crm/agent-settings";
 
 type McpEnvelope = {
   content: Array<{ type: "text"; text: string }>;
@@ -20,7 +20,7 @@ type McpEnvelope = {
 };
 
 const WRITES_DISABLED_MSG =
-  "Notion writes are disabled for this workspace (super_bj.allow_notion_writes is false). Enable in workspace settings.";
+  "Notion writes are disabled for this workspace (agent_settings.allow_notion_writes is false). Enable in workspace settings.";
 
 function ok(payload: unknown): McpEnvelope {
   return { content: [{ type: "text", text: JSON.stringify(payload) }] };
@@ -222,7 +222,7 @@ export function registerNotionComposerTools(server: McpServer): void {
     {
       title: "Publish weekly brief to Notion (draft)",
       description:
-        "Render a crm_weekly_brief_compose output as a DRAFT Notion page (H1 title + H2 section per part) under the workspace's Drafts/Super-BJ parent. Write-gated by super_bj.allow_notion_writes. Defaults parent to super_bj.notion_drafts_parent_id and template to super_bj.notion_weekly_template_id. Returns { page_id, url, status:'draft', partial_success? }.",
+        "Render a crm_weekly_brief_compose output as a DRAFT Notion page (H1 title + H2 section per part) under the workspace's Drafts/the assistant parent. Write-gated by agent_settings.allow_notion_writes. Defaults parent to agent_settings.notion_drafts_parent_id and template to agent_settings.notion_weekly_template_id. Returns { page_id, url, status:'draft', partial_success? }.",
       inputSchema: S.notionPublishWeeklyBriefSchema,
     },
     async (input) => {
@@ -242,7 +242,7 @@ export function registerNotionComposerTools(server: McpServer): void {
 
       let resolved;
       try {
-        resolved = await getSuperBjResolved(bearer);
+        resolved = await getAgentSettingsResolved(bearer);
       } catch (e) {
         return mapError(e);
       }
@@ -252,7 +252,7 @@ export function registerNotionComposerTools(server: McpServer): void {
         resolved.notion_drafts_parent_id;
       if (!parentPageId) {
         return err(
-          "No Notion drafts parent configured (super_bj.notion_drafts_parent_id). Set it in workspace settings or pass parent_page_id.",
+          "No Notion drafts parent configured (agent_settings.notion_drafts_parent_id). Set it in workspace settings or pass parent_page_id.",
         );
       }
       const templatePageId =

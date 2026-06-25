@@ -68,12 +68,12 @@ export const notionPublishWeeklyBriefSchema = z.object({
     .string()
     .optional()
     .describe(
-      "Optional Notion template page id to inspect for section structure (best-effort). Defaults to super_bj.notion_weekly_template_id.",
+      "Optional Notion template page id to inspect for section structure (best-effort). Defaults to agent_settings.notion_weekly_template_id.",
     ),
   parent_page_id: z
     .string()
     .optional()
     .describe(
-      "Notion parent page id to create the draft brief under. Defaults to super_bj.notion_drafts_parent_id; required if that is unset.",
+      "Notion parent page id to create the draft brief under. Defaults to agent_settings.notion_drafts_parent_id; required if that is unset.",
     ),
 });

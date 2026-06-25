@@ -1,4 +1,4 @@
-// CRM composite workflow tools (Super-BJ Task D2):
+// CRM composite workflow tools (the assistant Task D2):
 //   • crm_pipeline_risk_scan   — score open deals for risk, draft owner nudges
 //   • crm_weekly_brief_compose — build a structured weekly sales brief
 //
@@ -16,7 +16,7 @@ import { resolveBearerToken, type McpServer } from "../shared";
 import * as S from "./schema";
 import { HubSpotClient } from "./hubspot-client";
 import { getHubSpotAccessToken } from "./token-resolver";
-import { getSuperBjResolved, type RiskThresholds } from "./super-bj-profile";
+import { getAgentSettingsResolved, type RiskThresholds } from "./agent-settings";
 import type {
   CrmActivity,
   CrmDeal,
@@ -106,7 +106,7 @@ const WEIGHTS = {
  * @param deals       open deals (caller pre-filters to open + owner if needed)
  * @param activities  activities within the window
  * @param owners      owners (for name resolution)
- * @param thresholds  resolved super_bj.risk_thresholds
+ * @param thresholds  resolved agent_settings.risk_thresholds
  * @param windowDays  the activity window in days (for messaging only)
  */
 export function scanPipeline(
@@ -247,7 +247,7 @@ export function registerCrmComposerTools(server: McpServer): void {
     {
       title: "Scan open pipeline for risk",
       description:
-        "Scan open HubSpot deals for risk: days inactive, days-to-close, missing fields (amount/owner/next_step/last_activity), close-date slipping, and high-value-low-activity. Computes a transparent weighted risk_score (0–100) and a PRIVATE suggested nudge draft to the owner (never sent). Uses super_bj.risk_thresholds. Returns { scanned_count, flagged:[...] }.",
+        "Scan open HubSpot deals for risk: days inactive, days-to-close, missing fields (amount/owner/next_step/last_activity), close-date slipping, and high-value-low-activity. Computes a transparent weighted risk_score (0–100) and a PRIVATE suggested nudge draft to the owner (never sent). Uses agent_settings.risk_thresholds. Returns { scanned_count, flagged:[...] }.",
       inputSchema: S.crmPipelineRiskScanSchema,
     },
     async (input) => {
@@ -263,7 +263,7 @@ export function registerCrmComposerTools(server: McpServer): void {
       const sinceIso = new Date(now - windowDays * MS_PER_DAY).toISOString();
 
       try {
-        const thresholds = (await getSuperBjResolved(bearer)).risk_thresholds;
+        const thresholds = (await getAgentSettingsResolved(bearer)).risk_thresholds;
         const token = await getHubSpotAccessToken(bearer);
         const client = new HubSpotClient(token);
         const { openDeals, activities, owners } = await loadPipeline(client, {
@@ -300,7 +300,7 @@ export function registerCrmComposerTools(server: McpServer): void {
       const sinceIso = new Date(now - 7 * MS_PER_DAY).toISOString();
 
       try {
-        const resolved = await getSuperBjResolved(bearer);
+        const resolved = await getAgentSettingsResolved(bearer);
         const thresholds = resolved.risk_thresholds;
         const token = await getHubSpotAccessToken(bearer);
         const client = new HubSpotClient(token);
