@@ -12,6 +12,7 @@ import { registerClaireTools } from "../claire/tools";
 import { registerCrmTools } from "../crm/tools";
 import { registerCrmLeadDispatchTools } from "../crm/lead-dispatch";
 import { registerCrmComposerTools } from "../crm/composers";
+import { registerCrmForecastTools } from "../crm/forecast";
 import { registerNotionTools } from "../notion/tools";
 import { registerNotionComposerTools } from "../notion/composers";
 import {
@@ -49,6 +50,7 @@ export function registerPilotMcpTools(server: McpServer): void {
   registerCrmTools(server);
   registerCrmLeadDispatchTools(server);
   registerCrmComposerTools(server);
+  registerCrmForecastTools(server);
   registerNotionTools(server);
   registerNotionComposerTools(server);
 

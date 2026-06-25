@@ -177,6 +177,38 @@ export const crmWeeklyBriefComposeSchema = z.object({
     .describe("Restrict the brief to one HubSpot owner id. Omit for the whole team."),
 });
 
+// ── Forecast change detection (Super-BJ Task M-F1) ──────────────────────────
+
+export const crmDetectForecastChangesSchema = z.object({
+  ...withToken,
+  window_days: z
+    .number()
+    .int()
+    .min(1)
+    .max(90)
+    .default(7)
+    .describe(
+      "Look-back window in days — the comparison baseline is the snapshot AT OR BEFORE now() − window_days. Default 7.",
+    ),
+  owner_id: z
+    .string()
+    .optional()
+    .describe("Restrict to deals owned by this HubSpot owner id. Omit for the whole team."),
+  min_amount_delta_pct: z
+    .number()
+    .default(10)
+    .describe(
+      "Threshold for flagging an amount change — abs(delta_pct) must exceed this to be flagged. Default 10 (10%).",
+    ),
+  min_close_date_slip_days: z
+    .number()
+    .int()
+    .default(7)
+    .describe(
+      "Threshold for flagging a close-date slip — current close_date must be at least this many days AFTER the prior close_date. Default 7.",
+    ),
+});
+
 // ── Lead Dispatch (Task B2) ─────────────────────────────────────────────────
 
 export const prospectSchema = z.object({
