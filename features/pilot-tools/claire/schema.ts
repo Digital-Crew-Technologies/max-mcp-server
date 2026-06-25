@@ -55,3 +55,26 @@ export const claireCompetitorFinderSchema = z.object({
     .url()
     .describe("Company website URL to find direct competitors for."),
 });
+
+export const claireExtractProspectsFromUrlSchema = z.object({
+  ...withToken,
+  url: z
+    .string()
+    .url()
+    .describe(
+      "Public URL to extract prospects (people / contacts) from — e.g. a conference attendee list, a team page, a press release. Claire fetches and structures the page.",
+    ),
+  max_results: z
+    .number()
+    .int()
+    .min(1)
+    .max(200)
+    .default(50)
+    .describe("Maximum number of prospects to return (1–200). Default 50."),
+  prompt_override: z
+    .string()
+    .optional()
+    .describe(
+      "Optional extraction instructions that override the default Claire prompt — e.g. 'only return CTOs', 'include LinkedIn URLs if present'.",
+    ),
+});

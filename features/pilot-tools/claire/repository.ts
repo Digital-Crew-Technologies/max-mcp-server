@@ -49,3 +49,14 @@ export async function claireCompetitorFinder(
     body: JSON.stringify(body),
   });
 }
+
+export async function claireExtractProspects(
+  token: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/claire/extract-prospects`), {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+}
