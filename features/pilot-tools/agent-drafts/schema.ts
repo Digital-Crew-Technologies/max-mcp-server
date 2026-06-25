@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { withToken } from "../shared";
 
-// Inbox = the agent_action_drafts table in max-agent. Any agent (Hermes, the
-// max-mcp chat agent, future agents) can use these tools to stage a write that
-// the human approves in the workspace UI before it actually executes.
+// Agent drafts = the agent_action_drafts table in max-agent. Any agent (Hermes,
+// the max-mcp chat agent, future agents) can use these tools to stage a write
+// that the human approves in the workspace UI before it actually executes.
 
-export const inboxActionType = z.enum([
+export const agentDraftActionType = z.enum([
   "notion_publish_weekly_brief",
   "teams_send_nudge",
   "crm_upsert_contact",
@@ -13,7 +13,7 @@ export const inboxActionType = z.enum([
   "prospect_csv_export",
 ]);
 
-export const inboxDraftState = z.enum([
+export const agentDraftState = z.enum([
   "pending",
   "approved",
   "rejected",
@@ -22,16 +22,16 @@ export const inboxDraftState = z.enum([
   "canceled",
 ]);
 
-export const inboxCreateDraftSchema = z.object({
+export const agentDraftCreateSchema = z.object({
   ...withToken,
-  action_type: inboxActionType.describe(
+  action_type: agentDraftActionType.describe(
     "What action this draft will execute once approved. Determines which downstream tool runs the payload.",
   ),
   title: z
     .string()
     .optional()
     .describe(
-      "Short human-readable title shown in the inbox row (e.g. 'Send nudge: Acme deal, EUR 80k'). Defaults to the action_type if omitted.",
+      "Short human-readable title shown in the agent drafts row (e.g. 'Send nudge: Acme deal, EUR 80k'). Defaults to the action_type if omitted.",
     ),
   summary: z
     .string()
@@ -46,9 +46,9 @@ export const inboxCreateDraftSchema = z.object({
     ),
 });
 
-export const inboxListDraftsSchema = z.object({
+export const agentDraftListSchema = z.object({
   ...withToken,
-  state: inboxDraftState
+  state: agentDraftState
     .optional()
     .describe(
       "Filter to drafts in this state. Omit to return all states (pending first).",
@@ -70,7 +70,7 @@ export const inboxListDraftsSchema = z.object({
     .describe("Pagination cursor from a prior list call."),
 });
 
-export const inboxGetDraftSchema = z.object({
+export const agentDraftGetSchema = z.object({
   ...withToken,
   draft_id: z
     .string()
