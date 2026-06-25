@@ -45,7 +45,12 @@ export type McpServer = {
   registerTool: (
     name: string,
     config: Record<string, unknown>,
-    handler: (input: any) => Promise<{ content: Array<{ type: "text"; text: string }> }>,
+    handler: (input: any) => Promise<{
+      content: Array<{ type: "text"; text: string }>;
+      // Optional MCP error flag; mcp-handler forwards it to the client. Tools
+      // that distinguish failures from results (e.g. CRM write-gate) set this.
+      isError?: boolean;
+    }>,
   ) => void;
 };
 
