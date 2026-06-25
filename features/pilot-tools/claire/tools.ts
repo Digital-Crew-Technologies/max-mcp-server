@@ -65,4 +65,18 @@ export function registerClaireTools(server: McpServer): void {
         repo.claireCompetitorFinder(t, strip(input, "bearer_token")),
       ),
   );
+
+  server.registerTool(
+    "claire_extract_prospects_from_url",
+    {
+      title: "Extract prospects from a URL via Claire",
+      description:
+        "Fetch a public URL (conference attendee list, team / about page, press release, panel announcement, etc.) and extract structured prospects (people / contacts) from it via Claire. Returns { prospects:[{ name, title, company, linkedin_url?, email?, ... }], source_url, extracted_count, claire_request_id? }. Use when the user pastes a URL and asks to 'find leads here' / 'build a list from this page'. Pair with create_prospect or import_prospect_list_csv to persist the result.",
+      inputSchema: S.claireExtractProspectsFromUrlSchema,
+    },
+    async (input) =>
+      callApi(input.bearer_token, (t) =>
+        repo.claireExtractProspects(t, strip(input, "bearer_token")),
+      ),
+  );
 }

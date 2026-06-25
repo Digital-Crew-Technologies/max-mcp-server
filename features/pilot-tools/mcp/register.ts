@@ -15,6 +15,12 @@ import { registerInboxTools } from "../inbox/tools";
 import { registerCrmTools } from "../crm/tools";
 import { registerCalendarTools } from "../calendar/tools";
 import { registerEmailAnalyticsTools } from "../email-analytics/tools";
+import { registerCrmLeadDispatchTools } from "../crm/lead-dispatch";
+import { registerCrmComposerTools } from "../crm/composers";
+import { registerCrmForecastTools } from "../crm/forecast";
+import { registerNotionTools } from "../notion/tools";
+import { registerNotionComposerTools } from "../notion/composers";
+import { registerAgentDraftTools } from "../agent-drafts/tools";
 import {
   registerLinkedinTools,
   registerLinkedinToolsGrouped,
@@ -53,6 +59,12 @@ export function registerPilotMcpTools(server: McpServer): void {
   registerCrmTools(server);
   registerCalendarTools(server);
   registerEmailAnalyticsTools(server);
+  registerCrmLeadDispatchTools(server);
+  registerCrmComposerTools(server);
+  registerCrmForecastTools(server);
+  registerNotionTools(server);
+  registerNotionComposerTools(server);
+  registerAgentDraftTools(server);
 
   if (useGrouped) {
     registerLinkedinToolsGrouped(server);

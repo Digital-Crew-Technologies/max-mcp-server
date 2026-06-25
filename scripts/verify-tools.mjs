@@ -63,12 +63,37 @@ const EXPECTED_TOOLS = [
   // calendar (8)
   "connect_calendar", "calendar_status", "get_availability", "propose_times",
   "book_meeting", "send_booking_link", "get_upcoming_meetings", "cancel_meeting",
-  // inbox (5)
+  // inbox autopilot (5)
   "set_inbox_autopilot", "get_inbox_autopilot_status", "list_inbox_drafts",
   "approve_inbox_draft", "reject_inbox_draft",
+  // crm — contacts & companies (5)
+  "crm_search_contacts", "crm_get_contact", "crm_upsert_contact",
+  "crm_upsert_company", "crm_status",
+  // crm — deals / activities / owners / stages (5)
+  "crm_list_deals", "crm_get_deal", "crm_list_activities",
+  "crm_list_owners", "crm_list_pipeline_stages",
+  // crm — lead dispatch (3)
+  "crm_score_prospects", "crm_assign_prospects", "crm_export_import_csv",
+  // crm — composers (2)
+  "crm_pipeline_risk_scan", "crm_weekly_brief_compose",
+  // crm — forecast (1)
+  "crm_detect_forecast_changes",
+  // notion — primitives (4)
+  "notion_create_page", "notion_append_blocks", "notion_get_page",
+  "notion_search_pages",
+  // notion — composers (1)
+  "notion_publish_weekly_brief",
+  // agent drafts — approval queue (3)
+  "agent_draft_create", "agent_draft_list", "agent_draft_get",
 ];
 
-// Safe read-only tools to live-call when a token is available
+// Safe read-only tools to live-call when a token is available.
+//
+// Tools that depend on an external integration (HubSpot, Notion) may legitimately
+// return a "NOT_CONNECTED" envelope when the workspace hasn't completed the
+// OAuth flow yet — that is NOT a script failure, it's reported as
+// "connection needed". The connectionNeededHints below are substrings the script
+// matches against the response text to classify the outcome.
 const LIVE_PROBE_TOOLS = [
   { name: "list_campaigns", args: { pageSize: 1 } },
   { name: "list_prospects", args: { pageSize: 1 } },
@@ -78,6 +103,14 @@ const LIVE_PROBE_TOOLS = [
   { name: "list_chats", args: { pageSize: 1 } },
   { name: "get_dashboard_kpis", args: {} },
   { name: "get_workspace_profile", args: {} },
+  // CRM — cheap, read-only HubSpot probes (returns NOT_CONNECTED if HubSpot
+  // is not yet wired up for the workspace).
+  { name: "crm_list_owners", args: {}, connectionNeededHints: ["HUBSPOT_NOT_CONNECTED", "HubSpot is not connected"] },
+  { name: "crm_list_pipeline_stages", args: {}, connectionNeededHints: ["HUBSPOT_NOT_CONNECTED", "HubSpot is not connected"] },
+  // Notion — cheap read-only probe. The schema requires query.min(1); we send a
+  // single space (rejected) — fall back to "test" to satisfy schema while
+  // staying cheap. Returns NOT_CONNECTED if Notion is not wired up.
+  { name: "notion_search_pages", args: { query: "test" }, connectionNeededHints: ["NOTION_NOT_CONNECTED", "Notion is not connected"] },
 ];
 
 const c = {
@@ -147,6 +180,7 @@ async function main() {
   console.log(`\n${c.bold}Live API probes${c.reset}`);
   let pass = 0;
   let probeFail = 0;
+  let needConnect = 0;
   for (const probe of LIVE_PROBE_TOOLS) {
     if (!registered.has(probe.name)) {
       console.log(warn(`${probe.name} not registered, skipping`));
@@ -158,8 +192,17 @@ async function main() {
         arguments: { ...probe.args, bearer_token: bearer },
       });
       const text = res.content?.[0]?.text ?? "";
-      const isError = text.startsWith("API error") || text.startsWith("Error:");
-      if (isError) {
+      const isErrorEnvelope = res.isError === true;
+      const looksLikeError =
+        isErrorEnvelope ||
+        text.startsWith("API error") ||
+        text.startsWith("Error:");
+      const hints = probe.connectionNeededHints ?? [];
+      const needsConnect = hints.some((h) => text.includes(h));
+      if (needsConnect) {
+        console.log(warn(`${probe.name}  →  connection needed: ${text.slice(0, 120).replace(/\s+/g, " ")}`));
+        needConnect++;
+      } else if (looksLikeError) {
         console.log(fail(`${probe.name}  →  ${text.slice(0, 120)}`));
         probeFail++;
       } else {
@@ -173,7 +216,7 @@ async function main() {
   }
 
   console.log();
-  console.log(`  ${pass} passed, ${probeFail} failed`);
+  console.log(`  ${pass} passed, ${probeFail} failed, ${needConnect} need integration connect`);
   summarize(missing.length === 0 && noSchema.length === 0 && probeFail === 0);
 }
 
