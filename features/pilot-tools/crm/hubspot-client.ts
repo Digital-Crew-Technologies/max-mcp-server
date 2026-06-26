@@ -18,6 +18,7 @@
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { fetchWithRetry } from "../http";
 import type {
   CrmActivity,
   CrmActivityType,
@@ -33,6 +34,7 @@ import type {
 } from "./hubspot-client.types";
 
 const HUBSPOT_MCP_URL = "https://mcp.hubspot.com/";
+const HUBSPOT_REST_BASE = "https://api.hubapi.com";
 
 const CONTACT_PROPS = ["email", "firstname", "lastname", "company", "jobtitle", "phone"];
 const COMPANY_PROPS = ["name", "domain"];
@@ -61,6 +63,17 @@ const ENGAGEMENT_PROPS = [
   "hs_task_subject",
   "hs_task_body",
 ];
+
+// Per-engagement-type property sets for the REST search path. Each type only
+// supports its own subject/body fields; sending foreign properties 400s.
+const ACTIVITY_COMMON_PROPS = ["hs_timestamp", "hubspot_owner_id", "hs_engagement_type"];
+const ACTIVITY_PROPS_BY_TYPE: Record<CrmActivityType, string[]> = {
+  call: [...ACTIVITY_COMMON_PROPS, "hs_call_title", "hs_call_body"],
+  email: [...ACTIVITY_COMMON_PROPS, "hs_email_subject", "hs_email_text"],
+  meeting: [...ACTIVITY_COMMON_PROPS, "hs_meeting_title", "hs_meeting_body"],
+  note: [...ACTIVITY_COMMON_PROPS, "hs_note_body"],
+  task: [...ACTIVITY_COMMON_PROPS, "hs_task_subject", "hs_task_body"],
+};
 
 /**
  * Thrown when an underlying HubSpot MCP call fails (4xx/5xx from the upstream
@@ -120,6 +133,50 @@ type SearchResults = {
     associations?: Record<string, unknown>;
   }>;
   total?: number;
+};
+
+// ── REST (api.hubapi.com) response shapes ────────────────────────────────────
+
+type RestObject = {
+  id: string | number;
+  properties?: Record<string, unknown>;
+  associations?: Record<string, unknown>;
+};
+
+type RestSearchResponse = {
+  results?: RestObject[];
+  total?: number;
+  paging?: { next?: { after?: string } };
+};
+
+type RestOwner = {
+  id: string | number;
+  email?: unknown;
+  firstName?: unknown;
+  lastName?: unknown;
+  teams?: Array<{ name?: unknown; id?: unknown } | null> | null;
+};
+
+type RestOwnersResponse = {
+  results?: RestOwner[];
+  paging?: { next?: { after?: string } };
+};
+
+type RestStage = {
+  id: string | number;
+  label?: unknown;
+  displayOrder?: unknown;
+  metadata?: { isClosed?: unknown; probability?: unknown };
+};
+
+type RestPipeline = {
+  id: string | number;
+  label?: unknown;
+  stages?: RestStage[];
+};
+
+type RestPipelinesResponse = {
+  results?: RestPipeline[];
 };
 
 function s(v: unknown): string | null {
@@ -418,7 +475,7 @@ export class HubSpotClient implements CrmClient {
     });
   }
 
-  async searchContacts(query: string, limit = 20): Promise<CrmContact[]> {
+  private async searchContactsMcp(query: string, limit = 20): Promise<CrmContact[]> {
     return this.withClient(async (client) => {
       const data = await this.searchObjects(client, "contacts", {
         query,
@@ -429,7 +486,7 @@ export class HubSpotClient implements CrmClient {
     });
   }
 
-  async getContactByEmail(email: string): Promise<CrmContact | null> {
+  private async getContactByEmailMcp(email: string): Promise<CrmContact | null> {
     // HubSpot stores email lowercased; EQ is exact-match, so normalize to match.
     const normEmail = email.trim().toLowerCase();
     return this.withClient(async (client) => {
@@ -445,7 +502,7 @@ export class HubSpotClient implements CrmClient {
     });
   }
 
-  async upsertContact(input: UpsertContactInput): Promise<{ id: string }> {
+  private async upsertContactMcp(input: UpsertContactInput): Promise<{ id: string }> {
     // Normalize email so dedup matches HubSpot's lowercased stored value
     // (otherwise "Foo@Bar.com" misses the existing record → duplicate).
     const email = input.email.trim().toLowerCase();
@@ -494,7 +551,7 @@ export class HubSpotClient implements CrmClient {
     });
   }
 
-  async upsertCompany(input: UpsertCompanyInput): Promise<{ id: string }> {
+  private async upsertCompanyMcp(input: UpsertCompanyInput): Promise<{ id: string }> {
     // HubSpot lowercases the company `domain`; normalize so dedup matches.
     const domain = input.domain.trim().toLowerCase();
     const normInput: UpsertCompanyInput = { ...input, domain };
@@ -547,7 +604,7 @@ export class HubSpotClient implements CrmClient {
   // mcp.hubspot.com is not confirmed in this env. searchObjects() fails loud on
   // unsupported-objectType errors (see HubSpotMcpError pointer to REST fallback).
 
-  async listDeals(filters: ListDealsFilters = {}): Promise<CrmDeal[]> {
+  private async listDealsMcp(filters: ListDealsFilters = {}): Promise<CrmDeal[]> {
     const filterGroup: Array<{ propertyName: string; operator: string; value: string }> = [];
     if (filters.stageId) filterGroup.push({ propertyName: "dealstage", operator: "EQ", value: filters.stageId });
     if (filters.ownerId) filterGroup.push({ propertyName: "hubspot_owner_id", operator: "EQ", value: filters.ownerId });
@@ -571,7 +628,7 @@ export class HubSpotClient implements CrmClient {
     });
   }
 
-  async getDeal(id: string): Promise<CrmDeal | null> {
+  private async getDealMcp(id: string): Promise<CrmDeal | null> {
     return this.withClient(async (client) => {
       const data = await this.searchObjects(client, "deals", {
         filterGroups: [{ filters: [{ propertyName: "hs_object_id", operator: "EQ", value: id }] }],
@@ -584,7 +641,7 @@ export class HubSpotClient implements CrmClient {
     });
   }
 
-  async listActivities(filters: ListActivitiesFilters = {}): Promise<CrmActivity[]> {
+  private async listActivitiesMcp(filters: ListActivitiesFilters = {}): Promise<CrmActivity[]> {
     const types: CrmActivityType[] = filters.types?.length
       ? filters.types
       : (["call", "email", "meeting", "note", "task"] as CrmActivityType[]);
@@ -621,7 +678,7 @@ export class HubSpotClient implements CrmClient {
     });
   }
 
-  async listOwners(): Promise<CrmOwner[]> {
+  private async listOwnersMcp(): Promise<CrmOwner[]> {
     return this.withClient(async (client) => {
       const data = await this.searchObjects(client, "owners", {
         properties: ["email", "firstName", "lastName"],
@@ -631,7 +688,7 @@ export class HubSpotClient implements CrmClient {
     });
   }
 
-  async listPipelineStages(pipelineId?: string): Promise<CrmPipelineStage[]> {
+  private async listPipelineStagesMcp(pipelineId?: string): Promise<CrmPipelineStage[]> {
     return this.withClient(async (client) => {
       const data = await this.searchObjects(client, "pipelines", {
         objectTypeId: "deals",
@@ -653,5 +710,380 @@ export class HubSpotClient implements CrmClient {
       out.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
       return out;
     });
+  }
+
+  // ── Public routing methods ─────────────────────────────────────────────────
+  //
+  // owners / pipelines / activities → ALWAYS REST (mcp.hubspot.com does not
+  // serve these object types — verified live: "Invalid object_type").
+  // deals / getDeal / contacts / companies → REST for Private App (pat-) tokens,
+  // else the existing MCP path (kept intact above as *Mcp).
+
+  async listOwners(): Promise<CrmOwner[]> {
+    void this.listOwnersMcp; // MCP path kept for reference; owners are REST-only.
+    return this.listOwnersRest();
+  }
+
+  async listPipelineStages(pipelineId?: string): Promise<CrmPipelineStage[]> {
+    void this.listPipelineStagesMcp; // MCP path kept for reference; pipelines are REST-only.
+    return this.listPipelineStagesRest(pipelineId);
+  }
+
+  async listActivities(filters: ListActivitiesFilters = {}): Promise<CrmActivity[]> {
+    void this.listActivitiesMcp; // MCP path kept for reference; activities are REST-only.
+    return this.listActivitiesRest(filters);
+  }
+
+  async searchContacts(query: string, limit = 20): Promise<CrmContact[]> {
+    return this.isPrivateAppToken()
+      ? this.searchContactsRest(query, limit)
+      : this.searchContactsMcp(query, limit);
+  }
+
+  async getContactByEmail(email: string): Promise<CrmContact | null> {
+    return this.isPrivateAppToken()
+      ? this.getContactByEmailRest(email)
+      : this.getContactByEmailMcp(email);
+  }
+
+  async upsertContact(input: UpsertContactInput): Promise<{ id: string }> {
+    return this.isPrivateAppToken()
+      ? this.upsertContactRest(input)
+      : this.upsertContactMcp(input);
+  }
+
+  async upsertCompany(input: UpsertCompanyInput): Promise<{ id: string }> {
+    return this.isPrivateAppToken()
+      ? this.upsertCompanyRest(input)
+      : this.upsertCompanyMcp(input);
+  }
+
+  async listDeals(filters: ListDealsFilters = {}): Promise<CrmDeal[]> {
+    return this.isPrivateAppToken()
+      ? this.listDealsRest(filters)
+      : this.listDealsMcp(filters);
+  }
+
+  async getDeal(id: string): Promise<CrmDeal | null> {
+    return this.isPrivateAppToken() ? this.getDealRest(id) : this.getDealMcp(id);
+  }
+
+  // ── Token-type detection ───────────────────────────────────────────────────
+
+  /**
+   * HubSpot Private App tokens are formatted `pat-na1-...`; OAuth/MCP access
+   * tokens are not. We use REST for everything when given a Private App token
+   * (mcp.hubspot.com only accepts OAuth tokens), and always for owners/
+   * pipelines/activities regardless of token type.
+   */
+  private isPrivateAppToken(): boolean {
+    return this.accessToken.startsWith("pat-");
+  }
+
+  // ── REST request helper ────────────────────────────────────────────────────
+
+  /**
+   * Low-level HubSpot REST call against api.hubapi.com. Reuses fetchWithRetry
+   * (timeouts, backoff, circuit breaker). Throws HubSpotMcpError on non-2xx so
+   * tool error envelopes stay identical to the MCP path.
+   */
+  private async rest<T>(
+    method: "GET" | "POST" | "PATCH",
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
+    const url = `${HUBSPOT_REST_BASE}${path}`;
+    const init: RequestInit = {
+      method,
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`,
+        "Content-Type": "application/json",
+      },
+    };
+    if (body !== undefined) init.body = JSON.stringify(body);
+
+    let res: Response;
+    try {
+      res = await fetchWithRetry(url, init, { timeoutMs: 15_000 });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new HubSpotMcpError(`HubSpot REST ${method} ${path} failed: ${msg}`);
+    }
+
+    if (!res.ok) {
+      let excerpt = "";
+      try {
+        excerpt = (await res.text()).slice(0, 300);
+      } catch {
+        excerpt = res.statusText;
+      }
+      if (res.status === 401) {
+        throw new HubSpotMcpError("HubSpot token invalid or expired.");
+      }
+      if (res.status === 403) {
+        throw new HubSpotMcpError(
+          `HubSpot token is missing a required scope for this operation (path: ${path}). If you connected with a Private App token, add the matching CRM scope and reconnect.`,
+        );
+      }
+      throw new HubSpotMcpError(
+        `HubSpot REST ${method} ${path} failed (${res.status}): ${excerpt}`,
+      );
+    }
+
+    if (res.status === 204) return undefined as T;
+    try {
+      return (await res.json()) as T;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new HubSpotMcpError(
+        `HubSpot REST ${method} ${path} returned invalid JSON: ${msg}`,
+      );
+    }
+  }
+
+  // ── REST implementations ───────────────────────────────────────────────────
+
+  private async listOwnersRest(): Promise<CrmOwner[]> {
+    const out: CrmOwner[] = [];
+    let after: string | undefined;
+    // Paginate via paging.next.after; cap to ~500 owners to bound the work.
+    while (out.length < 500) {
+      const qs = `limit=100${after ? `&after=${encodeURIComponent(after)}` : ""}`;
+      const data = await this.rest<RestOwnersResponse>("GET", `/crm/v3/owners?${qs}`);
+      for (const r of data.results ?? []) {
+        const teams = Array.isArray(r.teams)
+          ? r.teams
+              .map((t) => s(t?.name))
+              .filter((x): x is string => x != null)
+          : [];
+        out.push({
+          id: String(r.id),
+          email: s(r.email),
+          firstName: s(r.firstName),
+          lastName: s(r.lastName),
+          teams,
+          raw: r as unknown as Record<string, unknown>,
+        });
+      }
+      after = data.paging?.next?.after;
+      if (!after) break;
+    }
+    return out;
+  }
+
+  private async listPipelineStagesRest(pipelineId?: string): Promise<CrmPipelineStage[]> {
+    const data = await this.rest<RestPipelinesResponse>("GET", "/crm/v3/pipelines/deals");
+    const out: CrmPipelineStage[] = [];
+    for (const pipe of data.results ?? []) {
+      const pid = String(pipe.id);
+      if (pipelineId && pid !== pipelineId) continue;
+      for (const st of pipe.stages ?? []) {
+        const meta = st.metadata ?? {};
+        // HubSpot metadata values are strings: isClosed "true"/"false",
+        // probability "1.0" (won) / "0.0" (lost).
+        const isWon = meta.isClosed === "true" && meta.probability === "1.0";
+        const isLost = meta.isClosed === "true" && meta.probability === "0.0";
+        out.push({
+          id: String(st.id),
+          label: s(st.label),
+          displayOrder: num(st.displayOrder),
+          pipelineId: pid,
+          isWonStage: isWon,
+          isLostStage: isLost,
+          raw: st as unknown as Record<string, unknown>,
+        });
+      }
+    }
+    out.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+    return out;
+  }
+
+  private buildDealFilterGroups(
+    filters: ListDealsFilters,
+  ): Array<{ filters: Array<{ propertyName: string; operator: string; value: string }> }> {
+    const f: Array<{ propertyName: string; operator: string; value: string }> = [];
+    if (filters.stageId) f.push({ propertyName: "dealstage", operator: "EQ", value: filters.stageId });
+    if (filters.ownerId) f.push({ propertyName: "hubspot_owner_id", operator: "EQ", value: filters.ownerId });
+    if (filters.pipelineId) f.push({ propertyName: "pipeline", operator: "EQ", value: filters.pipelineId });
+    if (filters.amountMin != null) f.push({ propertyName: "amount", operator: "GTE", value: String(filters.amountMin) });
+    if (filters.amountMax != null) f.push({ propertyName: "amount", operator: "LTE", value: String(filters.amountMax) });
+    if (filters.closeDateAfter) f.push({ propertyName: "closedate", operator: "GTE", value: filters.closeDateAfter });
+    if (filters.closeDateBefore) f.push({ propertyName: "closedate", operator: "LTE", value: filters.closeDateBefore });
+    if (filters.modifiedAfter) f.push({ propertyName: "hs_lastmodifieddate", operator: "GTE", value: filters.modifiedAfter });
+    return f.length ? [{ filters: f }] : [];
+  }
+
+  private async listDealsRest(filters: ListDealsFilters = {}): Promise<CrmDeal[]> {
+    const body: Record<string, unknown> = {
+      properties: DEAL_PROPS,
+      limit: filters.limit ?? 50,
+    };
+    const filterGroups = this.buildDealFilterGroups(filters);
+    if (filterGroups.length) body.filterGroups = filterGroups;
+
+    const data = await this.rest<RestSearchResponse>(
+      "POST",
+      "/crm/v3/objects/deals/search",
+      body,
+    );
+    return (data.results ?? []).map(mapDeal);
+  }
+
+  private async getDealRest(id: string): Promise<CrmDeal | null> {
+    const qs = `properties=${DEAL_PROPS.join(",")}&associations=companies,contacts`;
+    try {
+      const data = await this.rest<RestObject>(
+        "GET",
+        `/crm/v3/objects/deals/${encodeURIComponent(id)}?${qs}`,
+      );
+      return data ? mapDeal(data) : null;
+    } catch (e) {
+      // A missing deal returns 404 — treat as "not found" rather than throwing.
+      if (e instanceof HubSpotMcpError && / \(404\): /.test(e.message)) return null;
+      throw e;
+    }
+  }
+
+  private async listActivitiesRest(
+    filters: ListActivitiesFilters = {},
+  ): Promise<CrmActivity[]> {
+    const types: CrmActivityType[] = filters.types?.length
+      ? filters.types
+      : (["call", "email", "meeting", "note", "task"] as CrmActivityType[]);
+    const limit = filters.limit ?? 100;
+
+    // Engagements are per-type objects in REST. Query each requested type, then
+    // merge sorted by timestamp desc. NOTE: deal/contact association filtering is
+    // best-effort in REST — we filter by owner + timestamp only and map
+    // associations when present, leaving dealId/contactId null otherwise.
+    const perType = await Promise.all(
+      types.map(async (type) => {
+        const objectType = ACTIVITY_OBJECT_TYPES[type];
+        const f: Array<{ propertyName: string; operator: string; value: string }> = [];
+        if (filters.since) f.push({ propertyName: "hs_timestamp", operator: "GTE", value: filters.since });
+        if (filters.ownerId) f.push({ propertyName: "hubspot_owner_id", operator: "EQ", value: filters.ownerId });
+
+        const body: Record<string, unknown> = {
+          properties: ACTIVITY_PROPS_BY_TYPE[type],
+          limit,
+          sorts: [{ propertyName: "hs_timestamp", direction: "DESCENDING" }],
+        };
+        if (f.length) body.filterGroups = [{ filters: f }];
+
+        const data = await this.rest<RestSearchResponse>(
+          "POST",
+          `/crm/v3/objects/${objectType}/search`,
+          body,
+        );
+        return (data.results ?? []).map((r) => mapActivity(r, type));
+      }),
+    );
+
+    const merged = perType.flat();
+    merged.sort((a, b) => {
+      const ta = a.timestamp ? Date.parse(a.timestamp) : 0;
+      const tb = b.timestamp ? Date.parse(b.timestamp) : 0;
+      return tb - ta;
+    });
+    return merged.slice(0, limit);
+  }
+
+  private async searchContactsRest(query: string, limit = 20): Promise<CrmContact[]> {
+    const data = await this.rest<RestSearchResponse>(
+      "POST",
+      "/crm/v3/objects/contacts/search",
+      { query, properties: CONTACT_PROPS, limit },
+    );
+    return (data.results ?? []).map(mapContact);
+  }
+
+  private async getContactByEmailRest(email: string): Promise<CrmContact | null> {
+    // HubSpot stores email lowercased; EQ is exact-match, so normalize to match.
+    const normEmail = email.trim().toLowerCase();
+    const data = await this.rest<RestSearchResponse>(
+      "POST",
+      "/crm/v3/objects/contacts/search",
+      {
+        filterGroups: [
+          { filters: [{ propertyName: "email", operator: "EQ", value: normEmail }] },
+        ],
+        properties: CONTACT_PROPS,
+        limit: 1,
+      },
+    );
+    const first = data.results?.[0];
+    return first ? mapContact(first) : null;
+  }
+
+  private async upsertContactRest(input: UpsertContactInput): Promise<{ id: string }> {
+    // Normalize email so dedup matches HubSpot's lowercased stored value.
+    const email = input.email.trim().toLowerCase();
+    const properties = contactProps({ ...input, email });
+
+    const existing = await this.rest<RestSearchResponse>(
+      "POST",
+      "/crm/v3/objects/contacts/search",
+      {
+        filterGroups: [
+          { filters: [{ propertyName: "email", operator: "EQ", value: email }] },
+        ],
+        properties: ["email"],
+        limit: 1,
+      },
+    );
+    const existingId = existing.results?.[0]?.id;
+
+    if (existingId != null) {
+      await this.rest(
+        "PATCH",
+        `/crm/v3/objects/contacts/${encodeURIComponent(String(existingId))}`,
+        { properties },
+      );
+      return { id: String(existingId) };
+    }
+
+    const created = await this.rest<RestObject>("POST", "/crm/v3/objects/contacts", {
+      properties,
+    });
+    if (created?.id == null) {
+      throw new HubSpotMcpError("Contact upsert succeeded but no id was returned");
+    }
+    return { id: String(created.id) };
+  }
+
+  private async upsertCompanyRest(input: UpsertCompanyInput): Promise<{ id: string }> {
+    // HubSpot lowercases the company `domain`; normalize so dedup matches.
+    const domain = input.domain.trim().toLowerCase();
+    const properties = companyProps({ ...input, domain });
+
+    const existing = await this.rest<RestSearchResponse>(
+      "POST",
+      "/crm/v3/objects/companies/search",
+      {
+        filterGroups: [
+          { filters: [{ propertyName: "domain", operator: "EQ", value: domain }] },
+        ],
+        properties: ["domain"],
+        limit: 1,
+      },
+    );
+    const existingId = existing.results?.[0]?.id;
+
+    if (existingId != null) {
+      await this.rest(
+        "PATCH",
+        `/crm/v3/objects/companies/${encodeURIComponent(String(existingId))}`,
+        { properties },
+      );
+      return { id: String(existingId) };
+    }
+
+    const created = await this.rest<RestObject>("POST", "/crm/v3/objects/companies", {
+      properties,
+    });
+    if (created?.id == null) {
+      throw new HubSpotMcpError("Company upsert succeeded but no id was returned");
+    }
+    return { id: String(created.id) };
   }
 }
