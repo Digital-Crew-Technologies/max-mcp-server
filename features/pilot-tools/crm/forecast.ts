@@ -341,8 +341,8 @@ export function registerCrmForecastTools(server: McpServer): void {
       const currentIso = new Date(now).toISOString();
 
       try {
-        const token = await getHubSpotAccessToken(bearer);
-        const client = new HubSpotClient(token);
+        const { access_token, auth_method } = await getHubSpotAccessToken(bearer);
+        const client = new HubSpotClient(access_token, auth_method);
         const [currentDeals, priorSnapshots, owners, stages] = await Promise.all([
           client.listDeals(input.owner_id ? { ownerId: input.owner_id } : {}),
           getDealSnapshotsAt(bearer, baselineIso),

@@ -10,7 +10,13 @@
 import { createHash } from "node:crypto";
 import { apiUrl, authHeaders, fetchWithRetry, responseBodyText } from "../shared";
 
-type CacheEntry = { access_token: string; expires_at_ms: number };
+type CacheEntry = {
+  access_token: string;
+  expires_at_ms: number;
+  auth_method: string;
+};
+
+export type HubSpotToken = { access_token: string; auth_method: string };
 
 const CACHE_MAX = 256;
 const EXPIRY_BUFFER_MS = 30_000;
@@ -40,7 +46,9 @@ function setEntry(key: string, entry: CacheEntry): void {
  *   - "HUBSPOT_NOT_CONNECTED"            when max-agent returns 404
  *   - "HUBSPOT_TOKEN_FETCH_FAILED: ..."  on 5xx / network failure
  */
-export async function getHubSpotAccessToken(maxBearer: string): Promise<string> {
+export async function getHubSpotAccessToken(
+  maxBearer: string,
+): Promise<HubSpotToken> {
   const key = keyFor(maxBearer);
   const now = Date.now();
 
@@ -48,7 +56,7 @@ export async function getHubSpotAccessToken(maxBearer: string): Promise<string> 
   if (cached && cached.expires_at_ms - EXPIRY_BUFFER_MS > now) {
     // Refresh recency.
     setEntry(key, cached);
-    return cached.access_token;
+    return { access_token: cached.access_token, auth_method: cached.auth_method };
   }
 
   let res: Response;
@@ -82,11 +90,17 @@ export async function getHubSpotAccessToken(maxBearer: string): Promise<string> 
     throw new Error(`HUBSPOT_TOKEN_FETCH_FAILED: invalid JSON from access-token endpoint`);
   }
 
-  const data = (parsed as { data?: { access_token?: unknown; expires_at?: unknown } })?.data;
+  const data = (parsed as {
+    data?: { access_token?: unknown; expires_at?: unknown; auth_method?: unknown };
+  })?.data;
   const accessToken = typeof data?.access_token === "string" ? data.access_token : null;
   if (!accessToken) {
     throw new Error("HUBSPOT_TOKEN_FETCH_FAILED: no access_token in response");
   }
+
+  // static = pasted Service Key / Private App token → REST path. Anything else
+  // (incl. missing) is treated as oauth → MCP path for the core objects.
+  const authMethod = data?.auth_method === "static" ? "static" : "oauth";
 
   const expiresAtRaw = data?.expires_at;
   const expiresAtMs =
@@ -94,8 +108,12 @@ export async function getHubSpotAccessToken(maxBearer: string): Promise<string> 
       ? Date.parse(expiresAtRaw)
       : now + 5 * 60_000; // conservative 5-min TTL if upstream omits expiry
 
-  setEntry(key, { access_token: accessToken, expires_at_ms: expiresAtMs });
-  return accessToken;
+  setEntry(key, {
+    access_token: accessToken,
+    expires_at_ms: expiresAtMs,
+    auth_method: authMethod,
+  });
+  return { access_token: accessToken, auth_method: authMethod };
 }
 
 /**

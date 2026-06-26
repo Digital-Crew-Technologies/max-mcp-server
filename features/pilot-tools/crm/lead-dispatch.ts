@@ -271,8 +271,8 @@ export function registerCrmLeadDispatchTools(server: McpServer): void {
       // Resolve owners so we can attach name/email to assignments.
       let owners: CrmOwner[];
       try {
-        const token = await getHubSpotAccessToken(bearer);
-        owners = await new HubSpotClient(token).listOwners();
+        const { access_token, auth_method } = await getHubSpotAccessToken(bearer);
+        owners = await new HubSpotClient(access_token, auth_method).listOwners();
       } catch (e) {
         return mapError(e);
       }
@@ -340,8 +340,8 @@ export function registerCrmLeadDispatchTools(server: McpServer): void {
       if (dedup) {
         let client: HubSpotClient;
         try {
-          const token = await getHubSpotAccessToken(bearer);
-          client = new HubSpotClient(token);
+          const { access_token, auth_method } = await getHubSpotAccessToken(bearer);
+          client = new HubSpotClient(access_token, auth_method);
         } catch (e) {
           return mapError(e);
         }

@@ -264,8 +264,8 @@ export function registerCrmComposerTools(server: McpServer): void {
 
       try {
         const thresholds = (await getAgentSettingsResolved(bearer)).risk_thresholds;
-        const token = await getHubSpotAccessToken(bearer);
-        const client = new HubSpotClient(token);
+        const { access_token, auth_method } = await getHubSpotAccessToken(bearer);
+        const client = new HubSpotClient(access_token, auth_method);
         const { openDeals, activities, owners } = await loadPipeline(client, {
           sinceIso,
           ownerId: input.owner_id,
@@ -302,8 +302,8 @@ export function registerCrmComposerTools(server: McpServer): void {
       try {
         const resolved = await getAgentSettingsResolved(bearer);
         const thresholds = resolved.risk_thresholds;
-        const token = await getHubSpotAccessToken(bearer);
-        const client = new HubSpotClient(token);
+        const { access_token, auth_method } = await getHubSpotAccessToken(bearer);
+        const client = new HubSpotClient(access_token, auth_method);
         const { openDeals, activities, owners } = await loadPipeline(client, {
           sinceIso,
           ownerId: input.owner_id,
