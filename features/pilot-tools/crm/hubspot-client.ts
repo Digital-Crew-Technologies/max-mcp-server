@@ -975,12 +975,23 @@ export class HubSpotClient implements CrmClient {
         };
         if (f.length) body.filterGroups = [{ filters: f }];
 
-        const data = await this.rest<RestSearchResponse>(
-          "POST",
-          `/crm/v3/objects/${objectType}/search`,
-          body,
-        );
-        return (data.results ?? []).map((r) => mapActivity(r, type));
+        try {
+          const data = await this.rest<RestSearchResponse>(
+            "POST",
+            `/crm/v3/objects/${objectType}/search`,
+            body,
+          );
+          return (data.results ?? []).map((r) => mapActivity(r, type));
+        } catch (e) {
+          // Activities are a SECONDARY risk signal — the deal's own
+          // lastActivityDate drives scoring. If this engagement type isn't
+          // readable (e.g. the OAuth grant lacks the per-type scope → 403),
+          // skip it rather than failing the whole pipeline read.
+          if (e instanceof HubSpotMcpError && /missing a required scope/i.test(e.message)) {
+            return [] as CrmActivity[];
+          }
+          throw e;
+        }
       }),
     );
 
