@@ -774,16 +774,15 @@ export class HubSpotClient implements CrmClient {
   // ── Token-type detection ───────────────────────────────────────────────────
 
   /**
-   * HubSpot Private App tokens are formatted `pat-na1-...`; OAuth/MCP access
-   * tokens are not. We use REST for everything when given a Private App token
-   * (mcp.hubspot.com only accepts OAuth tokens), and always for owners/
-   * pipelines/activities regardless of token type.
+   * REST (api.hubapi.com) is now the path for ALL HubSpot tokens:
+   *   - static  → pasted Service Key / Private App token (works against REST)
+   *   - oauth   → standard public-app OAuth token (also works against REST)
+   * The mcp.hubspot.com path is retired (it doesn't serve owners/pipelines and
+   * doesn't accept standard-OAuth tokens). The `*Mcp` methods are kept only as a
+   * dead reference behind this flag; remove in a later cleanup.
    */
   private isPrivateAppToken(): boolean {
-    // Route static tokens (pasted Service Key / Private App) to REST. The
-    // resolver-provided auth_method is authoritative; the "pat-" prefix is a
-    // fallback for the legacy Private App format when auth_method is absent.
-    return this.authMethod === "static" || this.accessToken.startsWith("pat-");
+    return true;
   }
 
   // ── REST request helper ────────────────────────────────────────────────────
