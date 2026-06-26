@@ -393,7 +393,10 @@ function extractFirstId(data: unknown): string | null {
 }
 
 export class HubSpotClient implements CrmClient {
-  constructor(private readonly accessToken: string) {}
+  constructor(
+    private readonly accessToken: string,
+    private readonly authMethod?: string,
+  ) {}
 
   /** Open an MCP connection, run fn, always close. */
   private async withClient<T>(fn: (client: Client) => Promise<T>): Promise<T> {
@@ -777,7 +780,10 @@ export class HubSpotClient implements CrmClient {
    * pipelines/activities regardless of token type.
    */
   private isPrivateAppToken(): boolean {
-    return this.accessToken.startsWith("pat-");
+    // Route static tokens (pasted Service Key / Private App) to REST. The
+    // resolver-provided auth_method is authoritative; the "pat-" prefix is a
+    // fallback for the legacy Private App format when auth_method is absent.
+    return this.authMethod === "static" || this.accessToken.startsWith("pat-");
   }
 
   // ── REST request helper ────────────────────────────────────────────────────

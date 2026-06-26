@@ -69,16 +69,16 @@ async function withClient(
   }
 
   try {
-    const token = await getHubSpotAccessToken(bearer);
+    const { access_token, auth_method } = await getHubSpotAccessToken(bearer);
     try {
-      return ok(await fn(new HubSpotClient(token)));
+      return ok(await fn(new HubSpotClient(access_token, auth_method)));
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (isAuthError(msg)) {
         // Token may have just expired — drop it and refetch once.
         invalidateHubSpotToken(bearer);
         const fresh = await getHubSpotAccessToken(bearer);
-        return ok(await fn(new HubSpotClient(fresh)));
+        return ok(await fn(new HubSpotClient(fresh.access_token, fresh.auth_method)));
       }
       throw e;
     }
@@ -190,9 +190,9 @@ export function registerCrmTools(server: McpServer): void {
         return mapError(e);
       }
       try {
-        const token = await getHubSpotAccessToken(bearer);
+        const { access_token, auth_method } = await getHubSpotAccessToken(bearer);
         // Cheap probe: a 1-result contact search confirms the token works.
-        const contacts = await new HubSpotClient(token).searchContacts("", 1);
+        const contacts = await new HubSpotClient(access_token, auth_method).searchContacts("", 1);
         return ok({ connected: true, provider: "hubspot", probe: "search_crm_objects:contacts", sampleCount: contacts.length });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
