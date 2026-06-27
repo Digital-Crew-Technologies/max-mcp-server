@@ -54,21 +54,33 @@ export type McpServer = {
   ) => void;
 };
 
+/**
+ * Trim and redact an upstream error body before handing it to the model.
+ * Avoids leaking stack traces / internal URLs / token fragments (OWASP LLM02)
+ * and keeps the error compact.
+ */
+function sanitizeUpstreamError(body: string): string {
+  return body.slice(0, 500).replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted]");
+}
+
 export async function callApi(
   tokenOverride: string | undefined,
   fn: (token: string) => Promise<Response>,
-): Promise<{ content: Array<{ type: "text"; text: string }> }> {
+): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {
   try {
     const token = resolveBearerToken(tokenOverride);
     const res = await fn(token);
     const text = await responseBodyText(res);
     if (!res.ok) {
-      return { content: [{ type: "text", text: `API error (${res.status}): ${text || res.statusText}` }] };
+      // Mark as an MCP tool-execution error so the model can self-correct
+      // instead of treating the failure as a successful result.
+      const detail = text ? sanitizeUpstreamError(text) : res.statusText;
+      return { content: [{ type: "text", text: `API error (${res.status}): ${detail}` }], isError: true };
     }
     return { content: [{ type: "text", text }] };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { content: [{ type: "text", text: `Error: ${msg}` }] };
+    return { content: [{ type: "text", text: `Error: ${msg}` }], isError: true };
   }
 }
 
@@ -166,6 +178,8 @@ export function registerGroupedTool(
       const action = String((input as { action?: unknown }).action ?? "");
       const handler = actions.find((a) => a.action === action)?.handler;
       if (!handler) {
+        // An unknown action is a tool-execution error — flag it so the model
+        // retries with a valid action instead of treating it as a result.
         return {
           content: [
             {
@@ -175,6 +189,7 @@ export function registerGroupedTool(
                 .join(", ")}`,
             },
           ],
+          isError: true,
         };
       }
       // Strip the discriminator before forwarding to the handler.
