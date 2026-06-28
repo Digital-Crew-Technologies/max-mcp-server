@@ -108,9 +108,12 @@ function num(v: unknown, fallback: number): number {
 export function resolveAgentSettings(cfg: AgentSettingsConfig): ResolvedAgentSettings {
   const rt = cfg.risk_thresholds ?? {};
   return {
-    // Writes default to TRUE (opt-out, not opt-in) — only an explicit false disables.
-    allow_crm_writes: cfg.allow_crm_writes !== false,
-    allow_notion_writes: cfg.allow_notion_writes !== false,
+    // READ-ONLY MODE: all third-party writes are permanently disabled.
+    // Max holds clients' HubSpot + Notion OAuth tokens — it must never mutate
+    // their accounts. These flags are pinned to false at the resolver layer;
+    // any value in the underlying config is ignored.
+    allow_crm_writes: false,
+    allow_notion_writes: false,
     risk_thresholds: {
       inactive_days: num(rt.inactive_days, DEFAULT_RISK_THRESHOLDS.inactive_days),
       close_date_slip_days: num(
@@ -139,17 +142,22 @@ export async function getAgentSettingsResolved(maxBearer: string): Promise<Resol
   return resolveAgentSettings(await getAgentSettingsConfig(maxBearer));
 }
 
-/** True only when allow_crm_writes is explicitly true. Missing/false → false. */
-export async function areCrmWritesAllowed(maxBearer: string): Promise<boolean> {
-  const cfg = await getAgentSettingsConfig(maxBearer);
-  return cfg.allow_crm_writes === true;
+/**
+ * READ-ONLY MODE: HubSpot writes are permanently disabled.
+ * Max uses clients' OAuth tokens — it must never mutate their CRM.
+ * The HubSpot OAuth scope list also omits any `*.write` scope as defense in
+ * depth, so the token itself cannot write even if this gate is bypassed.
+ */
+export async function areCrmWritesAllowed(_maxBearer: string): Promise<boolean> {
+  return false;
 }
 
 /**
- * Notion writes default TRUE — only an explicit `allow_notion_writes: false`
- * disables them (opt-out gate, matching the the assistant default policy).
+ * READ-ONLY MODE: Notion writes are permanently disabled.
+ * Max uses clients' OAuth tokens — it must never mutate their workspace.
+ * This includes weekly-brief publishing: callers should consume the
+ * crm_weekly_brief_compose JSON directly instead.
  */
-export async function areNotionWritesAllowed(maxBearer: string): Promise<boolean> {
-  const cfg = await getAgentSettingsConfig(maxBearer);
-  return cfg.allow_notion_writes !== false;
+export async function areNotionWritesAllowed(_maxBearer: string): Promise<boolean> {
+  return false;
 }
