@@ -22,12 +22,14 @@ export function registerCampaignTools(server: McpServer): void {
     title: "Get campaign memory",
     description: "Read Max's durable memory for a campaign (ICP, decisions, notes). Recall this when working on one of several simultaneous campaigns so you keep them straight.",
     inputSchema: S.getCampaignMemorySchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) => repo.getCampaignMemory(t, input.id)));
 
   server.registerTool("update_campaign_memory", {
     title: "Update campaign memory",
     description: "Record/update Max's durable memory for a campaign. Pass a partial 'memory' object (top-level keys merge; send the full array to change decisions/notes). Use it to remember ICP, decisions, and progress per campaign.",
     inputSchema: S.updateCampaignMemorySchema,
+    ...toolHints.idempotent,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.updateCampaignMemory(t, input.id, input.memory as Record<string, unknown>)));
 
@@ -42,6 +44,7 @@ export function registerCampaignTools(server: McpServer): void {
     title: "Update campaign",
     description: "Partial update of a campaign — name, description, workflow, lists, accounts, scheduling.",
     inputSchema: S.updateCampaignSchema,
+    ...toolHints.idempotent,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.updateCampaign(t, input.id, strip(input, "bearer_token", "id"))));
 
@@ -62,6 +65,7 @@ export function registerCampaignTools(server: McpServer): void {
     title: "Pause campaign",
     description: "Pause an active campaign — stops dequeueing new actions (in-flight calls finish).",
     inputSchema: S.campaignTransitionSchema,
+    ...toolHints.destructive,
   }, async (input) => callApi(input.bearer_token, (t) => repo.pauseCampaign(t, input.id)));
 
   server.registerTool("resume_campaign", {
@@ -74,12 +78,14 @@ export function registerCampaignTools(server: McpServer): void {
     title: "Stop campaign",
     description: "Stop an active or paused campaign permanently — cannot be resumed.",
     inputSchema: S.campaignTransitionSchema,
+    ...toolHints.destructive,
   }, async (input) => callApi(input.bearer_token, (t) => repo.stopCampaign(t, input.id)));
 
   server.registerTool("archive_campaign", {
     title: "Archive campaign",
     description: "Archive a campaign (soft delete) — hidden from default views but restorable.",
     inputSchema: S.campaignTransitionSchema,
+    ...toolHints.destructive,
   }, async (input) => callApi(input.bearer_token, (t) => repo.archiveCampaign(t, input.id)));
 
   server.registerTool("restore_campaign", {
@@ -92,12 +98,14 @@ export function registerCampaignTools(server: McpServer): void {
     title: "Get campaign stats",
     description: "Aggregate performance stats — email open/reply rates, LinkedIn connection/reply rates, execution counts.",
     inputSchema: S.getCampaignStatsSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) => repo.getCampaignStats(t, input.id)));
 
   server.registerTool("get_campaign_lead_analytics", {
     title: "Get campaign lead analytics",
     description: "Per-prospect breakdown — where each lead is in the workflow and message event history.",
     inputSchema: S.getCampaignLeadAnalyticsSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.getCampaignLeadAnalytics(t, input.id, { page: input.page, pageSize: input.pageSize })));
 
@@ -105,5 +113,6 @@ export function registerCampaignTools(server: McpServer): void {
     title: "Get campaign node run counts",
     description: "Map of workflow node ID → execution count. Useful for funnel visualization.",
     inputSchema: S.getCampaignNodeRunCountsSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) => repo.getCampaignNodeRunCounts(t, input.id)));
 }

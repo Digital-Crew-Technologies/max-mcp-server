@@ -1,4 +1,4 @@
-import { callApi, type McpServer } from "../shared";
+import { callApi, toolHints, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
 
@@ -7,5 +7,6 @@ export function registerDashboardTools(server: McpServer): void {
     title: "Get dashboard KPIs",
     description: "Workspace-wide aggregate stats — execution counts, email/LinkedIn rates, completion percentage.",
     inputSchema: S.getDashboardKpisSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) => repo.getDashboardKpis(t)));
 }

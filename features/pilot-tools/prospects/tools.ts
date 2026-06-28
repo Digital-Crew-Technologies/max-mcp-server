@@ -1,4 +1,4 @@
-import { callApi, omitKey, strip, type McpServer } from "../shared";
+import { callApi, omitKey, strip, toolHints, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
 
@@ -7,6 +7,7 @@ export function registerProspectTools(server: McpServer): void {
     title: "List prospects",
     description: "List prospects with rich filtering — search, status, org, titles, countries, industries, pagination, sorting.",
     inputSchema: S.listProspectsSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.listProspects(t, omitKey(input, "bearer_token"))));
 
@@ -14,6 +15,7 @@ export function registerProspectTools(server: McpServer): void {
     title: "Get prospect",
     description: "Get full profile of a prospect — name, title, company, LinkedIn, email, location, enrichment data.",
     inputSchema: S.getProspectSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) => repo.getProspect(t, input.id)));
 
   server.registerTool("create_prospect", {
@@ -27,6 +29,7 @@ export function registerProspectTools(server: McpServer): void {
     title: "Update prospect",
     description: "Update a prospect's fields (partial update).",
     inputSchema: S.updateProspectSchema,
+    ...toolHints.idempotent,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.updateProspect(t, input.id, strip(input, "bearer_token", "id"))));
 
@@ -34,6 +37,7 @@ export function registerProspectTools(server: McpServer): void {
     title: "Delete prospect",
     description: "Delete a prospect permanently.",
     inputSchema: S.deleteProspectSchema,
+    ...toolHints.destructive,
   }, async (input) => callApi(input.bearer_token, (t) => repo.deleteProspect(t, input.id)));
 
   server.registerTool("bulk_import_prospects", {
@@ -47,11 +51,13 @@ export function registerProspectTools(server: McpServer): void {
     title: "Bulk delete prospects",
     description: "Delete multiple prospects by IDs.",
     inputSchema: S.bulkDeleteProspectsSchema,
+    ...toolHints.destructive,
   }, async (input) => callApi(input.bearer_token, (t) => repo.bulkDeleteProspects(t, input.ids)));
 
   server.registerTool("get_prospect_campaign_activity", {
     title: "Get prospect campaign activity",
     description: "Chronological log of message events for a prospect across all campaigns (newest first).",
     inputSchema: S.getProspectCampaignActivitySchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) => repo.getProspectCampaignActivity(t, input.id)));
 }
