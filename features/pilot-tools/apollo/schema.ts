@@ -4,7 +4,7 @@ import { withToken } from "../shared";
 export const apolloCreateListSchema = z.object({
   ...withToken,
   list_name: z.string().min(1).describe("Name for the new list"),
-  apollo_search_payload: z.record(z.unknown()).describe("Apollo mixed_people/search filter body"),
+  apollo_search_payload: z.record(z.string(), z.unknown()).describe("Apollo mixed_people/search filter body"),
   idempotency_key: z.string().optional().describe("Idempotency key for safe retries"),
 });
 

@@ -22,13 +22,16 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "node scripts/copy-standalone-assets.mjs",
     "start": "next start",
     "type-check": "tsc --noEmit",
     "lint": "eslint .",
     "verify": "node scripts/verify-tools.mjs",
     "test:endpoints": "node scripts/test-endpoints.mjs",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "docs:tools": "tsx scripts/gen-tool-docs.mts",
+    "docs:check": "tsx scripts/gen-tool-docs.mts --check"
   },
   "dependencies": {
     "mcp-handler": "^1.1.0",
@@ -46,6 +49,7 @@
     "@types/react": "^19",
     "eslint": "^9",
     "eslint-config-next": "^15.2.6",
+    "tsx": "^4.22.4",
     "typescript": "^5",
     "vitest": "^4.1.9"
   },

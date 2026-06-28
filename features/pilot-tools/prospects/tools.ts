@@ -1,4 +1,4 @@
-import { callApi, strip, type McpServer } from "../shared";
+import { callApi, omitKey, strip, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
 
@@ -8,7 +8,7 @@ export function registerProspectTools(server: McpServer): void {
     description: "List prospects with rich filtering — search, status, org, titles, countries, industries, pagination, sorting.",
     inputSchema: S.listProspectsSchema,
   }, async (input) => callApi(input.bearer_token, (t) =>
-    repo.listProspects(t, strip(input, "bearer_token") as any)));
+    repo.listProspects(t, omitKey(input, "bearer_token"))));
 
   server.registerTool("get_prospect", {
     title: "Get prospect",

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildQuery, strip } from "@/features/pilot-tools/shared";
+import { buildQuery, omitKey, strip } from "@/features/pilot-tools/shared";
 
 describe("buildQuery", () => {
   it("skips undefined, null, and empty-string values", () => {
@@ -21,6 +21,13 @@ describe("strip", () => {
     const input = { id: "1", name: "x", bearer_token: "secret" };
     const out = strip(input, "bearer_token");
     expect(out).toEqual({ id: "1", name: "x" });
-    expect(input).toHaveProperty("bearer_token"); // original is untouched
+    expect(input).toHaveProperty("bearer_token");
+  });
+});
+
+describe("omitKey", () => {
+  it("removes keys with correct typing", () => {
+    const input = { page: 1, bearer_token: "t" };
+    expect(omitKey(input, "bearer_token")).toEqual({ page: 1 });
   });
 });

@@ -1,4 +1,4 @@
-import { callApi, resolveBearerToken, strip, type McpServer } from "../shared";
+import { callApi, omitKey, resolveBearerToken, strip, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
 
@@ -75,7 +75,7 @@ export function registerProspectListTools(server: McpServer): void {
     description: "List all prospects in a specific list — paginated, searchable, sortable.",
     inputSchema: S.listProspectListMembersSchema,
   }, async (input) => callApi(input.bearer_token, (t) =>
-    repo.listProspectListMembers(t, input.id, strip(input, "bearer_token", "id") as any)));
+    repo.listProspectListMembers(t, input.id, omitKey(input, "bearer_token", "id"))));
 
   server.registerTool("add_prospects_to_list", {
     title: "Add prospects to list",

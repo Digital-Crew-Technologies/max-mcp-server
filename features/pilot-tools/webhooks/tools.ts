@@ -1,5 +1,6 @@
 import type { McpServer } from "../shared";
-import { fetchWithRetry, apiUrl, responseBodyText } from "../shared";
+import { responseBodyText } from "../shared";
+import { sanitizeUpstreamError } from "@/shared/http/response";
 import * as repo from "./repository";
 import * as S from "./schema";
 
@@ -8,12 +9,16 @@ async function callWebhook(fn: () => Promise<Response>) {
     const res = await fn();
     const text = await responseBodyText(res);
     if (!res.ok) {
-      return { content: [{ type: "text" as const, text: `Webhook error (${res.status}): ${text || res.statusText}` }] };
+      const detail = text ? sanitizeUpstreamError(text) : res.statusText;
+      return {
+        content: [{ type: "text" as const, text: `Webhook error (${res.status}): ${detail}` }],
+        isError: true,
+      };
     }
     return { content: [{ type: "text" as const, text }] };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { content: [{ type: "text" as const, text: `Error: ${msg}` }] };
+    return { content: [{ type: "text" as const, text: `Error: ${msg}` }], isError: true };
   }
 }
 

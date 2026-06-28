@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   ci:
-    name: Lint · Type-check · Build
+    name: Lint · Type-check · Test · Build
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -33,8 +33,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'pnpm'
+          node-version: "20"
+          cache: "pnpm"
 
       # --frozen-lockfile = fail if pnpm-lock.yaml is out of date
       - name: Install dependencies
@@ -46,12 +46,17 @@ jobs:
       - name: Type-check
         run: pnpm run type-check
 
+      - name: Test
+        run: pnpm test
+
+      - name: Tool inventory drift
+        run: pnpm run docs:check
+
       - name: Build
         run: pnpm run build
 
-      # NOTE: a `Test` step (pnpm test) and a `Tool inventory drift` step
-      # (pnpm run tools:check) are added by the testing and docs-as-code
-      # commits, once those scripts exist — keeping CI green at every commit.
+      - name: Verify standalone output
+        run: test -f .next/standalone/server.js
 
       # Advisory only for now; flip continue-on-error to false once the
       # current advisories are triaged, to make CVEs block the merge.

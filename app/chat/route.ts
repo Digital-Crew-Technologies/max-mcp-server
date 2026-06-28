@@ -3,6 +3,7 @@
 // Accepts { message, username } and returns { reply }.
 
 import { NextRequest } from "next/server";
+import { checkChatDailyCap, checkChatRateLimit } from "@/shared/http/chat-rate-limit";
 
 const SYSTEM_PROMPT = `You are Max, a B2B outbound sales AI assistant on the Digital Crew platform.
 You help sales teams with outreach, messaging, and pipeline strategy.
@@ -22,9 +23,22 @@ export async function POST(request: NextRequest): Promise<Response> {
   }
 
   const username = body.username ?? "user";
-  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
+  const principal = request.headers.get("x-mcp-gateway-key")?.trim() ?? username;
 
-  console.log(`[chat] user=${username} message="${message}"`);
+  const minute = checkChatRateLimit(principal);
+  if (!minute.ok) {
+    return Response.json(
+      { error: "Rate limit exceeded", retryAfterSec: minute.retryAfterSec },
+      { status: 429, headers: { "Retry-After": String(minute.retryAfterSec) } },
+    );
+  }
+
+  const daily = checkChatDailyCap(principal);
+  if (!daily.ok) {
+    return Response.json({ error: "Daily chat request cap exceeded" }, { status: 429 });
+  }
+
+  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
 
   if (!apiKey) {
     console.error("[chat] OPENROUTER_API_KEY not set");
@@ -60,7 +74,6 @@ export async function POST(request: NextRequest): Promise<Response> {
       choices?: Array<{ message?: { content?: string } }>;
     };
     const reply = data.choices?.[0]?.message?.content?.trim() ?? "Done.";
-    console.log(`[chat] reply="${reply}"`);
     return Response.json({ reply });
   } catch (err) {
     console.error("[chat] fetch failed:", err);

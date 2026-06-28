@@ -1,4 +1,4 @@
-import { callApi, strip, type McpServer } from "../shared";
+import { callApi, omitKey, strip, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
 
@@ -8,7 +8,7 @@ export function registerOrganizationTools(server: McpServer): void {
     description: "List all organizations/companies — search by name or domain, filter by industry/country.",
     inputSchema: S.listOrganizationsSchema,
   }, async (input) => callApi(input.bearer_token, (t) =>
-    repo.listOrganizations(t, strip(input, "bearer_token") as any)));
+    repo.listOrganizations(t, omitKey(input, "bearer_token"))));
 
   server.registerTool("get_organization", {
     title: "Get organization",

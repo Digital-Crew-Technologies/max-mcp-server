@@ -10,82 +10,19 @@
  *   BEARER_TOKEN  if omitted, read tools are still listed but live calls are skipped
  */
 
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const origin = process.argv[2] || process.env.MCP_ORIGIN || "http://localhost:3000";
 const bearer = process.argv[3] || process.env.DIGITALCREW_BEARER_TOKEN || "";
+const gatewayKey = process.env.MCP_GATEWAY_SECRET?.trim() || "";
 
-const EXPECTED_TOOLS = [
-  // workspace-profile
-  "get_workspace_profile", "update_workspace_profile",
-  // campaigns (14)
-  "list_campaigns", "get_campaign", "create_campaign", "update_campaign", "delete_campaign",
-  "launch_campaign", "pause_campaign", "resume_campaign", "stop_campaign",
-  "archive_campaign", "restore_campaign",
-  "get_campaign_stats", "get_campaign_lead_analytics", "get_campaign_node_run_counts",
-  // prospects (8)
-  "list_prospects", "get_prospect", "create_prospect", "update_prospect", "delete_prospect",
-  "bulk_import_prospects", "bulk_delete_prospects", "get_prospect_campaign_activity",
-  // prospect-lists (10)
-  "list_prospect_lists", "get_prospect_list", "create_prospect_list", "update_prospect_list",
-  "delete_prospect_list", "list_prospect_list_members", "add_prospects_to_list",
-  "remove_prospects_from_list", "search_prospect_lists", "import_prospect_list_csv",
-  "wait_for_prospect_list",
-  // organizations (7)
-  "list_organizations", "get_organization", "create_organization", "update_organization",
-  "delete_organization", "bulk_import_organizations", "bulk_delete_organizations",
-  // accounts (7)
-  "list_accounts", "get_account", "update_account", "disconnect_account",
-  "get_account_rate_limits", "update_account_rate_limit", "hosted_auth_link",
-  // unibox (6)
-  "list_chats", "get_chat", "update_chat", "archive_chat", "list_chat_messages", "send_chat_message",
-  // ai-agent (2)
-  "generate_workflow", "generate_message_preview",
-  // apollo (2)
-  "apollo_create_list", "apollo_add_more",
-  // explorium (3)
-  "explorium_create_list", "explorium_create_company_list", "explorium_add_more",
-  // dashboard (1)
-  "get_dashboard_kpis",
-  // admin (3)
-  "list_failed_requests", "clear_failed_requests", "get_circuit_status",
-  // enrichment (5)
-  "enrich_prospect", "enrich_organization", "bulk_enrich",
-  "get_enrichment_status", "get_enrichment_credits",
-  // email-analytics (4)
-  "get_email_tracking_events", "get_prospect_engagement_timeline",
-  "get_link_click_details", "get_campaign_engagement_summary",
-  // intent (9)
-  "create_intent_trigger", "list_intent_signals", "get_signal_history",
-  "disable_trigger", "list_signal_proposals", "get_signal_proposal",
-  "approve_proposal", "reject_proposal", "modify_proposal",
-  // calendar (8)
-  "connect_calendar", "calendar_status", "get_availability", "propose_times",
-  "book_meeting", "send_booking_link", "get_upcoming_meetings", "cancel_meeting",
-  // inbox autopilot (5)
-  "set_inbox_autopilot", "get_inbox_autopilot_status", "list_inbox_drafts",
-  "approve_inbox_draft", "reject_inbox_draft",
-  // crm — contacts & companies (5)
-  "crm_search_contacts", "crm_get_contact", "crm_upsert_contact",
-  "crm_upsert_company", "crm_status",
-  // crm — deals / activities / owners / stages (5)
-  "crm_list_deals", "crm_get_deal", "crm_list_activities",
-  "crm_list_owners", "crm_list_pipeline_stages",
-  // crm — lead dispatch (3)
-  "crm_score_prospects", "crm_assign_prospects", "crm_export_import_csv",
-  // crm — composers (2)
-  "crm_pipeline_risk_scan", "crm_weekly_brief_compose",
-  // crm — forecast (1)
-  "crm_detect_forecast_changes",
-  // notion — primitives (4)
-  "notion_create_page", "notion_append_blocks", "notion_get_page",
-  "notion_search_pages",
-  // notion — composers (1)
-  "notion_publish_weekly_brief",
-  // agent drafts — approval queue (3)
-  "agent_draft_create", "agent_draft_list", "agent_draft_get",
-];
+const toolsJsonPath = join(__dirname, "../docs/tools.json");
+const EXPECTED_TOOLS = JSON.parse(readFileSync(toolsJsonPath, "utf8")).map((t) => t.name);
 
 // Safe read-only tools to live-call when a token is available.
 //
@@ -127,7 +64,12 @@ async function main() {
   console.log(`  token:  ${bearer ? c.green + "set" : c.yellow + "not set (live calls skipped)"}${c.reset}`);
   console.log();
 
-  const transport = new StreamableHTTPClientTransport(new URL(`${origin}/mcp`));
+  const transportHeaders = {};
+  if (gatewayKey) transportHeaders["X-MCP-Gateway-Key"] = gatewayKey;
+
+  const transport = new StreamableHTTPClientTransport(new URL(`${origin}/mcp`), {
+    requestInit: { headers: transportHeaders },
+  });
   const client = new Client(
     { name: "verify-tools", version: "1.0.0" },
     { capabilities: { tools: {} } },
@@ -150,15 +92,17 @@ async function main() {
   const missing = EXPECTED_TOOLS.filter((t) => !registered.has(t));
   const extra = [...registered].filter((t) => !EXPECTED_TOOLS.includes(t));
 
-  if (missing.length === 0) {
+  if (missing.length === 0 && extra.length === 0) {
     console.log(ok(`All ${EXPECTED_TOOLS.length} expected tools are registered`));
   } else {
-    console.log(fail(`${missing.length} expected tools missing:`));
-    for (const t of missing) console.log(`    - ${t}`);
-  }
-  if (extra.length > 0) {
-    console.log(warn(`${extra.length} unexpected tool(s) registered:`));
-    for (const t of extra) console.log(`    + ${t}`);
+    if (missing.length > 0) {
+      console.log(fail(`${missing.length} expected tools missing:`));
+      for (const t of missing) console.log(`    - ${t}`);
+    }
+    if (extra.length > 0) {
+      console.log(fail(`${extra.length} unexpected tool(s) registered:`));
+      for (const t of extra) console.log(`    + ${t}`);
+    }
   }
 
   // ── Schema sanity (every tool must have an inputSchema) ────────────────
@@ -173,7 +117,7 @@ async function main() {
   // ── Live probe of safe read tools ──────────────────────────────────────
   if (!bearer) {
     console.log(warn("Skipping live API probes (no bearer token)"));
-    summarize(missing.length === 0 && noSchema.length === 0);
+    summarize(missing.length === 0 && extra.length === 0 && noSchema.length === 0);
     return;
   }
 
@@ -217,7 +161,7 @@ async function main() {
 
   console.log();
   console.log(`  ${pass} passed, ${probeFail} failed, ${needConnect} need integration connect`);
-  summarize(missing.length === 0 && noSchema.length === 0 && probeFail === 0);
+  summarize(missing.length === 0 && extra.length === 0 && noSchema.length === 0 && probeFail === 0);
 }
 
 function summarize(allOk) {
