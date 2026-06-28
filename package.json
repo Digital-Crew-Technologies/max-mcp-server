@@ -26,7 +26,9 @@
     "type-check": "tsc --noEmit",
     "lint": "eslint .",
     "verify": "node scripts/verify-tools.mjs",
-    "test:endpoints": "node scripts/test-endpoints.mjs"
+    "test:endpoints": "node scripts/test-endpoints.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "mcp-handler": "^1.1.0",
@@ -38,13 +40,14 @@
   },
   "devDependencies": {
     "@eslint/compat": "^2.0.0",
-    "@modelcontextprotocol/sdk": "1.26.0",
     "@eslint/eslintrc": "^3.3.3",
+    "@modelcontextprotocol/sdk": "1.26.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "eslint": "^9",
     "eslint-config-next": "^15.2.6",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.9"
   },
   "pnpm": {
     "overrides": {
