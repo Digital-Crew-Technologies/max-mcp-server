@@ -1,9 +1,17 @@
 name: CI
 
+# Quality gate for the "checks → merge → Vercel deploys" flow.
+# Deployment itself is handled by Vercel's native Git integration
+# (preview on PR, production on merge to main). This workflow only GATES.
 on:
   push:
-    branches-ignore: [] # run CI on every branch push
-  pull_request:        # run CI on every PR (regardless of target branch)
+    branches: [main]   # re-check main after every merge
+  pull_request:        # gate every PR before merge
+
+# A newer push to the same ref cancels the older, in-flight run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   ci:
@@ -12,42 +20,41 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      # ── Checkout ──────────────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── pnpm ──────────────────────────────────────────────────────────────
-      # Install pnpm before Node so the cache step works correctly
+      # pnpm BEFORE Node so the pnpm cache works.
+      # No `version:` here on purpose — action-setup@v4 reads the pinned
+      # `packageManager` (pnpm@8.15.7) from package.json, so CI, the lockfile
+      # (lockfileVersion 6.0), and Vercel's build all use the SAME pnpm.
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
+        uses: pnpm/action-setup@v4
 
-      # ── Node + pnpm cache ──────────────────────────────────────────────────
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
 
-      # ── Install ────────────────────────────────────────────────────────────
       # --frozen-lockfile = fail if pnpm-lock.yaml is out of date
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # ── Lint ───────────────────────────────────────────────────────────────
       - name: Lint
         run: pnpm run lint
 
-      # ── Type-check ─────────────────────────────────────────────────────────
       - name: Type-check
         run: pnpm run type-check
 
-      # ── Build ──────────────────────────────────────────────────────────────
       - name: Build
         run: pnpm run build
 
-      # ── Security audit ─────────────────────────────────────────────────────
-      - name: Audit dependencies
+      # NOTE: a `Test` step (pnpm test) and a `Tool inventory drift` step
+      # (pnpm run tools:check) are added by the testing and docs-as-code
+      # commits, once those scripts exist — keeping CI green at every commit.
+
+      # Advisory only for now; flip continue-on-error to false once the
+      # current advisories are triaged, to make CVEs block the merge.
+      - name: Audit dependencies (advisory)
         run: pnpm audit --audit-level=high
         continue-on-error: true
