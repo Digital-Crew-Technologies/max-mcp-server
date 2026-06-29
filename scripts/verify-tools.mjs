@@ -46,6 +46,8 @@ const EXPECTED_TOOLS = [
   "apollo_create_list", "apollo_add_more",
   // explorium (3)
   "explorium_create_list", "explorium_create_company_list", "explorium_add_more",
+  // getleads (2)
+  "getleads_create_list", "getleads_add_more",
   // dashboard (1)
   "get_dashboard_kpis",
   // admin (3)

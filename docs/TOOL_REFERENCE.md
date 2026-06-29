@@ -1,6 +1,6 @@
 # MCP Tool Reference
 
-Complete catalog of all **66 MCP tools** exposed by `max-mcp-server`. Each entry includes the underlying HTTP endpoint, required scope, key inputs, and a one-line description.
+Complete catalog of all **68 MCP tools** exposed by `max-mcp-server`. Each entry includes the underlying HTTP endpoint, required scope, key inputs, and a one-line description.
 
 Every tool accepts an optional `bearer_token` argument that overrides the bearer extracted from the MCP request or environment.
 
@@ -22,7 +22,7 @@ The Max API recognizes two auth types and a set of fine-grained scopes:
 | `prospects:read` | list/get prospect, campaign-activity |
 | `prospects:write` | create/update/delete, bulk-import, bulk-delete |
 | `prospect-lists:read` | list/get list, list-members, search |
-| `prospect-lists:write` | create/update/delete, add/remove members, csv-import, Apollo |
+| `prospect-lists:write` | create/update/delete, add/remove members, csv-import, Apollo/Explorium/GetLeads |
 | `organizations:read` | list/get org |
 | `organizations:write` | create/update/delete, bulk-import, bulk-delete |
 | `accounts:read` | list/get account, rate-limits |
@@ -172,9 +172,21 @@ Both are async — poll the resulting list's status (or use `wait_for_prospect_l
 
 Both are async — poll the resulting list's status (or use `wait_for_prospect_list`).
 
-Apollo and Explorium are interchangeable data suppliers for prospect lists. A
-list's `search_source` (`apollo` or `explorium`) determines which provider's
-endpoints accept it; pick whichever supplier the workspace has an API key for.
+---
+
+## GetLeads (2)
+
+| Tool | HTTP | Scope | Description |
+|---|---|---|---|
+| `getleads_create_list` | `POST /api/v1/getleads/people/create-list` | `prospect-lists:write` + _credits_ | Async GetLeads contacts-database search → list ingestion (~370M contacts). Billed at one credit per record returned. Auto-injects `idempotency_key` if not provided. Provide at least one filter |
+| `getleads_add_more` | `POST /api/v1/getleads/people/add-more` | `prospect-lists:write` + _credits_ | Append contacts to an existing GetLeads list (fetches the next offset pages with the saved filters) |
+
+Both are async — poll the resulting list's status (or use `wait_for_prospect_list`).
+
+Apollo, Explorium and GetLeads are interchangeable data suppliers for prospect
+lists. A list's `search_source` (`apollo`, `explorium` or `getleads`) determines
+which provider's endpoints accept it; pick whichever supplier the workspace has
+an API key for.
 
 ---
 
