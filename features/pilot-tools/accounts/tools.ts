@@ -1,4 +1,4 @@
-import { callApi, strip, type McpServer } from "../shared";
+import { callApi, strip, toolHints, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
 
@@ -7,18 +7,21 @@ export function registerAccountTools(server: McpServer): void {
     title: "List accounts",
     description: "List all connected LinkedIn and email accounts — name, email, status, daily limits.",
     inputSchema: S.listAccountsSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) => repo.listAccounts(t)));
 
   server.registerTool("get_account", {
     title: "Get account",
     description: "Get full details of a connected account — provider, channel, config, sync status.",
     inputSchema: S.getAccountSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) => repo.getAccount(t, input.id)));
 
   server.registerTool("update_account", {
     title: "Update account config",
     description: "Update account sender name, timezone, and working hours.",
     inputSchema: S.updateAccountSchema,
+    ...toolHints.idempotent,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.updateAccount(t, input.id, { config: input.config })));
 
@@ -26,18 +29,21 @@ export function registerAccountTools(server: McpServer): void {
     title: "Disconnect account",
     description: "Disconnect a LinkedIn or email account from the workspace. Use hosted_auth_link to reconnect.",
     inputSchema: S.disconnectAccountSchema,
+    ...toolHints.destructive,
   }, async (input) => callApi(input.bearer_token, (t) => repo.disconnectAccount(t, input.account_id)));
 
   server.registerTool("get_account_rate_limits", {
     title: "Get account rate limits",
     description: "Get daily/weekly sending limits and current usage for a specific account.",
     inputSchema: S.getAccountRateLimitsSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) => repo.getAccountRateLimits(t, input.id)));
 
   server.registerTool("update_account_rate_limit", {
     title: "Update account rate limit",
     description: "Update daily or weekly sending cap for a specific rate-limit row.",
     inputSchema: S.updateAccountRateLimitSchema,
+    ...toolHints.idempotent,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.updateAccountRateLimit(t, input.id, strip(input, "bearer_token", "id"))));
 

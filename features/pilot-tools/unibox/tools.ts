@@ -1,4 +1,4 @@
-import { callApi, omitKey, strip, type McpServer } from "../shared";
+import { callApi, omitKey, strip, toolHints, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
 
@@ -7,6 +7,7 @@ export function registerUniboxTools(server: McpServer): void {
     title: "List chats (Unibox)",
     description: "List LinkedIn and email conversations — filter by channel, prospect, account, or archived status.",
     inputSchema: S.listChatsSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.listChats(t, omitKey(input, "bearer_token"))));
 
@@ -14,12 +15,14 @@ export function registerUniboxTools(server: McpServer): void {
     title: "Get chat",
     description: "Get full details of a single Unibox chat/conversation thread.",
     inputSchema: S.getChatSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) => repo.getChat(t, input.id)));
 
   server.registerTool("update_chat", {
     title: "Update chat",
     description: "Update chat metadata — title, read state, archived status, prospect link.",
     inputSchema: S.updateChatSchema,
+    ...toolHints.idempotent,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.updateChat(t, input.id, strip(input, "bearer_token", "id"))));
 
@@ -27,12 +30,14 @@ export function registerUniboxTools(server: McpServer): void {
     title: "Archive chat",
     description: "Archive a chat (soft delete). Messages remain, use archived=true filter to see them.",
     inputSchema: S.archiveChatSchema,
+    ...toolHints.destructive,
   }, async (input) => callApi(input.bearer_token, (t) => repo.archiveChat(t, input.id)));
 
   server.registerTool("list_chat_messages", {
     title: "List chat messages",
     description: "Get all messages in a conversation — body, direction (in/out), timestamp, status.",
     inputSchema: S.listChatMessagesSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.listChatMessages(t, input.chat_id, { page: input.page, pageSize: input.pageSize })));
 

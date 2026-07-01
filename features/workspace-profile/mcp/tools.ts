@@ -26,6 +26,7 @@ export function registerWorkspaceProfileTools(server: {
       description:
         "Fetch workspace profile settings (company info) for the authenticated workspace via DigitalCrew API. Uses the MCP connection Authorization: Bearer token when set.",
       inputSchema: getWorkspaceProfileToolSchema,
+      annotations: { readOnlyHint: true },
     },
     async (input) => {
       try {
@@ -65,6 +66,7 @@ export function registerWorkspaceProfileTools(server: {
       description:
         "Create or update workspace profile settings for the authenticated workspace via DigitalCrew API (PUT upsert). Uses the MCP connection Authorization: Bearer token when set.",
       inputSchema: updateWorkspaceProfileToolSchema,
+      annotations: { idempotentHint: true },
     },
     async (input) => {
       try {

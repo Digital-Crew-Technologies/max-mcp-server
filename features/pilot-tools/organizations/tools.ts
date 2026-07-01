@@ -1,4 +1,4 @@
-import { callApi, omitKey, strip, type McpServer } from "../shared";
+import { callApi, omitKey, strip, toolHints, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
 
@@ -7,6 +7,7 @@ export function registerOrganizationTools(server: McpServer): void {
     title: "List organizations",
     description: "List all organizations/companies — search by name or domain, filter by industry/country.",
     inputSchema: S.listOrganizationsSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.listOrganizations(t, omitKey(input, "bearer_token"))));
 
@@ -14,6 +15,7 @@ export function registerOrganizationTools(server: McpServer): void {
     title: "Get organization",
     description: "Get full details of an organization — domain, industry, employee count, funding, social URLs.",
     inputSchema: S.getOrganizationSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) => repo.getOrganization(t, input.id)));
 
   server.registerTool("create_organization", {
@@ -27,6 +29,7 @@ export function registerOrganizationTools(server: McpServer): void {
     title: "Update organization",
     description: "Update an organization's fields (partial update).",
     inputSchema: S.updateOrganizationSchema,
+    ...toolHints.idempotent,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.updateOrganization(t, input.id, strip(input, "bearer_token", "id"))));
 
@@ -34,6 +37,7 @@ export function registerOrganizationTools(server: McpServer): void {
     title: "Delete organization",
     description: "Delete an organization. Linked prospects get organization_id = null.",
     inputSchema: S.deleteOrganizationSchema,
+    ...toolHints.destructive,
   }, async (input) => callApi(input.bearer_token, (t) => repo.deleteOrganization(t, input.id)));
 
   server.registerTool("bulk_import_organizations", {
@@ -47,6 +51,7 @@ export function registerOrganizationTools(server: McpServer): void {
     title: "Bulk delete organizations",
     description: "Delete multiple organizations. Set deleteProspects=true to cascade-delete linked prospects.",
     inputSchema: S.bulkDeleteOrganizationsSchema,
+    ...toolHints.destructive,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.bulkDeleteOrganizations(t, strip(input, "bearer_token"))));
 }

@@ -1,4 +1,4 @@
-import { callApi, omitKey, resolveBearerToken, strip, type McpServer } from "../shared";
+import { callApi, omitKey, resolveBearerToken, strip, toolHints, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
 
@@ -41,6 +41,7 @@ export function registerProspectListTools(server: McpServer): void {
     title: "List prospect lists",
     description: "List all prospect lists — name, status, result counts, and search criteria.",
     inputSchema: S.listProspectListsSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.listProspectLists(t, { page: input.page, pageSize: input.pageSize })));
 
@@ -48,6 +49,7 @@ export function registerProspectListTools(server: McpServer): void {
     title: "Get prospect list",
     description: "Get full details of a prospect list by ID — status, search config, result counts, timestamps.",
     inputSchema: S.getProspectListSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) => repo.getProspectList(t, input.id)));
 
   server.registerTool("create_prospect_list", {
@@ -61,6 +63,7 @@ export function registerProspectListTools(server: McpServer): void {
     title: "Update prospect list",
     description: "Update a prospect list (only list_name and status are editable).",
     inputSchema: S.updateProspectListSchema,
+    ...toolHints.idempotent,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.updateProspectList(t, input.id, strip(input, "bearer_token", "id"))));
 
@@ -68,12 +71,14 @@ export function registerProspectListTools(server: McpServer): void {
     title: "Delete prospect list",
     description: "Delete a prospect list (prospects themselves are NOT deleted).",
     inputSchema: S.deleteProspectListSchema,
+    ...toolHints.destructive,
   }, async (input) => callApi(input.bearer_token, (t) => repo.deleteProspectList(t, input.id)));
 
   server.registerTool("list_prospect_list_members", {
     title: "List prospect list members",
     description: "List all prospects in a specific list — paginated, searchable, sortable.",
     inputSchema: S.listProspectListMembersSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.listProspectListMembers(t, input.id, omitKey(input, "bearer_token", "id"))));
 
@@ -88,6 +93,7 @@ export function registerProspectListTools(server: McpServer): void {
     title: "Remove prospects from list",
     description: "Remove prospects from a prospect list by their UUIDs.",
     inputSchema: S.removeProspectsFromListSchema,
+    ...toolHints.destructive,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.removeProspectsFromList(t, input.id, input.prospect_ids)));
 
@@ -95,6 +101,7 @@ export function registerProspectListTools(server: McpServer): void {
     title: "Search prospects (preview)",
     description: "Preview filter results without creating a list — search by titles, countries, industries, employee count, etc.",
     inputSchema: S.searchProspectListsSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.searchProspectLists(t, strip(input, "bearer_token"))));
 
@@ -109,6 +116,7 @@ export function registerProspectListTools(server: McpServer): void {
     title: "Wait for prospect list to finish",
     description: "Poll a prospect list (typically Apollo-backed) until its status becomes completed, failed, or cancelled — or the timeout elapses. Use this after apollo_create_list / apollo_add_more so the agent doesn't need to manage polling itself.",
     inputSchema: S.waitForProspectListSchema,
+    ...toolHints.readOnly,
   }, async (input) => {
     try {
       const token = resolveBearerToken(input.bearer_token);
