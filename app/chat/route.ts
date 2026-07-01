@@ -25,7 +25,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   const username = body.username ?? "user";
   const principal = request.headers.get("x-mcp-gateway-key")?.trim() ?? username;
 
-  const minute = checkChatRateLimit(principal);
+  const minute = await checkChatRateLimit(principal);
   if (!minute.ok) {
     return Response.json(
       { error: "Rate limit exceeded", retryAfterSec: minute.retryAfterSec },
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     );
   }
 
-  const daily = checkChatDailyCap(principal);
+  const daily = await checkChatDailyCap(principal);
   if (!daily.ok) {
     return Response.json({ error: "Daily chat request cap exceeded" }, { status: 429 });
   }
