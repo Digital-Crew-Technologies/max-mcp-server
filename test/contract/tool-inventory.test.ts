@@ -3,17 +3,17 @@ import type { McpServer } from "@/features/pilot-tools/shared";
 import { registerPilotMcpTools } from "@/features/pilot-tools/mcp/register";
 import { registerWorkspaceProfileTools } from "@/features/workspace-profile/mcp/register";
 
-// Contract test: register EVERY tool into a fake server and assert invariants.
-// This catches the silent-drift failures the live `verify-tools.mjs` script
-// cannot — a renamed/dropped domain, a duplicate name, a missing schema, or a
-// grouped-vs-flat regression — without needing a running server.
-
 type Captured = { name: string; inputSchema: unknown };
 
 function captureInventory(grouped: boolean): Captured[] {
-  const prev = process.env.GROUPED_TOOLS;
+  const prevGrouped = process.env.GROUPED_TOOLS;
+  const prevAdmin = process.env.ENABLE_ADMIN_TOOLS;
+  const prevWebhooks = process.env.ENABLE_WEBHOOK_SIMULATORS;
+
   if (grouped) process.env.GROUPED_TOOLS = "true";
   else delete process.env.GROUPED_TOOLS;
+  process.env.ENABLE_ADMIN_TOOLS = "true";
+  process.env.ENABLE_WEBHOOK_SIMULATORS = "true";
 
   const tools: Captured[] = [];
   const recorder: McpServer = {
@@ -26,8 +26,12 @@ function captureInventory(grouped: boolean): Captured[] {
     registerWorkspaceProfileTools(recorder);
     registerPilotMcpTools(recorder);
   } finally {
-    if (prev === undefined) delete process.env.GROUPED_TOOLS;
-    else process.env.GROUPED_TOOLS = prev;
+    if (prevGrouped === undefined) delete process.env.GROUPED_TOOLS;
+    else process.env.GROUPED_TOOLS = prevGrouped;
+    if (prevAdmin === undefined) delete process.env.ENABLE_ADMIN_TOOLS;
+    else process.env.ENABLE_ADMIN_TOOLS = prevAdmin;
+    if (prevWebhooks === undefined) delete process.env.ENABLE_WEBHOOK_SIMULATORS;
+    else process.env.ENABLE_WEBHOOK_SIMULATORS = prevWebhooks;
   }
   return tools;
 }
@@ -37,14 +41,11 @@ describe("MCP tool inventory (contract)", () => {
     const tools = captureInventory(false);
     const names = tools.map((t) => t.name);
 
-    // Regression guard: if a whole domain silently stops registering, this trips.
     expect(tools.length).toBeGreaterThan(50);
 
-    // Duplicate tool names break MCP clients — there must be none.
     const duplicates = [...new Set(names.filter((n, i) => names.indexOf(n) !== i))];
     expect(duplicates).toEqual([]);
 
-    // Every tool must have a non-empty name and a defined input schema.
     for (const t of tools) {
       expect(t.name, "tool name must be a non-empty string").toMatch(/.+/);
       expect(t.inputSchema, `tool "${t.name}" must define an inputSchema`).toBeDefined();

@@ -3,17 +3,10 @@ import {
   getDigitalCrewBaseUrl,
   resolveBearerToken,
 } from "@/shared/http/digitalcrew-client";
+import { responseBodyText, sanitizeUpstreamError } from "@/shared/http/response";
 import { fetchWithRetry } from "./http";
 
-export { resolveBearerToken, fetchWithRetry };
-
-export async function responseBodyText(res: Response): Promise<string> {
-  try {
-    return await res.text();
-  } catch {
-    return "";
-  }
-}
+export { resolveBearerToken, fetchWithRetry, responseBodyText };
 
 export function apiUrl(path: string): string {
   return `${getDigitalCrewBaseUrl()}${path}`;
@@ -54,15 +47,6 @@ export type McpServer = {
   ) => void;
 };
 
-/**
- * Trim and redact an upstream error body before handing it to the model.
- * Avoids leaking stack traces / internal URLs / token fragments (OWASP LLM02)
- * and keeps the error compact.
- */
-function sanitizeUpstreamError(body: string): string {
-  return body.slice(0, 500).replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted]");
-}
-
 export async function callApi(
   tokenOverride: string | undefined,
   fn: (token: string) => Promise<Response>,
@@ -72,10 +56,11 @@ export async function callApi(
     const res = await fn(token);
     const text = await responseBodyText(res);
     if (!res.ok) {
-      // Mark as an MCP tool-execution error so the model can self-correct
-      // instead of treating the failure as a successful result.
       const detail = text ? sanitizeUpstreamError(text) : res.statusText;
-      return { content: [{ type: "text", text: `API error (${res.status}): ${detail}` }], isError: true };
+      return {
+        content: [{ type: "text", text: `API error (${res.status}): ${detail}` }],
+        isError: true,
+      };
     }
     return { content: [{ type: "text", text }] };
   } catch (e) {
@@ -89,6 +74,20 @@ export function strip(input: Record<string, unknown>, ...keys: string[]): Record
   for (const k of keys) delete out[k];
   return out;
 }
+
+/** Typed key removal — prefer over `strip(...) as any` in tool handlers. */
+export function omitKey<T extends object, K extends keyof T>(o: T, ...keys: K[]): Omit<T, K> {
+  const out = { ...o } as Record<string, unknown>;
+  for (const k of keys) delete out[k as string];
+  return out as Omit<T, K>;
+}
+
+/** MCP tool annotation hints (forwarded by mcp-handler to clients). */
+export const toolHints = {
+  readOnly: { annotations: { readOnlyHint: true } },
+  destructive: { annotations: { destructiveHint: true } },
+  idempotent: { annotations: { idempotentHint: true } },
+} as const;
 
 export const withToken = { bearer_token: z.string().optional() };
 
@@ -178,8 +177,6 @@ export function registerGroupedTool(
       const action = String((input as { action?: unknown }).action ?? "");
       const handler = actions.find((a) => a.action === action)?.handler;
       if (!handler) {
-        // An unknown action is a tool-execution error — flag it so the model
-        // retries with a valid action instead of treating it as a result.
         return {
           content: [
             {

@@ -1,0 +1,17 @@
+# Normalize text files to LF in the index so `docs:check` (a byte-for-byte
+# comparison of generated vs committed README/tools.json) is stable across
+# Windows checkouts and Linux CI runners.
+* text=auto eol=lf
+
+# Binaries stay binary (no normalization).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+
+# pnpm-lock.yaml is text but never modified by hand; keep LF.
+pnpm-lock.yaml text eol=lf

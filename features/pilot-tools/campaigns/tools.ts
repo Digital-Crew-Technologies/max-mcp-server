@@ -1,4 +1,4 @@
-import { callApi, strip, type McpServer } from "../shared";
+import { callApi, omitKey, strip, toolHints, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
 
@@ -7,13 +7,15 @@ export function registerCampaignTools(server: McpServer): void {
     title: "List campaigns",
     description: "List all outreach campaigns. Filter by status, search by name, paginate and sort.",
     inputSchema: S.listCampaignsSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) =>
-    repo.listCampaigns(t, strip(input, "bearer_token") as any)));
+    repo.listCampaigns(t, omitKey(input, "bearer_token"))));
 
   server.registerTool("get_campaign", {
     title: "Get campaign",
     description: "Get full details of a campaign by ID — workflow, scheduling, accounts, prospect lists, stats.",
     inputSchema: S.getCampaignSchema,
+    ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) => repo.getCampaign(t, input.id)));
 
   server.registerTool("get_campaign_memory", {
@@ -47,6 +49,7 @@ export function registerCampaignTools(server: McpServer): void {
     title: "Delete campaign",
     description: "Permanently delete a campaign and all its workflow executions. Prefer archive for soft removal.",
     inputSchema: S.deleteCampaignSchema,
+    ...toolHints.destructive,
   }, async (input) => callApi(input.bearer_token, (t) => repo.deleteCampaign(t, input.id)));
 
   server.registerTool("launch_campaign", {

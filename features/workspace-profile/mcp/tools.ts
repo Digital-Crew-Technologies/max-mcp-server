@@ -42,6 +42,7 @@ export function registerWorkspaceProfileTools(server: {
                 text: `Workspace profile request failed (${res.status}): ${text || res.statusText}`,
               },
             ],
+            isError: true,
           };
         }
         return {
@@ -51,6 +52,7 @@ export function registerWorkspaceProfileTools(server: {
         const msg = e instanceof Error ? e.message : String(e);
         return {
           content: [{ type: "text", text: `Error: ${msg}` }],
+          isError: true,
         };
       }
     },
@@ -80,6 +82,7 @@ export function registerWorkspaceProfileTools(server: {
                 text: `Workspace profile update failed (${res.status}): ${text || res.statusText}`,
               },
             ],
+            isError: true,
           };
         }
         return {
@@ -89,6 +92,7 @@ export function registerWorkspaceProfileTools(server: {
         const msg = e instanceof Error ? e.message : String(e);
         return {
           content: [{ type: "text", text: `Error: ${msg}` }],
+          isError: true,
         };
       }
     },

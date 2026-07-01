@@ -114,7 +114,7 @@ async function fetchWithRetryInner(
   // Fail fast if the breaker is open for this host
   let breakerToken: { host: string; probing: boolean };
   try {
-    breakerToken = beforeRequest(url);
+    breakerToken = await beforeRequest(url);
   } catch (e) {
     if (e instanceof CircuitOpenError) {
       console.warn(`[mcp:${reqId}] ${method} ${url} blocked by open circuit`);
@@ -136,7 +136,7 @@ async function fetchWithRetryInner(
         clearTimeout(timer);
 
         if (res.ok) {
-          recordSuccess(breakerToken.host, breakerToken.probing);
+          await recordSuccess(breakerToken.host, breakerToken.probing);
           if (attempt > 0) {
             console.log(`[mcp:${reqId}] ${method} ${url} → ${res.status} (recovered after ${attempt} retr${attempt === 1 ? "y" : "ies"})`);
           }
@@ -157,7 +157,7 @@ async function fetchWithRetryInner(
         // 4xx counts as a caller error, not an upstream-health signal —
         // don't trip the breaker on those. Only count 5xx + retries-exhausted.
         if (res.status >= 500) {
-          recordFailure(breakerToken.host, breakerToken.probing);
+          await recordFailure(breakerToken.host, breakerToken.probing);
           if (isWriteMethod(method)) {
             void recordDeadLetter(buildEntry({
               method, url, status: res.status, reason: lastReason,
@@ -166,7 +166,7 @@ async function fetchWithRetryInner(
           }
         } else {
           // Caller error — breaker stays closed, but probe still resolves
-          recordSuccess(breakerToken.host, breakerToken.probing);
+          await recordSuccess(breakerToken.host, breakerToken.probing);
         }
         return res;
       } catch (e) {
@@ -183,7 +183,7 @@ async function fetchWithRetryInner(
           continue;
         }
 
-        recordFailure(breakerToken.host, breakerToken.probing);
+        await recordFailure(breakerToken.host, breakerToken.probing);
         if (isWriteMethod(method)) {
           void recordDeadLetter(buildEntry({
             method, url, status: null, reason: lastReason,

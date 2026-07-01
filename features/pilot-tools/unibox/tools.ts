@@ -1,4 +1,4 @@
-import { callApi, strip, type McpServer } from "../shared";
+import { callApi, omitKey, strip, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
 
@@ -8,7 +8,7 @@ export function registerUniboxTools(server: McpServer): void {
     description: "List LinkedIn and email conversations — filter by channel, prospect, account, or archived status.",
     inputSchema: S.listChatsSchema,
   }, async (input) => callApi(input.bearer_token, (t) =>
-    repo.listChats(t, strip(input, "bearer_token") as any)));
+    repo.listChats(t, omitKey(input, "bearer_token"))));
 
   server.registerTool("get_chat", {
     title: "Get chat",

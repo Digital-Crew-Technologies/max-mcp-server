@@ -9,6 +9,10 @@ export function runWithMcpRequest<T>(request: Request, fn: () => T): T {
   return mcpRequestStore.run(request, fn);
 }
 
+export function getMcpRequest(): Request | undefined {
+  return mcpRequestStore.getStore();
+}
+
 /**
  * Reads Bearer token from incoming MCP connection Authorization header.
  */

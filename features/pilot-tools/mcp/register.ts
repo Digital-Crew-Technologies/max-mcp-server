@@ -73,6 +73,11 @@ export function registerPilotMcpTools(server: McpServer): void {
   }
 
   registerDashboardTools(server);
-  registerAdminTools(server);
-  registerWebhookTools(server);
+
+  if (process.env.ENABLE_ADMIN_TOOLS === "true") {
+    registerAdminTools(server);
+  }
+  if (process.env.ENABLE_WEBHOOK_SIMULATORS === "true") {
+    registerWebhookTools(server);
+  }
 }
