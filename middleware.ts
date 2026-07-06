@@ -14,6 +14,12 @@
 // (upstream credential) are DIFFERENT secrets — never reuse one for the other.
 
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  RAW_HERMES_CALLER_HEADER,
+  VERIFIED_HERMES_CALLER_HEADER,
+  verifyHermesCaller,
+  HermesCallerError,
+} from "@/shared/auth/hermes-caller";
 
 export const config = {
   matcher: ["/mcp", "/mcp/:path*", "/chat", "/chat/:path*"],
@@ -58,5 +64,32 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     return deny("Unauthorized: missing or invalid X-MCP-Gateway-Key", 401);
   }
 
-  return NextResponse.next();
+  // ── Hermes caller identity (Contract 3) ──────────────────────────────────
+  // Always strip any client-supplied VERIFIED header first, so it can only ever
+  // be set by us after a real signature check (prevents identity spoofing).
+  const forwardHeaders = new Headers(req.headers);
+  forwardHeaders.delete(VERIFIED_HERMES_CALLER_HEADER);
+
+  const rawCaller = req.headers.get(RAW_HERMES_CALLER_HEADER)?.trim();
+  if (rawCaller) {
+    const callerSecret = process.env.HERMES_CALLER_SECRET?.trim();
+    if (callerSecret) {
+      // A present envelope MUST verify — a bad/expired one is a hard 401 (don't
+      // silently drop it: the caller intended to assert an identity).
+      try {
+        const caller = await verifyHermesCaller(rawCaller, callerSecret, Date.now());
+        forwardHeaders.set(
+          VERIFIED_HERMES_CALLER_HEADER,
+          JSON.stringify(caller),
+        );
+      } catch (err) {
+        const reason = err instanceof HermesCallerError ? err.reason : "invalid";
+        return deny(`Unauthorized: invalid X-Hermes-Caller (${reason})`, 401);
+      }
+    }
+    // If HERMES_CALLER_SECRET is unset the feature is off: we can't verify, so we
+    // leave the verified header stripped and continue. The envelope has no effect.
+  }
+
+  return NextResponse.next({ request: { headers: forwardHeaders } });
 }
