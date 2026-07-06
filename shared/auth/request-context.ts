@@ -1,4 +1,9 @@
 import { AsyncLocalStorage } from "async_hooks";
+import {
+  parseVerifiedCaller,
+  VERIFIED_HERMES_CALLER_HEADER,
+  type HermesCaller,
+} from "./hermes-caller";
 
 const mcpRequestStore = new AsyncLocalStorage<Request>();
 
@@ -25,4 +30,18 @@ export function getAuthorizationBearerFromMcpRequest(): string | undefined {
 
   const token = header.slice(7).trim();
   return token || undefined;
+}
+
+/**
+ * The VERIFIED Hermes caller identity for the current MCP request, or undefined if
+ * the caller presented no (valid) X-Hermes-Caller envelope. Trustworthy because
+ * middleware only sets the verified header after checking the signature + expiry
+ * and strips any client-supplied copy first. Tool handlers use this to know which
+ * company/agent is calling and (later) to enforce the capability allowlist.
+ */
+export function getHermesCaller(): HermesCaller | undefined {
+  const req = mcpRequestStore.getStore();
+  const raw = req?.headers.get(VERIFIED_HERMES_CALLER_HEADER);
+  if (!raw) return undefined;
+  return parseVerifiedCaller(raw);
 }
