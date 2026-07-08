@@ -217,12 +217,12 @@
   {
     "name": "crm_upsert_company",
     "title": "Create or update a CRM company",
-    "description": "Create-or-update a company in the connected CRM, matched by domain — never creates a duplicate. Requires agent_settings.allow_crm_writes."
+    "description": "Create-or-update a company in the connected CRM, matched by domain — never creates a duplicate. Requires a read + write HubSpot connection."
   },
   {
     "name": "crm_upsert_contact",
     "title": "Create or update a CRM contact",
-    "description": "Create-or-update a contact in the connected CRM, matched by email — never creates a duplicate. Use when the user asks to add or update a contact in HubSpot. Requires agent_settings.allow_crm_writes."
+    "description": "Create-or-update a contact in the connected CRM, matched by email — never creates a duplicate. Use when the user asks to add or update a contact in HubSpot. Requires a read + write HubSpot connection."
   },
   {
     "name": "crm_weekly_brief_compose",
