@@ -14,9 +14,15 @@ type CacheEntry = {
   access_token: string;
   expires_at_ms: number;
   auth_method: string;
+  access_mode: "read" | "write";
 };
 
-export type HubSpotToken = { access_token: string; auth_method: string };
+export type HubSpotToken = {
+  access_token: string;
+  auth_method: string;
+  // "write" iff the workspace connected via the read+write HubSpot app. Gates writes.
+  access_mode: "read" | "write";
+};
 
 const CACHE_MAX = 256;
 const EXPIRY_BUFFER_MS = 30_000;
@@ -56,7 +62,11 @@ export async function getHubSpotAccessToken(
   if (cached && cached.expires_at_ms - EXPIRY_BUFFER_MS > now) {
     // Refresh recency.
     setEntry(key, cached);
-    return { access_token: cached.access_token, auth_method: cached.auth_method };
+    return {
+      access_token: cached.access_token,
+      auth_method: cached.auth_method,
+      access_mode: cached.access_mode,
+    };
   }
 
   let res: Response;
@@ -91,7 +101,12 @@ export async function getHubSpotAccessToken(
   }
 
   const data = (parsed as {
-    data?: { access_token?: unknown; expires_at?: unknown; auth_method?: unknown };
+    data?: {
+      access_token?: unknown;
+      expires_at?: unknown;
+      auth_method?: unknown;
+      access_mode?: unknown;
+    };
   })?.data;
   const accessToken = typeof data?.access_token === "string" ? data.access_token : null;
   if (!accessToken) {
@@ -101,6 +116,10 @@ export async function getHubSpotAccessToken(
   // static = pasted Service Key / Private App token → REST path. Anything else
   // (incl. missing) is treated as oauth → MCP path for the core objects.
   const authMethod = data?.auth_method === "static" ? "static" : "oauth";
+
+  // "write" only when max-agent reports the token was minted by the read+write
+  // app. Missing/anything-else → "read" (safe default: no writes).
+  const accessMode = data?.access_mode === "write" ? "write" : "read";
 
   const expiresAtRaw = data?.expires_at;
   const expiresAtMs =
@@ -112,8 +131,9 @@ export async function getHubSpotAccessToken(
     access_token: accessToken,
     expires_at_ms: expiresAtMs,
     auth_method: authMethod,
+    access_mode: accessMode,
   });
-  return { access_token: accessToken, auth_method: authMethod };
+  return { access_token: accessToken, auth_method: authMethod, access_mode: accessMode };
 }
 
 /**

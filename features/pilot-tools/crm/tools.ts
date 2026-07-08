@@ -22,7 +22,7 @@ type McpEnvelope = {
 };
 
 const WRITES_DISABLED_MSG =
-  "HubSpot writes are disabled for this workspace (agent_settings.allow_crm_writes is false). Enable in workspace settings.";
+  "HubSpot is connected in read-only mode for this workspace. To let Max update HubSpot, reconnect with read + write access (the toggle on the HubSpot integration card), then retry.";
 
 function ok(payload: unknown): McpEnvelope {
   const text = typeof payload === "string" ? payload : JSON.stringify(payload);
@@ -119,7 +119,7 @@ export function registerCrmTools(server: McpServer): void {
     {
       title: "Create or update a CRM contact",
       description:
-        "Create-or-update a contact in the connected CRM, matched by email — never creates a duplicate. Use when the user asks to add or update a contact in HubSpot. Requires agent_settings.allow_crm_writes.",
+        "Create-or-update a contact in the connected CRM, matched by email — never creates a duplicate. Use when the user asks to add or update a contact in HubSpot. Requires a read + write HubSpot connection.",
       inputSchema: S.crmUpsertContactSchema,
     },
     async (input) => {
@@ -153,7 +153,7 @@ export function registerCrmTools(server: McpServer): void {
     {
       title: "Create or update a CRM company",
       description:
-        "Create-or-update a company in the connected CRM, matched by domain — never creates a duplicate. Requires agent_settings.allow_crm_writes.",
+        "Create-or-update a company in the connected CRM, matched by domain — never creates a duplicate. Requires a read + write HubSpot connection.",
       inputSchema: S.crmUpsertCompanySchema,
     },
     async (input) => {
