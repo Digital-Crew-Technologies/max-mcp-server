@@ -3,6 +3,8 @@ import {
   getDigitalCrewBaseUrl,
   resolveBearerToken,
 } from "@/shared/http/digitalcrew-client";
+import { getVerifiedHermesCallerHeader } from "@/shared/auth/request-context";
+import { VERIFIED_HERMES_CALLER_HEADER } from "@/shared/auth/hermes-caller";
 import { responseBodyText, sanitizeUpstreamError } from "@/shared/http/response";
 import { fetchWithRetry } from "./http";
 
@@ -13,10 +15,19 @@ export function apiUrl(path: string): string {
 }
 
 export function authHeaders(token: string): Record<string, string> {
-  return {
+  const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
   };
+  // Forward the verified Hermes caller identity (if this request carries one) so
+  // max-agent can run its tenant cross-check + capability allowlist. The bearer
+  // above stays the authoritative identity; this header is only ever used
+  // downstream to reject (tenant mismatch) or gate (capability), never to elevate.
+  const caller = getVerifiedHermesCallerHeader();
+  if (caller) {
+    headers[VERIFIED_HERMES_CALLER_HEADER] = caller;
+  }
+  return headers;
 }
 
 export function buildQuery(params: Record<string, unknown>): string {

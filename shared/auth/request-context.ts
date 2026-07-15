@@ -45,3 +45,16 @@ export function getHermesCaller(): HermesCaller | undefined {
   if (!raw) return undefined;
   return parseVerifiedCaller(raw);
 }
+
+/**
+ * The RAW verified caller header value (canonical JSON) for the current MCP
+ * request, or undefined if none. Forwarded verbatim on outbound calls to
+ * max-agent so it can run its own tenant cross-check + capability allowlist.
+ * We forward the exact string middleware set (already signature-verified) rather
+ * than re-serializing, to preserve byte-for-byte fidelity.
+ */
+export function getVerifiedHermesCallerHeader(): string | undefined {
+  const req = mcpRequestStore.getStore();
+  const raw = req?.headers.get(VERIFIED_HERMES_CALLER_HEADER)?.trim();
+  return raw || undefined;
+}
