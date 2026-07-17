@@ -595,6 +595,11 @@
     "description": "List the AI-generated campaign proposals produced from detected signals, optionally filtered by status (pending, approved, rejected, modified, launched, expired). An unknown status is ignored and all proposals are returned. Returns {data: SignalProposal[]}. Review pending proposals before approving them."
   },
   {
+    "name": "meetings",
+    "title": "Meetings (grouped)",
+    "description": "Read the workspace's meetings from the meeting hub. The workspace comes from your bearer token — prospect_id filters within it.\n\nActions (set \"action\": \"<one of>\"):\n  • list — List the workspace's meetings, newest first. Filter by prospect_id, status, free-text search, and a from/to window over startedAt. Returns {data: MeetingSessionSummaryDto[], nextCursor}: each row has id, title, platform, source, status, startedAt, endedAt, participantCount, hasTranscript, hasSummary, hasRecording and openTaskCount. Paginated — pass the returned nextCursor back as cursor to get the next page; nextCursor null means the last page.\n  • get — Get one meeting in detail by session id: a MeetingSessionDetailDto with per-stage health, the participant roster, the current summary, the current transcript POINTER (version number + staleness), and derived flags (summaryStale, recordingAvailable). To control token cost the raw transcript SEGMENTS are omitted here — the response carries transcriptOmitted {segmentCount, transcriptVersionNumber}; call get_transcript for the words. Returns {data: MeetingSessionDetailDto, transcriptOmitted?}. 404 if the meeting is not in your workspace.\n  • get_transcript — Get one meeting's transcript. Omit version for the current (authoritative) version; pass a version number for a historical one. BOUNDED FOR TOKEN COST: returns a WINDOW of segments (default 50, max 200), not the whole transcript — the response carries transcriptWindow {totalSegments, offset, limit, returnedSegments, nextOffset, truncated}. Page by re-calling with offset = the previous nextOffset (null means no more). Prefer get_summary for an overview; page the transcript only when you need exact wording. Returns {data: TranscriptVersionDto (windowed segments), transcriptWindow}. 400 on a bad version, 404 if the meeting or version is not found.\n  • get_summary — Get one meeting's current summary — the token-cheap overview to reach for before the raw transcript. Returns {data: MeetingSummaryDto} with summary, keyDecisions, discussionPoints, risksOpenQuestions, sentiment, nextSteps, and the source transcript version it was generated from. Returns {data: null} (not an error) when the meeting exists but has no summary yet (e.g. still processing). 404 if the meeting is not in your workspace.\n  • list_participants — List one meeting's participant roster. Returns {data: MeetingParticipantDto[]}: each has displayName, email, role, isInternal, and the SUGGESTED prospect match (prospectId, matchStatus, matchConfidence, relationType). A match is a machine suggestion until a human confirms it — never treat matchStatus 'suggested' as fact. Unpaginated (bounded by meeting size). 404 if the meeting is not in your workspace."
+  },
+  {
     "name": "modify_proposal",
     "title": "Modify a pending signal proposal",
     "description": "Adjust a pending proposal WITHOUT launching it: pass modifications (titles, target_prospect_ids, campaign_name, campaign_description) to re-select prospects and regenerate the campaign workflow. The proposal stays pending so it can be reviewed and approved later. Returns the updated {data: SignalProposal}. Fails with 409 if the proposal is not pending, or 404 if not found."
@@ -633,6 +638,16 @@
     "name": "propose_times",
     "title": "Propose the soonest available times",
     "description": "Return the n soonest available slots as a flat list — handy for offering a prospect a few concrete times. count is 1-50 (default 3); event_type_id defaults to the connection's default event type; time_zone is an optional IANA string. Returns {data: {eventTypeId, slots: [{start, end?}]}}. Fails with 409 if no calendar is connected."
+  },
+  {
+    "name": "prospect_list_meetings",
+    "title": "List a prospect's meetings",
+    "description": "List the meetings involving one prospect, newest first — the prospect meeting feed. Same filters and shape as the `meetings` group's list action, with prospect_id required. Returns {data: MeetingSessionSummaryDto[], nextCursor}. Paginated: echo nextCursor back as cursor; null means the last page. prospect_id filters within your authenticated workspace."
+  },
+  {
+    "name": "prospect_list_tasks",
+    "title": "List a prospect's tasks",
+    "description": "List the tasks about one prospect, newest first. Same filters and shape as the `tasks` group's list action, with prospect_id required. Returns {data: TaskDto[], nextCursor}. Paginated: echo nextCursor back as cursor; null means the last page. prospect_id filters within your authenticated workspace."
   },
   {
     "name": "reject_inbox_draft",
@@ -718,6 +733,11 @@
     "name": "stop_campaign",
     "title": "Stop campaign",
     "description": "Stop an active or paused campaign permanently — cannot be resumed."
+  },
+  {
+    "name": "tasks",
+    "title": "Tasks (grouped)",
+    "description": "Read tasks and propose new ones. Agents propose, humans dispose: you can create suggestions and drive accepted work forward, but only a human can approve or reject a suggestion. The workspace comes from your bearer token.\n\nActions (set \"action\": \"<one of>\"):\n  • list — List the workspace's tasks, newest first. Filter by prospect_id, session_id, status, and assignee. Use status:[\"suggested\"] to see what is waiting on human review. Returns {data: TaskDto[], nextCursor}. Paginated — pass nextCursor back as cursor; null means the last page.\n  • get — Get one task by UUID. Returns {data: TaskDto} — including `updatedAt`, which is the expected_version token you must pass to update or complete. 404 if the task is not in your workspace.\n  • create_suggestion — Propose a task for human review. Always creates it with status='suggested' — you cannot create an approved task, and there is no tool to approve one; a human does that in the UI. Pass dedup_key to make retries idempotent (a known key returns the stored task with deduplicated:true instead of creating a duplicate). Returns {data: TaskDto}.\n  • update — Edit a task's fields, or move it to in_progress / completed / cancelled. Requires expected_version — the `updatedAt` you last read (get it from tasks/get). If someone changed the task since you read it the call returns 409 with the current task: re-read it, re-apply your edit, then retry. You cannot set status to approved or rejected — only a signed-in human can review a suggestion. Returns {data: TaskDto}.\n  • complete — Mark an approved or in-progress task completed. Requires expected_version — the `updatedAt` you last read; a mismatch returns 409 with the current task. An unreviewed suggestion cannot be completed (409 invalid_transition): a human approves it first. Returns {data: TaskDto}."
   },
   {
     "name": "update_account",
