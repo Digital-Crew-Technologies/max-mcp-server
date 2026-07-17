@@ -14,6 +14,8 @@ import { registerIntentTools } from "../intent/tools";
 import { registerInboxTools } from "../inbox/tools";
 import { registerCrmTools } from "../crm/tools";
 import { registerCalendarTools } from "../calendar/tools";
+import { registerMeetingTools } from "../meetings/tools";
+import { registerTaskTools } from "../tasks/tools";
 import { registerEmailAnalyticsTools } from "../email-analytics/tools";
 import { registerCrmLeadDispatchTools } from "../crm/lead-dispatch";
 import { registerCrmComposerTools } from "../crm/composers";
@@ -58,6 +60,11 @@ export function registerPilotMcpTools(server: McpServer): void {
   registerInboxTools(server);
   registerCrmTools(server);
   registerCalendarTools(server);
+  // Meeting hub + shared task system. Grouped from the start (`meetings`,
+  // `tasks`) rather than flat — the grouped pattern is the direction of travel
+  // and these are new tools, so there is no back-compat flat name to keep.
+  registerMeetingTools(server);
+  registerTaskTools(server);
   registerEmailAnalyticsTools(server);
   registerCrmLeadDispatchTools(server);
   registerCrmComposerTools(server);
