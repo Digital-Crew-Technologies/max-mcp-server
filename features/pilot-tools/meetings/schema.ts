@@ -85,3 +85,67 @@ export const prospectListMeetingsSchema = z.object({
     .describe("Prospect UUID whose meeting feed to read."),
   ...listFilters,
 });
+
+// ── single-meeting reads ─────────────────────────────────────────────────────
+//
+// All four take a session `id` and nothing that could select a tenant — the
+// workspace is derived from the bearer, and a session in another workspace
+// reads back as 404 (never 403, which would confirm the id exists).
+
+export const getMeetingSchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Meeting session UUID."),
+});
+
+/**
+ * Segment-window bounds for get_transcript.
+ *
+ * A transcript version is one flat list of segments — a long meeting is
+ * thousands of them, tens of thousands of tokens. The upstream route has no
+ * paging of its own (it returns the whole version), so the tool windows the
+ * segments client-side: a bounded slice by default, paged with offset +
+ * nextOffset. These live here (not tools.ts) so the schema can reference the
+ * max without a tools→schema→tools import cycle.
+ */
+export const TRANSCRIPT_DEFAULT_SEGMENTS = 50;
+export const TRANSCRIPT_MAX_SEGMENTS = 200;
+
+export const getTranscriptSchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Meeting session UUID."),
+  version: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe(
+      "Transcript version number. Omit for the current (authoritative) version; pass N for a historical one — the raw v1 stays addressable forever.",
+    ),
+  offset: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe(
+      "Segment window start (default 0). The transcript is returned in bounded segment windows to control token cost — page through with offset plus the returned transcriptWindow.nextOffset.",
+    ),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(TRANSCRIPT_MAX_SEGMENTS)
+    .optional()
+    .describe(
+      `Segments per window, 1-${TRANSCRIPT_MAX_SEGMENTS} (default ${TRANSCRIPT_DEFAULT_SEGMENTS}). Prefer get_summary for a token-cheap overview; only page the raw transcript when you need the exact words.`,
+    ),
+});
+
+export const getSummarySchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Meeting session UUID."),
+});
+
+export const listParticipantsSchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Meeting session UUID."),
+});

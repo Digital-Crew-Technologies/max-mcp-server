@@ -87,6 +87,10 @@ describe("meetings capability names", () => {
   it("registers meetings.read for every read tool", () => {
     expect(MEETINGS_CAPABILITIES).toEqual({
       "meetings.list": "meetings.read",
+      "meetings.get": "meetings.read",
+      "meetings.get_transcript": "meetings.read",
+      "meetings.get_summary": "meetings.read",
+      "meetings.list_participants": "meetings.read",
       prospect_list_meetings: "meetings.read",
     });
   });
@@ -182,5 +186,290 @@ describe("meetings error handling", () => {
     const res = await tool("meetings").handler({ action: "list", bearer_token: "t" });
     expect(res.content[0].text).not.toContain("sk-live-supersecret");
     expect(res.content[0].text).toContain("[redacted]");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Single-meeting reads: get, get_transcript, get_summary, list_participants
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SID = "22222222-2222-2222-2222-222222222222";
+
+/** N transcript segments, each a distinct sentence. */
+function segments(n: number): Array<Record<string, unknown>> {
+  return Array.from({ length: n }, (_, i) => ({
+    sequenceNumber: i + 1,
+    speakerLabel: `Speaker ${i % 2}`,
+    participantId: null,
+    startMs: i * 1000,
+    endMs: i * 1000 + 900,
+    text: `This is segment number ${i + 1}.`,
+    confidence: 0.9,
+  }));
+}
+
+describe("single-meeting read actions exist on the grouped tool", () => {
+  it("exposes get, get_transcript, get_summary, list_participants", async () => {
+    for (const action of ["get", "get_transcript", "get_summary", "list_participants"]) {
+      const fetchMock = mockFetch({ data: {} });
+      await tool("meetings").handler({ action, bearer_token: "t", id: SID });
+      expect(
+        calledUrl(fetchMock).pathname.startsWith(`/api/v1/meeting-hub/sessions/${SID}`),
+        `action "${action}" should hit the session detail namespace`,
+      ).toBe(true);
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe("meetings.get (detail)", () => {
+  it("GETs /sessions/:id", async () => {
+    const fetchMock = mockFetch({ data: { id: SID, currentTranscript: null } });
+    await tool("meetings").handler({ action: "get", bearer_token: "t", id: SID });
+    expect(calledUrl(fetchMock).pathname).toBe(`/api/v1/meeting-hub/sessions/${SID}`);
+  });
+
+  it("omits the embedded transcript segments to control token cost", async () => {
+    // MeetingSessionDetailDto.currentTranscript carries the FULL transcript — a
+    // detail read must not become a whole-transcript dump.
+    mockFetch({
+      data: {
+        id: SID,
+        title: "Q3 review",
+        currentTranscript: { versionNumber: 4, segments: segments(800) },
+        currentSummary: { summary: "kept" },
+      },
+    });
+    const res = await tool("meetings").handler({ action: "get", bearer_token: "t", id: SID });
+    const body = JSON.parse(res.content[0].text);
+
+    expect(body.data.currentTranscript.segments).toEqual([]);
+    // The rest of the detail survives untouched.
+    expect(body.data.title).toBe("Q3 review");
+    expect(body.data.currentSummary.summary).toBe("kept");
+    // And the caller is told what happened + where to get the words.
+    expect(body.transcriptOmitted.segmentCount).toBe(800);
+    expect(body.transcriptOmitted.transcriptVersionNumber).toBe(4);
+  });
+
+  it("leaves a detail with no transcript untouched", async () => {
+    mockFetch({ data: { id: SID, currentTranscript: null } });
+    const res = await tool("meetings").handler({ action: "get", bearer_token: "t", id: SID });
+    const body = JSON.parse(res.content[0].text);
+    expect(body.data.currentTranscript).toBeNull();
+    expect(body).not.toHaveProperty("transcriptOmitted");
+  });
+
+  it("surfaces a 404 as a clean not-found, not an exception dump", async () => {
+    mockFetch({ error: "Session not found" }, { status: 404 });
+    const res = await tool("meetings").handler({ action: "get", bearer_token: "t", id: SID });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain("404");
+    expect(res.content[0].text).toContain("Session not found");
+  });
+});
+
+describe("meetings.get_transcript (bounded)", () => {
+  it("GETs /sessions/:id/transcript and passes version through", async () => {
+    const fetchMock = mockFetch({ data: { versionNumber: 2, segments: segments(3) } });
+    await tool("meetings").handler({
+      action: "get_transcript",
+      bearer_token: "t",
+      id: SID,
+      version: 2,
+    });
+    const url = calledUrl(fetchMock);
+    expect(url.pathname).toBe(`/api/v1/meeting-hub/sessions/${SID}/transcript`);
+    expect(url.searchParams.get("version")).toBe("2");
+  });
+
+  it("omits version on the query when not asked for (current version)", async () => {
+    const fetchMock = mockFetch({ data: { versionNumber: 5, segments: segments(3) } });
+    await tool("meetings").handler({ action: "get_transcript", bearer_token: "t", id: SID });
+    expect(calledUrl(fetchMock).searchParams.has("version")).toBe(false);
+  });
+
+  it("does NOT bound by dumping every segment — defaults to a 50-segment window", async () => {
+    mockFetch({ data: { versionNumber: 1, segments: segments(800) } });
+    const res = await tool("meetings").handler({
+      action: "get_transcript",
+      bearer_token: "t",
+      id: SID,
+    });
+    const body = JSON.parse(res.content[0].text);
+    expect(body.data.segments).toHaveLength(50);
+    expect(body.transcriptWindow.totalSegments).toBe(800);
+    expect(body.transcriptWindow.returnedSegments).toBe(50);
+    expect(body.transcriptWindow.offset).toBe(0);
+    expect(body.transcriptWindow.nextOffset).toBe(50);
+    expect(body.transcriptWindow.truncated).toBe(true);
+  });
+
+  it("never sends the client-side offset/limit to the upstream route", async () => {
+    const fetchMock = mockFetch({ data: { versionNumber: 1, segments: segments(200) } });
+    await tool("meetings").handler({
+      action: "get_transcript",
+      bearer_token: "t",
+      id: SID,
+      offset: 50,
+      limit: 25,
+    });
+    const url = calledUrl(fetchMock);
+    expect(url.searchParams.has("offset")).toBe(false);
+    expect(url.searchParams.has("limit")).toBe(false);
+  });
+
+  it("pages via offset + nextOffset", async () => {
+    mockFetch({ data: { versionNumber: 1, segments: segments(120) } });
+    const res = await tool("meetings").handler({
+      action: "get_transcript",
+      bearer_token: "t",
+      id: SID,
+      offset: 50,
+      limit: 50,
+    });
+    const body = JSON.parse(res.content[0].text);
+    expect(body.data.segments).toHaveLength(50);
+    expect(body.data.segments[0].sequenceNumber).toBe(51);
+    expect(body.transcriptWindow.offset).toBe(50);
+    expect(body.transcriptWindow.nextOffset).toBe(100);
+  });
+
+  it("reports nextOffset null on the last window", async () => {
+    mockFetch({ data: { versionNumber: 1, segments: segments(60) } });
+    const res = await tool("meetings").handler({
+      action: "get_transcript",
+      bearer_token: "t",
+      id: SID,
+      offset: 50,
+      limit: 50,
+    });
+    const body = JSON.parse(res.content[0].text);
+    expect(body.data.segments).toHaveLength(10);
+    expect(body.transcriptWindow.nextOffset).toBeNull();
+    expect(body.transcriptWindow.truncated).toBe(true); // started at 50
+  });
+
+  it("caps the window at the 200-segment max even if a larger limit slips through", async () => {
+    mockFetch({ data: { versionNumber: 1, segments: segments(500) } });
+    // The schema caps limit at 200; assert the transform enforces it too, so a
+    // client that bypasses validation still cannot demand 500 segments.
+    const res = await tool("meetings").handler({
+      action: "get_transcript",
+      bearer_token: "t",
+      id: SID,
+      limit: 5000,
+    });
+    const body = JSON.parse(res.content[0].text);
+    expect(body.data.segments).toHaveLength(200);
+    expect(body.transcriptWindow.limit).toBe(200);
+  });
+
+  it("handles a short transcript without truncation", async () => {
+    mockFetch({ data: { versionNumber: 1, segments: segments(3) } });
+    const res = await tool("meetings").handler({
+      action: "get_transcript",
+      bearer_token: "t",
+      id: SID,
+    });
+    const body = JSON.parse(res.content[0].text);
+    expect(body.data.segments).toHaveLength(3);
+    expect(body.transcriptWindow.nextOffset).toBeNull();
+    expect(body.transcriptWindow.truncated).toBe(false);
+  });
+
+  it("surfaces a 400 invalid version cleanly", async () => {
+    mockFetch({ error: "Invalid version", details: [] }, { status: 400 });
+    const res = await tool("meetings").handler({
+      action: "get_transcript",
+      bearer_token: "t",
+      id: SID,
+      version: 1,
+    });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain("400");
+  });
+
+  it("surfaces a 404 (no such version) cleanly, without a window", async () => {
+    mockFetch({ error: "Transcript version not found" }, { status: 404 });
+    const res = await tool("meetings").handler({
+      action: "get_transcript",
+      bearer_token: "t",
+      id: SID,
+      version: 99,
+    });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain("404");
+    expect(res.content[0].text).not.toContain("transcriptWindow");
+  });
+});
+
+describe("meetings.get_summary", () => {
+  it("GETs /sessions/:id/summary", async () => {
+    const fetchMock = mockFetch({ data: { summary: "We agreed on pricing." } });
+    await tool("meetings").handler({ action: "get_summary", bearer_token: "t", id: SID });
+    expect(calledUrl(fetchMock).pathname).toBe(
+      `/api/v1/meeting-hub/sessions/${SID}/summary`,
+    );
+  });
+
+  it("surfaces {data: null} (no summary yet) as a clean result, not an error", async () => {
+    mockFetch({ data: null });
+    const res = await tool("meetings").handler({
+      action: "get_summary",
+      bearer_token: "t",
+      id: SID,
+    });
+    expect(res.isError).toBeFalsy();
+    expect(JSON.parse(res.content[0].text).data).toBeNull();
+  });
+
+  it("surfaces a 404 (no such meeting) as a clean not-found", async () => {
+    mockFetch({ error: "Session not found" }, { status: 404 });
+    const res = await tool("meetings").handler({
+      action: "get_summary",
+      bearer_token: "t",
+      id: SID,
+    });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain("404");
+  });
+});
+
+describe("meetings.list_participants", () => {
+  it("GETs /sessions/:id/participants", async () => {
+    const fetchMock = mockFetch({ data: [] });
+    await tool("meetings").handler({
+      action: "list_participants",
+      bearer_token: "t",
+      id: SID,
+    });
+    expect(calledUrl(fetchMock).pathname).toBe(
+      `/api/v1/meeting-hub/sessions/${SID}/participants`,
+    );
+  });
+
+  it("returns the roster untouched", async () => {
+    const roster = [
+      { id: "p1", displayName: "Ada", matchStatus: "suggested", prospectId: null },
+    ];
+    mockFetch({ data: roster });
+    const res = await tool("meetings").handler({
+      action: "list_participants",
+      bearer_token: "t",
+      id: SID,
+    });
+    expect(JSON.parse(res.content[0].text).data).toEqual(roster);
+  });
+
+  it("surfaces a 404 as a clean not-found", async () => {
+    mockFetch({ error: "Session not found" }, { status: 404 });
+    const res = await tool("meetings").handler({
+      action: "list_participants",
+      bearer_token: "t",
+      id: SID,
+    });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain("404");
   });
 });
