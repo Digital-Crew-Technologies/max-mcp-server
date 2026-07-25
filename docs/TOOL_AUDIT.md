@@ -1,5 +1,7 @@
 # MCP Endpoint Audit Report
 
+> **⚠️ Historical snapshot.** This audit ran against the 63-tool era; the server now registers 158 tools. Regenerate against a live server with `node scripts/audit-endpoints.mjs`. See [`tools.json`](tools.json) for the current inventory.
+
 **Generated:** 2026-05-27T19:43:48.280Z
 **Server:** http://localhost:3011
 **Tools audited:** 63

@@ -1,6 +1,6 @@
 # MCP Tool Reference
 
-Complete catalog of all **66 MCP tools** exposed by `max-mcp-server`. Each entry includes the underlying HTTP endpoint, required scope, key inputs, and a one-line description.
+Complete catalog of the MCP tools exposed by `max-mcp-server` — **158 tools** with all feature flags on (`ENABLE_ADMIN_TOOLS`, `ENABLE_WEBHOOK_SIMULATORS`), 149 in the default flat configuration. With `GROUPED_TOOLS=true` the 19 `linkedin_*` tools collapse into one grouped `linkedin` tool. The machine-generated source of truth is [`docs/tools.json`](./tools.json) (regenerate with `npm run docs:tools`; CI enforces sync via `npm run docs:check`). Each entry below includes the underlying HTTP endpoint and a one-line description; legacy domains also list the required scope.
 
 Every tool accepts an optional `bearer_token` argument that overrides the bearer extracted from the MCP request or environment.
 
@@ -45,7 +45,7 @@ The Max API recognizes two auth types and a set of fine-grained scopes:
 
 ---
 
-## Campaigns (14)
+## Campaigns (16)
 
 | Tool | HTTP | Scope | Description |
 |---|---|---|---|
@@ -63,6 +63,8 @@ The Max API recognizes two auth types and a set of fine-grained scopes:
 | `get_campaign_stats` | `GET /api/v1/campaigns/:id/stats` | `campaigns:read` | Aggregate counters — sent/opened/replied per channel |
 | `get_campaign_lead_analytics` | `GET /api/v1/campaigns/:id/lead-analytics` | `campaigns:read` | Per-prospect message-event timeline |
 | `get_campaign_node_run_counts` | `GET /api/v1/campaigns/:id/node-run-counts` | `campaigns:read` | Workflow-node execution counts for funnel viz |
+| `get_campaign_memory` | `GET /api/v1/campaigns/:id/memory` | `campaigns:read` | Read the campaign's agent memory notes |
+| `update_campaign_memory` | `PATCH /api/v1/campaigns/:id/memory` | `campaigns:write` | Update the campaign's agent memory notes |
 
 ---
 
@@ -127,7 +129,7 @@ The Max API recognizes two auth types and a set of fine-grained scopes:
 
 ---
 
-## Unibox (6)
+## Unibox (7)
 
 | Tool | HTTP | Scope | Description |
 |---|---|---|---|
@@ -137,6 +139,7 @@ The Max API recognizes two auth types and a set of fine-grained scopes:
 | `archive_chat` | `DELETE /api/v1/unibox/chats/:id` | `unibox:write` | Soft delete (messages preserved) |
 | `list_chat_messages` | `GET /api/v1/unibox/chats/:id/messages` | `unibox:read` | Message list with direction (in/out) and status |
 | `send_chat_message` | `POST /api/v1/unibox/chats/:id/messages` | `unibox:write` | Send manual reply — channel inferred from chat |
+| `send_new_email` | `POST /api/v1/unibox/send-email` | `unibox:write` | Start a new outbound email thread to any address |
 
 ---
 
@@ -147,7 +150,7 @@ The Max API recognizes two auth types and a set of fine-grained scopes:
 | `generate_workflow` | `POST /api/v1/ai-agent/generate-workflow` | _credits_ | Generate a complete campaign workflow from natural language |
 | `generate_message_preview` | `POST /api/v1/ai-agent/generate-message-preview` | _credits_ | Generate a personalized message for one prospect on one channel |
 
-Both charge credits. Check balance with `get_workspace_balance` (JWT-only). On `402`, body contains `{ details: { required, balance } }`.
+Both charge credits. Billing endpoints are JWT-only and not exposed as MCP tools — check the balance in the Max app. On `402`, body contains `{ details: { required, balance } }`.
 
 ---
 
@@ -186,9 +189,203 @@ endpoints accept it; pick whichever supplier the workspace has an API key for.
 
 ---
 
-## Admin / Diagnostics (3, MCP-only)
+## Claire research (5)
 
-These are local to the MCP server and don't call the Max API.
+Proxy to the Claire research hub via max-agent. These max-agent routes are session-JWT-only.
+
+| Tool | Backend | Description |
+|---|---|---|
+| `claire_search` | `POST /api/v1/claire/search` | Free-text research query against Claire's hub. |
+| `claire_deep_research` | `POST /api/v1/claire/deep-research` | Multi-source background research on a named person or company. |
+| `claire_market_watch` | `POST /api/v1/claire/market-watch` | Run a market-watch pass on a URL, optionally filtered by criteria (e.g. |
+| `claire_find_competitors` | `POST /api/v1/claire/competitor-finder` | Identify direct competitors of a company by URL. |
+| `claire_extract_prospects_from_url` | `POST /api/v1/claire/extract-prospects` | Fetch a public URL (conference attendee list, team / about page, press release, panel announcement, etc.) and extract structured prospects (people / contacts) from it via Claire. |
+
+---
+
+## Enrichment (5)
+
+| Tool | Backend | Description |
+|---|---|---|
+| `enrich_prospect` | `POST /api/v1/enrichment/prospect/:id` | Run Claire deep-research on a prospect and save the result onto the record. |
+| `enrich_organization` | `POST /api/v1/enrichment/organization/:id` | Run Claire deep-research on an organization and save the result onto the record. |
+| `bulk_enrich` | `POST /api/v1/enrichment/bulk` | Queue many prospects and/or organizations for background enrichment by the cron worker (does NOT run inline). |
+| `get_enrichment_status` | `GET /api/v1/enrichment/status` | Check the enrichment state of a single prospect or organization. |
+| `get_enrichment_credits` | `GET /api/v1/enrichment/credits` | Return the workspace's daily enrichment quota usage: {cap, used_today, remaining}. |
+
+---
+
+## Intent signals (9)
+
+| Tool | Backend | Description |
+|---|---|---|
+| `create_intent_trigger` | `POST /api/v1/intent/triggers` | Set up a trigger that watches a target URL for a buying signal (funding, hiring, tech_stack, news, job_change, or custom). |
+| `list_intent_signals` | `GET /api/v1/intent/triggers` | List the workspace's intent triggers (optionally filtered by active state) so you can see what is being monitored and review recent signal activity. |
+| `get_signal_history` | `GET /api/v1/intent/signals` | Return the detected SignalEvent rows for a single trigger — each event records whether the poll found changes, a summary, and the raw scrape. |
+| `disable_trigger` | `PATCH /api/v1/intent/triggers/:id` | Disable an intent trigger (sets active=false) so it stops re-polling. |
+| `list_signal_proposals` | `GET /api/v1/intent/proposals` | List the AI-generated campaign proposals produced from detected signals, optionally filtered by status (pending, approved, rejected, modified, launched, expired). |
+| `get_signal_proposal` | `GET /api/v1/intent/proposals/:id` | Fetch a single signal proposal by id, including its full recommendation (campaign name/description, workflow_config, target_prospect_ids, estimated contacts/credits, matched ICP... |
+| `approve_proposal` | `POST /api/v1/intent/proposals/:id/approve` | Approve a pending proposal and launch its draft campaign. |
+| `reject_proposal` | `POST /api/v1/intent/proposals/:id/reject` | Reject a pending proposal so it will not be launched. |
+| `modify_proposal` | `POST /api/v1/intent/proposals/:id/modify` | Adjust a pending proposal WITHOUT launching it: pass modifications (titles, target_prospect_ids, campaign_name, campaign_description) to re-select prospects and regenerate the c... |
+
+---
+
+## Inbox autopilot (5)
+
+| Tool | Backend | Description |
+|---|---|---|
+| `set_inbox_autopilot` | `PUT /api/v1/inbox/autopilot` | Set the workspace's inbox autopilot configuration. |
+| `get_inbox_autopilot_status` | `GET /api/v1/inbox/autopilot` | Return the workspace's current inbox autopilot setting: {enabled, mode ('auto_safe'\|'draft_all'\|'off'), daily_cap}. |
+| `list_inbox_drafts` | `GET /api/v1/inbox/drafts` | List the autopilot-generated reply drafts awaiting review (status='draft') for the workspace, newest first. |
+| `approve_inbox_draft` | `POST /api/v1/inbox/drafts/:id/approve` | Approve a drafted reply and send it in-thread via Unipile, setting the action's status to 'approved'. |
+| `reject_inbox_draft` | `POST /api/v1/inbox/drafts/:id/reject` | Reject a drafted reply so it will not be sent, setting the action's status to 'rejected'. |
+
+---
+
+## Calendar (8)
+
+| Tool | Backend | Description |
+|---|---|---|
+| `connect_calendar` | `POST /api/v1/calendar/connection` | Connect the workspace's self-hosted Cal.com instance so Max can read availability and book meetings. |
+| `calendar_status` | `GET /api/v1/calendar/connection` | Return the workspace's Cal.com connection status. |
+| `get_availability` | `GET /api/v1/calendar/availability` | Fetch open booking slots for an event type, grouped by date. |
+| `propose_times` | `POST /api/v1/calendar/propose-times` | Return the n soonest available slots as a flat list — handy for offering a prospect a few concrete times. |
+| `book_meeting` | `POST /api/v1/calendar/book` | Create a Cal.com booking and record it as a meeting. |
+| `send_booking_link` | `POST /api/v1/calendar/booking-link` | Compose the rep's public Cal.com booking link so it can be shared with a prospect. |
+| `get_upcoming_meetings` | `GET /api/v1/calendar/meetings` | List upcoming non-cancelled meetings ordered by start time ascending. |
+| `cancel_meeting` | `POST /api/v1/calendar/meetings/:id/cancel` | Cancel a recorded meeting by its meetings.id UUID. |
+
+---
+
+## Meeting hub (2)
+
+Grouped tools (always grouped, independent of `GROUPED_TOOLS`). The `meetings` tool exposes actions `list`, `get`, `get_transcript`, `get_summary`, `list_participants` over `GET /api/v1/meeting-hub/sessions*`.
+
+| Tool | Backend | Description |
+|---|---|---|
+| `meetings` | `GET /api/v1/meeting-hub/sessions[...]` | Read the workspace's meetings from the meeting hub. |
+| `prospect_list_meetings` | `GET /api/v1/meeting-hub/sessions?prospect_id=...` | List the meetings involving one prospect, newest first — the prospect meeting feed. |
+
+---
+
+## Tasks (2)
+
+Grouped tools. The `tasks` tool exposes actions `list`, `get`, `create_suggestion`, `update`, `complete` over `/api/v1/tasks*` (optimistic locking via `expectedVersion`).
+
+| Tool | Backend | Description |
+|---|---|---|
+| `tasks` | `GET/POST/PATCH /api/v1/tasks[...]` | Read tasks and propose new ones. |
+| `prospect_list_tasks` | `GET /api/v1/tasks?prospect_id=...` | List the tasks about one prospect, newest first. |
+
+---
+
+## Email analytics (4)
+
+| Tool | Backend | Description |
+|---|---|---|
+| `get_email_tracking_events` | `GET /api/v1/analytics/email-events` | Raw per-event email tracking rows for a prospect (opens, clicks, replies, bounces) with url/ip/user_agent detail. |
+| `get_prospect_engagement_timeline` | `GET /api/v1/analytics/prospect-timeline` | Chronological email engagement timeline for a prospect (oldest first) — every open, click, reply, and bounce. |
+| `get_link_click_details` | `GET /api/v1/analytics/link-clicks` | Link clicks for a campaign grouped by url, with total click counts and unique-prospect counts. |
+| `get_campaign_engagement_summary` | `GET /api/v1/analytics/campaign-summary` | Engagement summary for a campaign: open/click/reply/bounce rates plus per-link click detail (top links, distinct URLs clicked). |
+
+---
+
+## CRM / HubSpot (16)
+
+Token resolved via `GET /api/v1/crm/access-token` on max-agent, then HubSpot's REST API (`api.hubapi.com`) is called directly. Writes are gated on the connected token's `access_mode`.
+
+| Tool | Backend | Description |
+|---|---|---|
+| `crm_status` | `probe + GET /api/v1/crm/access-token` | Report whether HubSpot is connected for this workspace. |
+| `crm_search_contacts` | `POST hubapi /crm/v3/objects/contacts/search` | Search the connected CRM (HubSpot) for contacts by free text (name, email, company). |
+| `crm_get_contact` | `POST hubapi /crm/v3/objects/contacts/search` | Fetch a single CRM contact by email (the dedup identity). |
+| `crm_upsert_contact` | `POST/PATCH hubapi /crm/v3/objects/contacts` | Create-or-update a contact in the connected CRM, matched by email — never creates a duplicate. |
+| `crm_upsert_company` | `POST/PATCH hubapi /crm/v3/objects/companies` | Create-or-update a company in the connected CRM, matched by domain — never creates a duplicate. |
+| `crm_list_deals` | `POST hubapi /crm/v3/objects/deals/search` | List deals from HubSpot with optional filters (stage, owner, pipeline, amount range, close-date range, modified-after). |
+| `crm_get_deal` | `GET hubapi /crm/v3/objects/deals/:id` | Fetch a single HubSpot deal by id, including its full properties and associated company/contact ids. |
+| `crm_list_activities` | `POST hubapi /crm/v3/objects/{type}/search` | List HubSpot engagements (call/email/meeting/note/task) with optional filters (deal, contact, owner, types, since). |
+| `crm_list_owners` | `GET hubapi /crm/v3/owners` | List HubSpot owners (sales reps) for the workspace. |
+| `crm_list_pipeline_stages` | `GET hubapi /crm/v3/pipelines/deals` | List deal pipeline stages (optionally scoped to one pipeline). |
+| `crm_pipeline_risk_scan` | `hubapi + workspace profile settings` | Scan open HubSpot deals for risk: days inactive, days-to-close, missing fields (amount/owner/next_step/last_activity), close-date slipping, and high-value-low-activity. |
+| `crm_weekly_brief_compose` | `hubapi + workspace profile settings` | Compose a structured weekly sales brief from last week's activities, current open deals, the pipeline risk scan, and per-rep aggregates. |
+| `crm_detect_forecast_changes` | `hubapi + GET /api/v1/crm/deal-snapshots` | Compare current open HubSpot deals against the workspace's deal snapshot from window_days ago (read from max-agent's crm_deal_snapshots via GET /api/v1/crm/deal-snapshots). |
+| `crm_score_prospects` | `local scoring vs workspace ICP rules` | Score prospects 0–100 against the workspace ICP rules (agent_settings.icp_rules): country 25, industry 25, employee-in-range 20, any title keyword 30. |
+| `crm_assign_prospects` | `GET hubapi /crm/v3/owners + assignment rules` | Assign prospects to HubSpot owners using agent_settings.assignment_rules (or assignment_rules_override). |
+| `crm_export_import_csv` | `POST hubapi contacts/search (dedup); returns CSV` | Build a HubSpot-import CSV (base64-encoded) from prospects. |
+
+---
+
+## Notion (5)
+
+Token resolved via `GET /api/v1/notion/access-token` on max-agent, then Notion's API (`api.notion.com/v1`) is called directly.
+
+| Tool | Backend | Description |
+|---|---|---|
+| `notion_create_page` | `POST notion /v1/pages` | Create a new Notion page under a parent page, with an optional body of Notion block JSON. |
+| `notion_append_blocks` | `PATCH notion /v1/blocks/:id/children` | Append an array of Notion block JSON objects to an existing page (chunked into ≤100-block requests). |
+| `notion_get_page` | `GET notion /v1/pages/:id + children` | Fetch a Notion page object plus all of its child blocks (paginated). |
+| `notion_search_pages` | `POST notion /v1/search` | Search the connected Notion workspace for pages matching a free-text query. |
+| `notion_publish_weekly_brief` | `POST notion /v1/pages (composed brief)` | Render a crm_weekly_brief_compose output as a DRAFT Notion page (H1 title + H2 section per part) under the workspace's Drafts/the assistant parent. |
+
+---
+
+## Agent action drafts (3)
+
+| Tool | Backend | Description |
+|---|---|---|
+| `agent_draft_create` | `POST /api/v1/agent-drafts` | Stage an action (e.g. |
+| `agent_draft_list` | `GET /api/v1/agent-drafts` | List agent action drafts in the workspace, optionally filtered by state (pending/approved/rejected/executed/failed/canceled) and/or action_type. |
+| `agent_draft_get` | `GET /api/v1/agent-drafts/:id` | Fetch one agent action draft by id, including its full payload, current state, audit trail, and any execution result. |
+
+---
+
+## LinkedIn (19)
+
+All proxy `/api/v1/linkedin/{action}` on max-agent (which wraps Unipile). With `GROUPED_TOOLS=true` these collapse into a single `linkedin` tool with an `action` discriminator (~80% fewer schema tokens).
+
+| Tool | Backend | Description |
+|---|---|---|
+| `linkedin_find_profile` | `GET /api/v1/linkedin/find-profile` | Find a LinkedIn profile by name, company and/or title. |
+| `linkedin_get_profile` | `GET /api/v1/linkedin/get-profile` | Get a full LinkedIn profile by slug (public identifier). |
+| `linkedin_get_own_profile` | `GET /api/v1/linkedin/own-profile` | Get the profile of the connected LinkedIn account. |
+| `linkedin_get_company_profile` | `GET /api/v1/linkedin/company-profile` | Get a LinkedIn company profile by its identifier or slug. |
+| `linkedin_list_connections` | `GET /api/v1/linkedin/connections` | List first-degree LinkedIn connections of the connected account. |
+| `linkedin_search_people` | `GET /api/v1/linkedin/search-people` | Search LinkedIn for people by keywords. |
+| `linkedin_send_invitation` | `POST /api/v1/linkedin/send-invitation` | Send a LinkedIn connection request. |
+| `linkedin_list_invitations_received` | `GET /api/v1/linkedin/invitations-received` | List pending LinkedIn invitations received from others. |
+| `linkedin_list_invitations_sent` | `GET /api/v1/linkedin/invitations-sent` | List pending LinkedIn invitations you have sent. |
+| `linkedin_cancel_invitation` | `POST /api/v1/linkedin/cancel-invitation` | Cancel/withdraw a sent LinkedIn invitation by its invitation_id (from list_invitations_sent). |
+| `linkedin_send_message` | `POST /api/v1/linkedin/send-message` | Send a LinkedIn direct message to start a new conversation. |
+| `linkedin_reply_in_chat` | `POST /api/v1/linkedin/reply-in-chat` | Reply in an existing LinkedIn conversation. |
+| `linkedin_list_conversations` | `GET /api/v1/linkedin/conversations` | List LinkedIn conversations (inbox). |
+| `linkedin_get_conversation_messages` | `GET /api/v1/linkedin/conversation-messages` | Get messages in a specific LinkedIn conversation. |
+| `linkedin_get_all_messages` | `GET /api/v1/linkedin/all-messages` | Get all recent LinkedIn messages across all conversations. |
+| `linkedin_create_post` | `POST /api/v1/linkedin/create-post` | Create a LinkedIn post from the connected account. |
+| `linkedin_get_user_posts` | `GET /api/v1/linkedin/user-posts` | Get recent posts by a LinkedIn user. |
+| `linkedin_react_to_post` | `POST /api/v1/linkedin/react-to-post` | React to a LinkedIn post. |
+| `linkedin_comment_on_post` | `POST /api/v1/linkedin/comment-on-post` | Comment on a LinkedIn post. |
+
+---
+
+## Webhook simulators (6, flag-gated)
+
+Registered only when `ENABLE_WEBHOOK_SIMULATORS=true`. Post synthetic Unipile webhook payloads to max-agent for end-to-end testing.
+
+| Tool | Backend | Description |
+|---|---|---|
+| `simulate_account_connected` | `POST /api/v1/unipile/webhook/account-connected` | Fire a Unipile account-connected webhook event. |
+| `simulate_account_status` | `POST /api/v1/unipile/webhook/account-status` | Fire a Unipile account-status webhook. |
+| `simulate_new_email` | `POST /api/v1/unipile/webhook/email-events/new-email` | Fire a Unipile mail_received webhook. |
+| `simulate_email_tracking` | `POST /api/v1/unipile/webhook/email-events/tracking-email` | Fire a Unipile mail_opened or mail_link_clicked tracking event. |
+| `simulate_linkedin_messaging` | `POST /api/v1/unipile/webhook/linkedin-events/messaging` | Fire a Unipile LinkedIn messaging event (message_received, message_read, message_delivered, etc.). |
+| `simulate_new_relation` | `POST /api/v1/unipile/webhook/linkedin-events/new-relation` | Fire a Unipile new_relation event (LinkedIn invitation accepted). |
+
+---
+
+## Admin / Diagnostics (3, flag-gated, MCP-only)
+
+Registered only when `ENABLE_ADMIN_TOOLS=true` (plus the admin gateway key at request time). These are local to the MCP server and don't call the Max API.
 
 | Tool | Description |
 |---|---|
