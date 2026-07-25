@@ -1,6 +1,8 @@
 # Master Endpoint Checklist
 
-The complete inventory of max-agent endpoints with current MCP server coverage status. Used as the source of truth for "what's exposed vs what's still on the API but not exposed."
+> **⚠️ Historical snapshot (2026-05-27, 64-tool era).** The server now registers **158 tools** across 25 domains — including Claire research, Enrichment, Intent signals, Inbox autopilot, Calendar, Meeting hub, Tasks, Email analytics, CRM/HubSpot, Notion, Agent drafts, LinkedIn, and flag-gated webhook simulators — none of which are inventoried below. For the current catalog see [`tools.json`](tools.json) (generated, CI-enforced) and [`TOOL_REFERENCE.md`](TOOL_REFERENCE.md). Two rows below are also outdated: the Unipile webhooks marked "not appropriate as agent tool" are now exposed as `simulate_*` tools behind `ENABLE_WEBHOOK_SIMULATORS`, and the MCP server itself now serves a public `GET /health` liveness endpoint.
+
+The complete inventory of max-agent endpoints with current MCP server coverage status at the snapshot date. Used as the source of truth for "what's exposed vs what's still on the API but not exposed."
 
 **Legend**
 - ✅ — exposed as MCP tool **and** verified working against live API
