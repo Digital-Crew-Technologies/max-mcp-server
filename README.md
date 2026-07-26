@@ -188,8 +188,8 @@ Set these environment variables (e.g. in `.env.local` for local dev, or in your 
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DIGITALCREW_API_BASE_URL` | Yes | Base URL of the Digital Crew API (no trailing slash) |
-| `MCP_GATEWAY_SECRET` | Yes (prod) | Shared secret; callers send `X-MCP-Gateway-Key` on `/mcp` and `/chat` |
+| `DIGITALCREW_API_BASE_URL` | Yes | Base URL of the Digital Crew API (no trailing slash). Also used to verify end-user Max API keys at the gateway |
+| `MCP_GATEWAY_SECRET` | Yes (prod) | Shared secret; service callers send `X-MCP-Gateway-Key` on `/mcp` and `/chat` |
 | `MCP_ADMIN_GATEWAY_KEY` | No | Separate key required for admin tools when `ENABLE_ADMIN_TOOLS=true` |
 | `ALLOW_ENV_TOKEN_FALLBACK` | No | Set `true` only for legacy scripts that cannot send per-request tokens |
 | `DIGITALCREW_API_TOKEN` or `DIGITALCREW_BEARER_TOKEN` | No* | Used only when `ALLOW_ENV_TOKEN_FALLBACK=true` |
@@ -200,6 +200,24 @@ Set these environment variables (e.g. in `.env.local` for local dev, or in your 
 | `REDIS_URL` | No | Shared dead-letter queue and circuit-breaker state across instances |
 
 \*Preferred auth: **`Authorization: Bearer <token>`** on the MCP HTTP request, or `bearer_token` on a tool call. Precedence: tool `bearer_token` → MCP `Authorization` → env (only if fallback enabled).
+
+### Two ways through the gateway
+
+`/mcp` accepts either credential; `/chat` remains shared-secret only.
+
+1. **Service callers** (max-agent, the hub, Hermes containers) send the shared
+   `X-MCP-Gateway-Key` and forward the end user's token in `Authorization`.
+2. **End users** connect an MCP client (Claude Desktop, Cursor, …) with just
+   their Max API key (`max_live_…`) as the `Authorization` bearer — no gateway
+   secret to distribute. The key is verified against
+   `DIGITALCREW_API_BASE_URL` and the verdict cached briefly per instance;
+   every relayed tool call re-authenticates it upstream, where workspace
+   scoping is enforced. A presented-but-invalid `X-MCP-Gateway-Key` is always
+   terminal and never falls through to this path.
+
+Every Max account is auto-provisioned with such a key (labelled **Max MCP**)
+when it is created, and can fetch a paste-ready client config from
+`GET /api/v1/api-keys/mcp-connection` on max-agent.
 
 ## Getting started
 
