@@ -1,17 +1,28 @@
 // Gateway authentication for MCP and chat endpoints.
 //
 // WHY: app/mcp/route.ts exposes ~100 powerful tools with no inbound auth.
-// This middleware puts a shared-secret gate in front of /mcp and /chat.
+// This middleware puts an authentication gate in front of /mcp and /chat.
 // (OWASP API2:2023 — Broken Authentication.)
 //
 // RUNTIME: On Vercel this runs on the Edge runtime, so we use Web Crypto
 // (crypto.subtle) — node:crypto.timingSafeEqual is NOT available on Edge.
 //
-// HEADER: callers present the secret in `X-MCP-Gateway-Key` — NOT
-// `Authorization`, which is reserved for the upstream max-agent token flow.
+// TWO WAYS IN:
+//  1. `X-MCP-Gateway-Key: <MCP_GATEWAY_SECRET>` — the shared secret used by
+//     first-party callers (max-agent's chat), which forward the end user's own
+//     token in `Authorization` so upstream attribution stays exact. This is
+//     the ONLY credential accepted on /chat.
+//  2. `Authorization: Bearer max_live_…` — a workspace's Max API key, verified
+//     against max-agent. /mcp ONLY. This is what max-agent's "Connect Max to
+//     your tools" panel hands out, so a pasted client config works with no
+//     shared secret to distribute. /chat stays secret-only because it relays
+//     to a paid LLM and rate-limits per gateway key.
 //
 // TRUST BOUNDARIES: MCP_GATEWAY_SECRET (this gate) and DIGITALCREW_API_TOKEN
 // (upstream credential) are DIFFERENT secrets — never reuse one for the other.
+// A Max API key is a tenant credential, never an admin one: admin tools key
+// off X-MCP-Gateway-Key (see shared/auth/gateway-scope.ts), so path 2 can
+// never reach them.
 
 import { NextResponse, type NextRequest } from "next/server";
 import {
@@ -20,6 +31,12 @@ import {
   verifyHermesCaller,
   HermesCallerError,
 } from "@/shared/auth/hermes-caller";
+import {
+  isMaxApiKeyAuthConfigured,
+  looksLikeMaxApiKey,
+  readBearerToken,
+  verifyMaxApiKey,
+} from "@/shared/auth/max-api-key";
 
 export const config = {
   matcher: ["/mcp", "/mcp/:path*", "/chat", "/chat/:path*"],
@@ -51,17 +68,40 @@ function deny(message: string, status: number): NextResponse {
   );
 }
 
+/** /chat accepts the shared secret only — see "TWO WAYS IN" above. */
+function allowsApiKeyAuth(pathname: string): boolean {
+  return pathname === "/mcp" || pathname.startsWith("/mcp/");
+}
+
 export async function middleware(req: NextRequest): Promise<NextResponse> {
   if (req.method === "OPTIONS") return NextResponse.next();
 
   const expected = process.env.MCP_GATEWAY_SECRET?.trim();
-  if (!expected) {
+  const apiKeyAuthAvailable =
+    allowsApiKeyAuth(req.nextUrl.pathname) && isMaxApiKeyAuthConfigured();
+
+  if (!expected && !apiKeyAuthAvailable) {
     return deny("MCP gateway is not configured (set MCP_GATEWAY_SECRET)", 503);
   }
 
   const provided = req.headers.get("x-mcp-gateway-key")?.trim();
-  if (!provided || !(await secretMatches(provided, expected))) {
-    return deny("Unauthorized: missing or invalid X-MCP-Gateway-Key", 401);
+  let authorized =
+    !!expected && !!provided && (await secretMatches(provided, expected));
+
+  if (!authorized && apiKeyAuthAvailable) {
+    const bearer = readBearerToken(req.headers);
+    if (bearer && looksLikeMaxApiKey(bearer)) {
+      authorized = await verifyMaxApiKey(bearer);
+    }
+  }
+
+  if (!authorized) {
+    return deny(
+      apiKeyAuthAvailable
+        ? "Unauthorized: send your Max API key as `Authorization: Bearer max_live_…`, or the shared secret as `X-MCP-Gateway-Key`"
+        : "Unauthorized: missing or invalid X-MCP-Gateway-Key",
+      401,
+    );
   }
 
   // ── Hermes caller identity (Contract 3) ──────────────────────────────────
