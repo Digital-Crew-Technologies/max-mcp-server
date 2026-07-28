@@ -19,7 +19,7 @@ export function registerAccountTools(server: McpServer): void {
 
   server.registerTool("update_account", {
     title: "Update account config",
-    description: "Update account sender name, timezone, and working hours.",
+    description: "Update account sender name, timezone, working hours, and email signature.",
     inputSchema: S.updateAccountSchema,
     ...toolHints.idempotent,
   }, async (input) => callApi(input.bearer_token, (t) =>
