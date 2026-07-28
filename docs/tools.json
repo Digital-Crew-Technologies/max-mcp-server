@@ -742,7 +742,7 @@
   {
     "name": "update_account",
     "title": "Update account config",
-    "description": "Update account sender name, timezone, and working hours."
+    "description": "Update account sender name, timezone, working hours, and email signature."
   },
   {
     "name": "update_account_rate_limit",
