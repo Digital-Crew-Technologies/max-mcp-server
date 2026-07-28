@@ -189,7 +189,7 @@ Set these environment variables (e.g. in `.env.local` for local dev, or in your 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `DIGITALCREW_API_BASE_URL` | Yes | Base URL of the Digital Crew API (no trailing slash) |
-| `MCP_GATEWAY_SECRET` | Yes (prod) | Shared secret; callers send `X-MCP-Gateway-Key` on `/mcp` and `/chat` |
+| `MCP_GATEWAY_SECRET` | Yes (prod) | Shared secret; callers send `X-MCP-Gateway-Key` on `/mcp` and `/chat` (the only credential `/chat` accepts) |
 | `MCP_ADMIN_GATEWAY_KEY` | No | Separate key required for admin tools when `ENABLE_ADMIN_TOOLS=true` |
 | `ALLOW_ENV_TOKEN_FALLBACK` | No | Set `true` only for legacy scripts that cannot send per-request tokens |
 | `DIGITALCREW_API_TOKEN` or `DIGITALCREW_BEARER_TOKEN` | No* | Used only when `ALLOW_ENV_TOKEN_FALLBACK=true` |
@@ -200,6 +200,25 @@ Set these environment variables (e.g. in `.env.local` for local dev, or in your 
 | `REDIS_URL` | No | Shared dead-letter queue and circuit-breaker state across instances |
 
 \*Preferred auth: **`Authorization: Bearer <token>`** on the MCP HTTP request, or `bearer_token` on a tool call. Precedence: tool `bearer_token` → MCP `Authorization` → env (only if fallback enabled).
+
+### Who may call `/mcp`
+
+The gateway admits a request that presents **either** credential:
+
+1. **`X-MCP-Gateway-Key: <MCP_GATEWAY_SECRET>`** — first-party callers (max-agent's
+   chat). They also forward the end user's own token as `Authorization: Bearer`,
+   so upstream calls are attributed to that member. Admin tools
+   (`ENABLE_ADMIN_TOOLS`) key off this header and are unreachable any other way.
+2. **`Authorization: Bearer max_live_…`** — a workspace's Max API key, which
+   max-agent's *Connect Max to your tools* panel hands out as a paste-ready
+   client config. The gateway validates it against
+   `GET {DIGITALCREW_API_BASE_URL}/api/v1/api-keys/verify` (max-agent is the only
+   service that can hash-match the key and honour revocation/expiry) and caches
+   the verdict for 5 min. Requires `DIGITALCREW_API_BASE_URL`; no shared secret
+   needs to be distributed to end users.
+
+`/chat` accepts credential 1 only — it relays to a paid LLM and rate-limits per
+gateway key.
 
 ## Getting started
 

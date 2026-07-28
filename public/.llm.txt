@@ -727,6 +727,12 @@ POST   /api/v1/api-keys
 DELETE /api/v1/api-keys/{id}
   Revoke API key (immediate). JWT only.
 
+GET    /api/v1/api-keys/verify
+  Validate the presented Bearer credential (API key or JWT). Accepts API keys.
+  200 means live; 401 means unknown, revoked or expired. Used by
+  max-mcp-server's gateway to admit a Max API key on /mcp.
+  Response: { data: { valid, workspace_id, auth_method, scopes } }
+
 --- Key Format ---
 max_live_<32 random alphanumeric characters>
 
