@@ -150,6 +150,11 @@
     "description": "Create an empty platform prospect list. For Apollo-sourced lists, use apollo_create_list instead."
   },
   {
+    "name": "create_schedule_preset",
+    "title": "Save a campaign schedule",
+    "description": "Save a scheduling_config under a name so later campaigns can reuse it. Names are unique per workspace. Set is_default to pre-fill it on new campaigns. Applying a preset copies it — later edits never retime a running campaign."
+  },
+  {
     "name": "crm_assign_prospects",
     "title": "Assign prospects to owners",
     "description": "Assign prospects to HubSpot owners using agent_settings.assignment_rules (or assignment_rules_override). First matching rule wins; no match → owner_id null, reason 'no rule matched', priority 'low'. Priority otherwise derives from prospect.score (>=75 high, 50–74 med, <50 low) else 'med'. Returns { assignments: [{ id|email, owner_id, owner_name, owner_email, reasoning, priority }] }."
@@ -248,6 +253,11 @@
     "name": "delete_prospect_list",
     "title": "Delete prospect list",
     "description": "Delete a prospect list (prospects themselves are NOT deleted)."
+  },
+  {
+    "name": "delete_schedule_preset",
+    "title": "Delete a saved campaign schedule",
+    "description": "Delete a saved schedule. Campaigns keep their own copy, so this never changes how an existing campaign sends."
   },
   {
     "name": "disable_trigger",
@@ -590,6 +600,11 @@
     "description": "List prospects with rich filtering — search, status, org, titles, countries, industries, pagination, sorting."
   },
   {
+    "name": "list_schedule_presets",
+    "title": "List saved campaign schedules",
+    "description": "List the workspace's reusable sending schedules (timezone, available days, time windows). Check these before asking someone to spell out a schedule — copy the default one's scheduling_config into a new campaign."
+  },
+  {
     "name": "list_signal_proposals",
     "title": "List signal proposals",
     "description": "List the AI-generated campaign proposals produced from detected signals, optionally filtered by status (pending, approved, rejected, modified, launched, expired). An unknown status is ignored and all proposals are returned. Returns {data: SignalProposal[]}. Review pending proposals before approving them."
@@ -778,6 +793,11 @@
     "name": "update_prospect_list",
     "title": "Update prospect list",
     "description": "Update a prospect list (only list_name and status are editable)."
+  },
+  {
+    "name": "update_schedule_preset",
+    "title": "Update a saved campaign schedule",
+    "description": "Rename a saved schedule, replace its scheduling_config, or make it the workspace default. At least one field beyond the id is required."
   },
   {
     "name": "update_workspace_profile",

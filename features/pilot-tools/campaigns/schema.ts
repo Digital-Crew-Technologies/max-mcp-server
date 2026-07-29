@@ -115,4 +115,29 @@ export const getCampaignNodeRunCountsSchema = z.object({
   ...withToken,
   id: z.string().uuid().describe("Campaign UUID"),
 });
-
+
+export const listSchedulePresetsSchema = z.object({
+  ...withToken,
+});
+
+export const createSchedulePresetSchema = z.object({
+  ...withToken,
+  name: z.string().min(1).max(80).describe("Name for the saved schedule, e.g. 'European business hours'"),
+  scheduling_config: looseConfigRecord.describe(
+    "Scheduling config to store — { timezone, available_days: [0-6], time_windows: [{ start: 'HH:mm', end: 'HH:mm', timezone }] }",
+  ),
+  is_default: z.boolean().optional().describe("Pre-fill this schedule on new campaigns (replaces the current default)"),
+});
+
+export const updateSchedulePresetSchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Schedule preset UUID"),
+  name: z.string().min(1).max(80).optional().describe("New name"),
+  scheduling_config: looseConfigRecord.optional().describe("Replacement scheduling config"),
+  is_default: z.boolean().optional().describe("Make this the schedule pre-filled on new campaigns"),
+});
+
+export const deleteSchedulePresetSchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Schedule preset UUID"),
+});

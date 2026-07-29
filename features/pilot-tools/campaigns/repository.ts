@@ -111,3 +111,34 @@ export async function getCampaignLeadAnalytics(
 export async function getCampaignNodeRunCounts(token: string, id: string): Promise<Response> {
   return fetchWithRetry(apiUrl(`/api/v1/campaigns/${id}/node-run-counts`), { headers: authHeaders(token) });
 }
+
+export async function listSchedulePresets(token: string): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/campaigns/schedule-presets`), { headers: authHeaders(token) });
+}
+
+export async function createSchedulePreset(token: string, body: Record<string, unknown>): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/campaigns/schedule-presets`), {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateSchedulePreset(
+  token: string,
+  id: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/campaigns/schedule-presets/${id}`), {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteSchedulePreset(token: string, id: string): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/campaigns/schedule-presets/${id}`), {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}

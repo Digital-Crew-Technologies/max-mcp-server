@@ -115,4 +115,33 @@ export function registerCampaignTools(server: McpServer): void {
     inputSchema: S.getCampaignNodeRunCountsSchema,
     ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) => repo.getCampaignNodeRunCounts(t, input.id)));
+
+  server.registerTool("list_schedule_presets", {
+    title: "List saved campaign schedules",
+    description: "List the workspace's reusable sending schedules (timezone, available days, time windows). Check these before asking someone to spell out a schedule — copy the default one's scheduling_config into a new campaign.",
+    inputSchema: S.listSchedulePresetsSchema,
+    ...toolHints.readOnly,
+  }, async (input) => callApi(input.bearer_token, (t) => repo.listSchedulePresets(t)));
+
+  server.registerTool("create_schedule_preset", {
+    title: "Save a campaign schedule",
+    description: "Save a scheduling_config under a name so later campaigns can reuse it. Names are unique per workspace. Set is_default to pre-fill it on new campaigns. Applying a preset copies it — later edits never retime a running campaign.",
+    inputSchema: S.createSchedulePresetSchema,
+  }, async (input) => callApi(input.bearer_token, (t) =>
+    repo.createSchedulePreset(t, strip(input, "bearer_token"))));
+
+  server.registerTool("update_schedule_preset", {
+    title: "Update a saved campaign schedule",
+    description: "Rename a saved schedule, replace its scheduling_config, or make it the workspace default. At least one field beyond the id is required.",
+    inputSchema: S.updateSchedulePresetSchema,
+    ...toolHints.idempotent,
+  }, async (input) => callApi(input.bearer_token, (t) =>
+    repo.updateSchedulePreset(t, input.id, strip(input, "bearer_token", "id"))));
+
+  server.registerTool("delete_schedule_preset", {
+    title: "Delete a saved campaign schedule",
+    description: "Delete a saved schedule. Campaigns keep their own copy, so this never changes how an existing campaign sends.",
+    inputSchema: S.deleteSchedulePresetSchema,
+    ...toolHints.destructive,
+  }, async (input) => callApi(input.bearer_token, (t) => repo.deleteSchedulePreset(t, input.id)));
 }
