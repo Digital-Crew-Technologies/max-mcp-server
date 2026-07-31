@@ -95,6 +95,11 @@
     "description": "Multi-source background research on a named person or company. Returns recent activity, news, role context, company highlights, and proof points. Synchronous (may take 30-90s). Call this BEFORE crafting personalized outreach so the message reflects who the prospect actually is."
   },
   {
+    "name": "claire_enrich_person",
+    "title": "Enrich a person (BILLED per lookup)",
+    "description": "Resolve one person to their current title, seniority, employer (with headcount), location, dated career history and education — and optionally their work email and phone. COSTS CREDITS ON EVERY CALL, including when nothing is found: narrowing `sections` changes what comes back, not what it costs, so do not call this to browse or to check whether someone exists. Identify them with a LinkedIn URL, a work email, or a name PLUS a company or domain; a bare name is refused, because it matches the wrong person and is billed anyway. Add 'contact' to `sections` only when you intend to reach out — it runs a paid email/phone waterfall on top of the profile. Known gaps: `skills` is usually empty and there is no buyer-intent data, so do not retry hoping to fill them."
+  },
+  {
     "name": "claire_extract_prospects_from_url",
     "title": "Extract prospects from a URL via Claire",
     "description": "Fetch a public URL (conference attendee list, team / about page, press release, panel announcement, etc.) and extract structured prospects (people / contacts) from it via Claire. Returns { prospects:[{ name, title, company, linkedin_url?, email?, ... }], source_url, extracted_count, claire_request_id? }. Use when the user pastes a URL and asks to 'find leads here' / 'build a list from this page'. Pair with create_prospect or import_prospect_list_csv to persist the result."

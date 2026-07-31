@@ -10,6 +10,23 @@ import * as S from "./schema";
 // max-agent handles the Claire job submit + poll internally.
 
 export function registerClaireTools(server: McpServer): void {
+  // COSTS MONEY ON EVERY CALL. The warning lives in the description because a
+  // model calling a tool never sees a UI — this is the only place it finds out
+  // before spending.
+  server.registerTool(
+    "claire_enrich_person",
+    {
+      title: "Enrich a person (BILLED per lookup)",
+      description:
+        "Resolve one person to their current title, seniority, employer (with headcount), location, dated career history and education — and optionally their work email and phone. COSTS CREDITS ON EVERY CALL, including when nothing is found: narrowing `sections` changes what comes back, not what it costs, so do not call this to browse or to check whether someone exists. Identify them with a LinkedIn URL, a work email, or a name PLUS a company or domain; a bare name is refused, because it matches the wrong person and is billed anyway. Add 'contact' to `sections` only when you intend to reach out — it runs a paid email/phone waterfall on top of the profile. Known gaps: `skills` is usually empty and there is no buyer-intent data, so do not retry hoping to fill them.",
+      inputSchema: S.claireEnrichPersonSchema,
+    },
+    async (input) =>
+      callApi(input.bearer_token, (t) =>
+        repo.claireEnrichPerson(t, strip(input, "bearer_token")),
+      ),
+  );
+
   server.registerTool(
     "claire_search",
     {
