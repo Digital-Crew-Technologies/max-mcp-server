@@ -60,3 +60,14 @@ export async function claireExtractProspects(
     body: JSON.stringify(body),
   });
 }
+
+export async function claireEnrichPerson(
+  token: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/claire/enrich-person`), {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+}

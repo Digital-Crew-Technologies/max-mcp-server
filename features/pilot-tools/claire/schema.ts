@@ -78,3 +78,47 @@ export const claireExtractProspectsFromUrlSchema = z.object({
       "Optional extraction instructions that override the default Claire prompt — e.g. 'only return CTOs', 'include LinkedIn URLs if present'.",
     ),
 });
+
+export const claireEnrichPersonSchema = z.object({
+  ...withToken,
+  name: z
+    .string()
+    .optional()
+    .describe("Full name, e.g. 'Sundar Pichai'. Not sufficient on its own."),
+  company: z
+    .string()
+    .optional()
+    .describe("Employer name. Pairs with `name` to identify someone."),
+  domain: z
+    .string()
+    .optional()
+    .describe(
+      "Employer domain, e.g. 'google.com'. Improves the hit rate more than `company` does, because contact discovery derives address patterns from it.",
+    ),
+  linkedin: z
+    .string()
+    .optional()
+    .describe(
+      "LinkedIn profile URL. The strongest identifier — sufficient on its own.",
+    ),
+  email: z
+    .string()
+    .optional()
+    .describe("Known work email. Sufficient on its own."),
+  sections: z
+    .array(
+      z.enum([
+        "identity",
+        "organization",
+        "social",
+        "location",
+        "employment",
+        "skills",
+        "contact",
+      ]),
+    )
+    .optional()
+    .describe(
+      "Which sections to return. Defaults to everything except `contact`. Narrowing changes what comes back, NOT what it costs. Include 'contact' only to get email/phone — that runs a paid waterfall on top.",
+    ),
+});
