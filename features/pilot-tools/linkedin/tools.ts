@@ -84,11 +84,36 @@ const LINKEDIN_ACTIONS: LinkedinAction[] = [
     action: "search_people",
     flatName: "linkedin_search_people",
     title: "Search LinkedIn people",
-    description: "Search LinkedIn for people by keywords.",
+    description:
+      "Search LinkedIn people via the user's connected account. Filters (location/industry/company) take parameter IDs from search_parameters, never raw text. Every call — including cursor pages — uses 1 of the account's daily search budget (default 50/day); results embed a quota snapshot. Returns 429 SEARCH_QUOTA_EXCEEDED when exhausted.",
     inputShape: S.searchPeopleSchema.shape,
     handler: (input) =>
       callApi(input.bearer_token as string | undefined, (t) =>
         repo.searchPeople(t, strip(input, "bearer_token")),
+      ),
+  },
+  {
+    action: "search_parameters",
+    flatName: "linkedin_search_parameters",
+    title: "Resolve LinkedIn search filter IDs",
+    description:
+      "Resolve free text into LinkedIn parameter IDs (location/industry/company/school) for search_people filters. Typeahead lookup — does not consume the search quota.",
+    inputShape: S.searchParametersSchema.shape,
+    handler: (input) =>
+      callApi(input.bearer_token as string | undefined, (t) =>
+        repo.searchParameters(t, strip(input, "bearer_token")),
+      ),
+  },
+  {
+    action: "get_search_quota",
+    flatName: "linkedin_get_search_quota",
+    title: "Get LinkedIn search quota",
+    description:
+      "Remaining LinkedIn people-searches for the connected account: {cap, used_today, remaining, weekly_cap, used_this_week, weekly_remaining, resets_at}.",
+    inputShape: S.searchQuotaSchema.shape,
+    handler: (input) =>
+      callApi(input.bearer_token as string | undefined, (t) =>
+        repo.searchQuota(t),
       ),
   },
 
@@ -267,7 +292,7 @@ export function registerLinkedinToolsGrouped(server: McpServer): void {
   registerGroupedTool(
     server,
     "linkedin",
-    "LinkedIn actions via Unipile: find profiles, send invitations + messages, list connections + conversations, post + react + comment.",
+    "LinkedIn actions via Unipile: find profiles, search people on the user's own account (quota-limited), send invitations + messages, list connections + conversations, post + react + comment.",
     LINKEDIN_ACTIONS,
   );
 }

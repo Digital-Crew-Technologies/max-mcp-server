@@ -26,9 +26,63 @@ export const connectionsSchema = z.object({ ...withToken });
 
 export const searchPeopleSchema = z.object({
   ...withToken,
-  keywords: z.string().describe("Search query (name, title, company, etc.)"),
-  limit: z.number().int().min(1).max(50).optional().describe("Max results (default 10)"),
+  keywords: z
+    .string()
+    .optional()
+    .describe(
+      "Free-text query (title, name, company…). Optional when filters or cursor are set.",
+    ),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(50)
+    .optional()
+    .describe("Results per page (default 10, max 50)"),
+  cursor: z
+    .string()
+    .optional()
+    .describe(
+      "Pagination cursor from a previous result. Each page costs 1 daily search — only paginate when the user asks for more.",
+    ),
+  location: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "LinkedIn location parameter IDs — resolve with search_parameters (type LOCATION) first; never pass raw text",
+    ),
+  industry: z
+    .array(z.string())
+    .optional()
+    .describe("Industry parameter IDs (search_parameters type INDUSTRY)"),
+  company: z
+    .array(z.string())
+    .optional()
+    .describe("Current-company parameter IDs (search_parameters type COMPANY)"),
+  network_distance: z
+    .array(z.number().int().min(1).max(3))
+    .optional()
+    .describe("Network distance filter: 1 = 1st, 2 = 2nd, 3 = 3rd+ degree"),
 });
+
+export const searchParametersSchema = z.object({
+  ...withToken,
+  type: z
+    .enum(["LOCATION", "INDUSTRY", "COMPANY", "SCHOOL"])
+    .describe("Parameter family to resolve"),
+  keywords: z
+    .string()
+    .describe("Text to resolve into IDs, e.g. 'Paris' or 'fintech'"),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(20)
+    .optional()
+    .describe("Max suggestions (default 10)"),
+});
+
+export const searchQuotaSchema = z.object({ ...withToken });
 
 // ── Invitations ───────────────────────────────────────────────────────────────
 export const sendInvitationSchema = z.object({
