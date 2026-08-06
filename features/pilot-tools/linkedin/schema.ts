@@ -26,6 +26,12 @@ export const connectionsSchema = z.object({ ...withToken });
 
 export const searchPeopleSchema = z.object({
   ...withToken,
+  api: z
+    .enum(["classic", "sales_navigator", "recruiter"])
+    .optional()
+    .describe(
+      "LinkedIn product to search. Omit for auto: Sales Navigator when the account has it, classic otherwise. 'recruiter' only works on Recruiter accounts and hides names/profile URLs — use solely for explicit candidate-search asks.",
+    ),
   keywords: z
     .string()
     .optional()
@@ -83,6 +89,29 @@ export const searchParametersSchema = z.object({
 });
 
 export const searchQuotaSchema = z.object({ ...withToken });
+
+export const saveSearchListSchema = z.object({
+  ...withToken,
+  list_name: z.string().min(1).describe("Name for the new prospect list"),
+  search_criteria: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .describe("The search filters used, stored on the list for provenance"),
+  items: z
+    .array(
+      z.object({
+        id: z.string().optional().describe("Provider id from search_people"),
+        public_identifier: z.string().optional(),
+        name: z.string().optional(),
+        headline: z.string().optional(),
+        location: z.string().optional(),
+        profile_url: z.string().optional(),
+      }),
+    )
+    .min(1)
+    .max(500)
+    .describe("search_people result items to save"),
+});
 
 // ── Invitations ───────────────────────────────────────────────────────────────
 export const sendInvitationSchema = z.object({

@@ -39,9 +39,19 @@ where the connected account and its rate-limit row are resolved.
   used_this_week, weekly_remaining, resets_at}`; this proxy surfaces the
   body verbatim to the model. `linkedin_get_search_quota` exposes the same
   numbers for proactive checks.
-- Search is `api: "classic"` only for now. Sales Navigator / Recruiter
-  search (the account's tier is known from `config.linkedin_inmail_api`) is
-  future work.
+- **API tier auto-selection**: search uses the account's detected
+  subscription (`config.linkedin_inmail_api`, written at connect time) —
+  Sales Navigator automatically when present, classic otherwise. Recruiter
+  accounts default to classic because Unipile's Recruiter search results
+  hide names and profile URLs (only `recruiter_candidate_id`), which
+  defeats prospecting; an explicit `api=recruiter` is honored for
+  candidate-search use cases. Requesting a premium api the account lacks is
+  a fast 400 (the detection is only written at connect, so it can be stale
+  after an upgrade — the error points at the account's manual LinkedIn API
+  override). All tiers share the same quota row.
+- `save-list` persists search results as a completed prospect list
+  (`search_source: "linkedin"`), reusing workspace prospects matched by
+  `linkedin_url` instead of duplicating them.
 
 ## Consequences
 

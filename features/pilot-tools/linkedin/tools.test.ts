@@ -74,6 +74,7 @@ describe("linkedin search tool registration", () => {
     expect(names).toContain("linkedin_search_people");
     expect(names).toContain("linkedin_search_parameters");
     expect(names).toContain("linkedin_get_search_quota");
+    expect(names).toContain("linkedin_save_search_list");
   });
 
   it("accepts the search actions in grouped mode", () => {
@@ -81,6 +82,11 @@ describe("linkedin search tool registration", () => {
       { action: "search_people", keywords: "CTO" },
       { action: "search_parameters", type: "LOCATION", keywords: "paris" },
       { action: "get_search_quota" },
+      {
+        action: "save_search_list",
+        list_name: "Paris CTOs",
+        items: [{ id: "PID1", name: "Jane Doe" }],
+      },
     ]) {
       const parsed = groupedSchema().safeParse(input);
       expect(parsed.success, `action "${input.action}" should be valid`).toBe(true);
@@ -115,6 +121,16 @@ describe("search_people schema", () => {
     expect(s.safeParse({ action: "search_people", keywords: "x", limit: 51 }).success).toBe(false);
     expect(
       s.safeParse({ action: "search_people", keywords: "x", network_distance: [4] }).success,
+    ).toBe(false);
+  });
+
+  it("accepts only known api values", () => {
+    const s = groupedSchema();
+    for (const api of ["classic", "sales_navigator", "recruiter"]) {
+      expect(s.safeParse({ action: "search_people", keywords: "x", api }).success).toBe(true);
+    }
+    expect(
+      s.safeParse({ action: "search_people", keywords: "x", api: "premium" }).success,
     ).toBe(false);
   });
 
@@ -189,6 +205,21 @@ describe("search tool handlers", () => {
     const url = calledUrl(fetchMock);
     expect(url.pathname).toBe("/api/v1/linkedin/search-quota");
     expect([...url.searchParams.keys()]).toEqual([]);
+  });
+
+  it("posts save_search_list bodies to /save-list", async () => {
+    const fetchMock = mockFetch({ success: true, list_id: "l1" });
+    await flatTool("linkedin_save_search_list").handler({
+      bearer_token: TOKEN,
+      list_name: "Paris CTOs",
+      items: [{ id: "PID1", name: "Jane Doe" }],
+    });
+    const url = calledUrl(fetchMock);
+    expect(url.pathname).toBe("/api/v1/linkedin/save-list");
+    expect(fetchMock.mock.calls[0][1]?.method).toBe("POST");
+    const body = JSON.parse(fetchMock.mock.calls[0][1]?.body as string);
+    expect(body.list_name).toBe("Paris CTOs");
+    expect(body.bearer_token).toBeUndefined();
   });
 
   it("surfaces the upstream 429 quota error to the model", async () => {

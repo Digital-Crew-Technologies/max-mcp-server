@@ -38,6 +38,8 @@ export const searchPeople = (token: string, q: Record<string, unknown>) =>
 export const searchParameters = (token: string, q: Record<string, unknown>) =>
   get(token, "search-parameters", q);
 export const searchQuota = (token: string) => get(token, "search-quota");
+export const saveSearchList = (token: string, body: Record<string, unknown>) =>
+  post(token, "save-list", body);
 
 // ── Invitations ─────────────────────────────────────────────────────────────
 export const sendInvitation = (token: string, body: Record<string, unknown>) =>

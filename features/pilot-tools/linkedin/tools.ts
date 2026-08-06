@@ -85,7 +85,7 @@ const LINKEDIN_ACTIONS: LinkedinAction[] = [
     flatName: "linkedin_search_people",
     title: "Search LinkedIn people",
     description:
-      "Search LinkedIn people via the user's connected account. Filters (location/industry/company) take parameter IDs from search_parameters, never raw text. Every call — including cursor pages — uses 1 of the account's daily search budget (default 50/day); results embed a quota snapshot. Returns 429 SEARCH_QUOTA_EXCEEDED when exhausted.",
+      "Search LinkedIn people via the user's connected account (auto-uses Sales Navigator when the account has it). Filters (location/industry/company) take parameter IDs from search_parameters, never raw text. Every call — including cursor pages — uses 1 of the account's daily search budget (default 50/day); results embed a quota snapshot. Returns 429 SEARCH_QUOTA_EXCEEDED when exhausted.",
     inputShape: S.searchPeopleSchema.shape,
     handler: (input) =>
       callApi(input.bearer_token as string | undefined, (t) =>
@@ -114,6 +114,18 @@ const LINKEDIN_ACTIONS: LinkedinAction[] = [
     handler: (input) =>
       callApi(input.bearer_token as string | undefined, (t) =>
         repo.searchQuota(t),
+      ),
+  },
+  {
+    action: "save_search_list",
+    flatName: "linkedin_save_search_list",
+    title: "Save LinkedIn search results as a prospect list",
+    description:
+      "Save search_people result items as a completed prospect list (source: the user's LinkedIn). Prospects already in the workspace are reused, not duplicated. Use after search_people when the user wants to keep the results.",
+    inputShape: S.saveSearchListSchema.shape,
+    handler: (input) =>
+      callApi(input.bearer_token as string | undefined, (t) =>
+        repo.saveSearchList(t, strip(input, "bearer_token")),
       ),
   },
 
