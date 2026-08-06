@@ -1,6 +1,6 @@
 # MCP Tool Reference
 
-Complete catalog of the MCP tools exposed by `max-mcp-server` — **158 tools** with all feature flags on (`ENABLE_ADMIN_TOOLS`, `ENABLE_WEBHOOK_SIMULATORS`), 149 in the default flat configuration. With `GROUPED_TOOLS=true` the 19 `linkedin_*` tools collapse into one grouped `linkedin` tool. The machine-generated source of truth is [`docs/tools.json`](./tools.json) (regenerate with `npm run docs:tools`; CI enforces sync via `npm run docs:check`). Each entry below includes the underlying HTTP endpoint and a one-line description; legacy domains also list the required scope.
+Complete catalog of the MCP tools exposed by `max-mcp-server` — **166 tools** with all feature flags on (`ENABLE_ADMIN_TOOLS`, `ENABLE_WEBHOOK_SIMULATORS`), 157 in the default flat configuration. With `GROUPED_TOOLS=true` the 22 `linkedin_*` tools collapse into one grouped `linkedin` tool. The machine-generated source of truth is [`docs/tools.json`](./tools.json) (regenerate with `npm run docs:tools`; CI enforces sync via `npm run docs:check`). Each entry below includes the underlying HTTP endpoint and a one-line description; legacy domains also list the required scope.
 
 Every tool accepts an optional `bearer_token` argument that overrides the bearer extracted from the MCP request or environment.
 
@@ -340,7 +340,7 @@ Token resolved via `GET /api/v1/notion/access-token` on max-agent, then Notion's
 
 ---
 
-## LinkedIn (19)
+## LinkedIn (22)
 
 All proxy `/api/v1/linkedin/{action}` on max-agent (which wraps Unipile). With `GROUPED_TOOLS=true` these collapse into a single `linkedin` tool with an `action` discriminator (~80% fewer schema tokens).
 
@@ -351,7 +351,10 @@ All proxy `/api/v1/linkedin/{action}` on max-agent (which wraps Unipile). With `
 | `linkedin_get_own_profile` | `GET /api/v1/linkedin/own-profile` | Get the profile of the connected LinkedIn account. |
 | `linkedin_get_company_profile` | `GET /api/v1/linkedin/company-profile` | Get a LinkedIn company profile by its identifier or slug. |
 | `linkedin_list_connections` | `GET /api/v1/linkedin/connections` | List first-degree LinkedIn connections of the connected account. |
-| `linkedin_search_people` | `GET /api/v1/linkedin/search-people` | Search LinkedIn for people by keywords. |
+| `linkedin_search_people` | `GET /api/v1/linkedin/search-people` | Search LinkedIn people via the user's connected account (keywords, filters, cursor pagination; auto-uses Sales Navigator when the account has it, `api` param to override). Every call uses 1 of the account's daily search budget (default 50/day); 429 `SEARCH_QUOTA_EXCEEDED` when exhausted. |
+| `linkedin_save_search_list` | `POST /api/v1/linkedin/save-list` | Save search results as a completed prospect list (source "Your LinkedIn"); existing workspace prospects are reused, not duplicated. |
+| `linkedin_search_parameters` | `GET /api/v1/linkedin/search-parameters` | Resolve free text into LinkedIn parameter IDs (location/industry/company/school) for search_people filters. Does not consume the search quota. |
+| `linkedin_get_search_quota` | `GET /api/v1/linkedin/search-quota` | Remaining LinkedIn people-searches for the connected account (cap, used_today, remaining, weekly counters, resets_at). |
 | `linkedin_send_invitation` | `POST /api/v1/linkedin/send-invitation` | Send a LinkedIn connection request. |
 | `linkedin_list_invitations_received` | `GET /api/v1/linkedin/invitations-received` | List pending LinkedIn invitations received from others. |
 | `linkedin_list_invitations_sent` | `GET /api/v1/linkedin/invitations-sent` | List pending LinkedIn invitations you have sent. |

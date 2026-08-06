@@ -35,6 +35,11 @@ export const companyProfile = (token: string, identifier: string) =>
 export const connections = (token: string) => get(token, "connections");
 export const searchPeople = (token: string, q: Record<string, unknown>) =>
   get(token, "search-people", q);
+export const searchParameters = (token: string, q: Record<string, unknown>) =>
+  get(token, "search-parameters", q);
+export const searchQuota = (token: string) => get(token, "search-quota");
+export const saveSearchList = (token: string, body: Record<string, unknown>) =>
+  post(token, "save-list", body);
 
 // ── Invitations ─────────────────────────────────────────────────────────────
 export const sendInvitation = (token: string, body: Record<string, unknown>) =>

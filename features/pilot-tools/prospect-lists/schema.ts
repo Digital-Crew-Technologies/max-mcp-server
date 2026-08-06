@@ -17,7 +17,10 @@ export const getProspectListSchema = z.object({
 export const createProspectListSchema = z.object({
   ...withToken,
   list_name: z.string().min(1).describe("Name for the new list"),
-  search_source: z.enum(["apollo", "platform"]).optional().describe("Source type (default: platform)"),
+  search_source: z
+    .enum(["apollo", "platform", "explorium", "getleads", "auto", "linkedin"])
+    .optional()
+    .describe("Source type (default: platform)"),
 });
 
 export const updateProspectListSchema = z.object({
