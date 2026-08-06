@@ -36,7 +36,8 @@ export const createProspectSchema = z.object({
   status: prospectStatusEnum.optional(),
   headline: z.string().optional(),
   seniority: z.string().optional(),
-  phone: z.string().optional(),
+  phone_number: z.string().optional().describe("Phone number"),
+  notes: z.string().optional().describe("Free-form note about the prospect"),
 });
 
 export const updateProspectSchema = z.object({
@@ -52,6 +53,8 @@ export const updateProspectSchema = z.object({
   city: z.string().optional(),
   state: z.string().optional(),
   status: prospectStatusEnum.optional(),
+  phone_number: z.string().optional().describe("Phone number"),
+  notes: z.string().optional().describe("Free-form note about the prospect"),
 });
 
 export const deleteProspectSchema = z.object({
