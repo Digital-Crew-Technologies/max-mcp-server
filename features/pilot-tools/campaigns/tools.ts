@@ -42,7 +42,7 @@ export function registerCampaignTools(server: McpServer): void {
 
   server.registerTool("update_campaign", {
     title: "Update campaign",
-    description: "Partial update of a campaign — name, description, workflow, lists, accounts, scheduling.",
+    description: "Partial update of a campaign — name, description, workflow, lists, accounts, scheduling. Name and description can be changed at any status (including launched campaigns); all other fields require the campaign to be in 'draft' or 'stopped'.",
     inputSchema: S.updateCampaignSchema,
     ...toolHints.idempotent,
   }, async (input) => callApi(input.bearer_token, (t) =>
