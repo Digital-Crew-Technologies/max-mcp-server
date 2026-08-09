@@ -23,6 +23,7 @@ import { registerCrmForecastTools } from "../crm/forecast";
 import { registerNotionTools } from "../notion/tools";
 import { registerNotionComposerTools } from "../notion/composers";
 import { registerAgentDraftTools } from "../agent-drafts/tools";
+import { registerRevenueMemoryTools } from "../../revenue-memory/tools";
 import {
   registerLinkedinTools,
   registerLinkedinToolsGrouped,
@@ -72,6 +73,10 @@ export function registerPilotMcpTools(server: McpServer): void {
   registerNotionTools(server);
   registerNotionComposerTools(server);
   registerAgentDraftTools(server);
+
+  if (process.env.ENABLE_REVENUE_MEMORY === "true") {
+    registerRevenueMemoryTools(server);
+  }
 
   if (useGrouped) {
     registerLinkedinToolsGrouped(server);
