@@ -1,6 +1,6 @@
 # `max-mcp-server` Documentation
 
-This server exposes the Digital Crew Max Agent API as a [Model Context Protocol](https://modelcontextprotocol.io) endpoint at `POST /mcp`. **158 tools** are registered across 25 domains with all feature flags on (149 in the default configuration; admin tools and webhook simulators are flag-gated, and `GROUPED_TOOLS=true` collapses the 19 `linkedin_*` tools into one). The generated inventory lives in [`tools.json`](tools.json) and is kept in sync with the code by `npm run docs:check` in CI.
+This server exposes the Digital Crew Max Agent API as a [Model Context Protocol](https://modelcontextprotocol.io) endpoint at `POST /mcp`. **167 tools** are registered across 29 domains with all feature flags on (158 in the default configuration; admin tools and webhook simulators are flag-gated, and `GROUPED_TOOLS=true` collapses the 19 `linkedin_*` tools into one). The generated inventory lives in [`tools.json`](tools.json) and is kept in sync with the code by `npm run docs:check` in CI.
 
 ## Documents
 
@@ -55,7 +55,8 @@ features/pilot-tools/
 ├── tracing.ts                # structured JSON span logs to stdout
 ├── {campaigns,prospects,prospect-lists,organizations,accounts,
 │   unibox,ai-agent,apollo,explorium,dashboard,claire,enrichment,
-│   intent,inbox,calendar,meetings,tasks,email-analytics,crm,
+│   intent,inbox,calendar,meetings,tasks,deals,custom-fields,
+│   activities,data-quality,email-analytics,crm,
 │   notion,agent-drafts,linkedin,webhooks}/
 │   ├── repository.ts         # API call functions
 │   ├── schema.ts             # Zod input schemas
@@ -95,4 +96,4 @@ Token precedence (highest first):
 npm run verify -- http://localhost:3000
 ```
 
-If all 158 tools register with schemas, output ends with `All verifications passed.` and exit code is 0. There is also a public liveness endpoint at `GET /health`. CI runs lint + type-check + build + audit on every push.
+If all 167 tools register with schemas, output ends with `All verifications passed.` and exit code is 0. There is also a public liveness endpoint at `GET /health`. CI runs lint + type-check + build + audit on every push.

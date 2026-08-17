@@ -17,6 +17,10 @@ import { registerCalendarTools } from "../calendar/tools";
 import { registerMeetingTools } from "../meetings/tools";
 import { registerTaskTools } from "../tasks/tools";
 import { registerEmailAnalyticsTools } from "../email-analytics/tools";
+import { registerDealsTools } from "../deals/tools";
+import { registerCustomFieldsTools } from "../custom-fields/tools";
+import { registerActivitiesTools } from "../activities/tools";
+import { registerDataQualityTools } from "../data-quality/tools";
 import { registerCrmLeadDispatchTools } from "../crm/lead-dispatch";
 import { registerCrmComposerTools } from "../crm/composers";
 import { registerCrmForecastTools } from "../crm/forecast";
@@ -65,6 +69,14 @@ export function registerPilotMcpTools(server: McpServer): void {
   // and these are new tools, so there is no back-compat flat name to keep.
   registerMeetingTools(server);
   registerTaskTools(server);
+  // Native CRM foundation: deals boards, the custom-field registry, the
+  // unified activity timeline, duplicate triage. Grouped from the start, like
+  // meetings/tasks. `deals` is max-agent's OWN deals module — the HubSpot
+  // portal tools stay under crm_*.
+  registerDealsTools(server);
+  registerCustomFieldsTools(server);
+  registerActivitiesTools(server);
+  registerDataQualityTools(server);
   registerEmailAnalyticsTools(server);
   registerCrmLeadDispatchTools(server);
   registerCrmComposerTools(server);

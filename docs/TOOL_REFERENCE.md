@@ -1,6 +1,6 @@
 # MCP Tool Reference
 
-Complete catalog of the MCP tools exposed by `max-mcp-server` — **158 tools** with all feature flags on (`ENABLE_ADMIN_TOOLS`, `ENABLE_WEBHOOK_SIMULATORS`), 149 in the default flat configuration. With `GROUPED_TOOLS=true` the 19 `linkedin_*` tools collapse into one grouped `linkedin` tool. The machine-generated source of truth is [`docs/tools.json`](./tools.json) (regenerate with `npm run docs:tools`; CI enforces sync via `npm run docs:check`). Each entry below includes the underlying HTTP endpoint and a one-line description; legacy domains also list the required scope.
+Complete catalog of the MCP tools exposed by `max-mcp-server` — **167 tools** with all feature flags on (`ENABLE_ADMIN_TOOLS`, `ENABLE_WEBHOOK_SIMULATORS`), 158 in the default flat configuration. With `GROUPED_TOOLS=true` the 19 `linkedin_*` tools collapse into one grouped `linkedin` tool. The machine-generated source of truth is [`docs/tools.json`](./tools.json) (regenerate with `npm run docs:tools`; CI enforces sync via `npm run docs:check`). Each entry below includes the underlying HTTP endpoint and a one-line description; legacy domains also list the required scope.
 
 Every tool accepts an optional `bearer_token` argument that overrides the bearer extracted from the MCP request or environment.
 
@@ -30,9 +30,12 @@ The Max API recognizes two auth types and a set of fine-grained scopes:
 | `unibox:read` | list chats, list messages, get chat |
 | `unibox:write` | update chat, archive chat, send message |
 | `dashboard:read` | dashboard kpis |
-| `workspace:read` / `workspace:write` | workspace profile |
+| `workspace:read` / `workspace:write` | workspace profile; `workspace:read` also covers list_custom_fields |
+| `deals:read` | deals list/get/list_stage_events/board_totals/list_pipelines |
+| `deals:write` | deals create/update/move_stage/win/lose/add_contact/remove_contact |
+| `prospects:read` / `prospects:write` (also) | activities list / create_note, log_call, update; data_quality list_duplicates / scan, dismiss |
 | _(AI agent uses op-dependent scopes; charges credits)_ | generate_workflow, generate_message_preview |
-| _(JWT-only — workspace API keys rejected)_ | billing, notifications, api-keys |
+| _(JWT-only — workspace API keys rejected)_ | billing, notifications, api-keys, data-quality record merge (deliberately no MCP tool) |
 
 ---
 
@@ -277,6 +280,46 @@ Grouped tools. The `tasks` tool exposes actions `list`, `get`, `create_suggestio
 |---|---|---|
 | `tasks` | `GET/POST/PATCH /api/v1/tasks[...]` | Read tasks and propose new ones. |
 | `prospect_list_tasks` | `GET /api/v1/tasks?prospect_id=...` | List the tasks about one prospect, newest first. |
+
+---
+
+## Deals (1)
+
+Grouped tool over Max's **native** deals module (multi-pipeline revenue boards) — not the HubSpot `crm_*` tools. Actions: `list`, `get`, `create`, `update`, `move_stage`, `win`, `lose`, `list_stage_events`, `add_contact`, `remove_contact`, `board_totals`, `list_pipelines` over `/api/v1/deals*`. Deliberately partial: no delete, and no pipeline/stage/rule management — board layout is human-owned workspace configuration.
+
+| Tool | Backend | Description |
+|---|---|---|
+| `deals` | `GET/POST/PATCH /api/v1/deals[...]` | Native deals on multi-pipeline revenue boards. |
+
+---
+
+## Custom fields (1)
+
+Read-only: the registry that validates the `custom_fields` object on every prospect / organization / deal write. Defining or changing fields is workspace-admin configuration in the web app — there is no mutation tool.
+
+| Tool | Backend | Description |
+|---|---|---|
+| `list_custom_fields` | `GET /api/v1/custom-fields` | List the workspace's custom-field definitions. |
+
+---
+
+## Activities (1)
+
+Grouped tool over the unified record timeline. Actions: `list`, `create_note`, `log_call`, `update` over `/api/v1/activities*`. Notes and manual calls are the only writable types — messages, meetings, tasks and stage changes are written through by the system, and nothing can be deleted from MCP.
+
+| Tool | Backend | Description |
+|---|---|---|
+| `activities` | `GET/POST/PATCH /api/v1/activities[...]` | The unified activity timeline on prospects, companies and deals. |
+
+---
+
+## Data quality (1)
+
+Grouped tool for duplicate triage — agents detect, humans merge. Actions: `list_duplicates`, `scan`, `dismiss` over `/api/v1/data-quality/duplicates*`. There is deliberately NO merge tool: `POST /api/v1/data-quality/merge` is JWT-only upstream (API keys get 401) because a merge rewrites records, repoints every reference and tombstones the loser.
+
+| Tool | Backend | Description |
+|---|---|---|
+| `data_quality` | `GET/POST/PATCH /api/v1/data-quality/duplicates[...]` | Duplicate detection on prospects and organizations. |
 
 ---
 
