@@ -1,6 +1,8 @@
 # MCP Tool Reference
 
-Complete catalog of the MCP tools exposed by `max-mcp-server` — **158 tools** with all feature flags on (`ENABLE_ADMIN_TOOLS`, `ENABLE_WEBHOOK_SIMULATORS`), 149 in the default flat configuration. With `GROUPED_TOOLS=true` the 19 `linkedin_*` tools collapse into one grouped `linkedin` tool. The machine-generated source of truth is [`docs/tools.json`](./tools.json) (regenerate with `npm run docs:tools`; CI enforces sync via `npm run docs:check`). Each entry below includes the underlying HTTP endpoint and a one-line description; legacy domains also list the required scope.
+Complete catalog of the operations exposed by `max-mcp-server` — **163** with all feature flags on (`ENABLE_ADMIN_TOOLS`, `ENABLE_WEBHOOK_SIMULATORS`), 154 without them.
+
+Each entry below is named by its **flat** name. Under the default grouped configuration an operation is reached as an `action` on its domain tool — `list_chats` is `unibox` with `action: "list_chats"` — except LinkedIn, whose actions keep short names (`linkedin` with `action: "get_profile"`). Set `GROUPED_TOOLS=false` to register these as flat tools instead, at the cost of overflowing the client's catalog cap. See [ADR-006](./adr/006-grouped-by-default-and-client-cap.md). The machine-generated source of truth is [`docs/tools.json`](./tools.json) (regenerate with `npm run docs:tools`; CI enforces sync via `npm run docs:check`). Each entry below includes the underlying HTTP endpoint and a one-line description; legacy domains also list the required scope.
 
 Every tool accepts an optional `bearer_token` argument that overrides the bearer extracted from the MCP request or environment.
 
@@ -342,7 +344,9 @@ Token resolved via `GET /api/v1/notion/access-token` on max-agent, then Notion's
 
 ## LinkedIn (19)
 
-All proxy `/api/v1/linkedin/{action}` on max-agent (which wraps Unipile). With `GROUPED_TOOLS=true` these collapse into a single `linkedin` tool with an `action` discriminator (~80% fewer schema tokens).
+All proxy `/api/v1/linkedin/{action}` on max-agent (which wraps Unipile). Under the default grouped configuration these are reached as actions on a single `linkedin` tool — `linkedin` with `action: "get_profile"`. Note the action names are short here (`get_profile`), unlike other domains which keep their full flat name as the action.
+
+(An earlier version of this page claimed grouping yields "~80% fewer schema tokens". It does not — a discriminated union still carries every branch's schema, and measured end-to-end the grouped catalog is the same size as the flat one. Grouping is a fix for the client's tool-count cap, not a token optimization. See ADR-006.)
 
 | Tool | Backend | Description |
 |---|---|---|

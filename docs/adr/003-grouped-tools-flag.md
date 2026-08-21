@@ -2,7 +2,13 @@
 
 ## Status
 
-Accepted
+**Superseded by [ADR-006](./006-grouped-by-default-and-client-cap.md).**
+
+The premise below — that flat mode is a safe default, and that grouping is
+primarily a schema-token optimization — did not survive measurement. Flat mode
+overflows the client's 128-tool cap (30 tools dropped silently, including all 19
+`linkedin_*`), and grouping turns out to save essentially no tokens because a
+discriminated union still carries every branch's schema. See ADR-006.
 
 ## Context
 
