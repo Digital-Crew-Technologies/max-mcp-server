@@ -42,9 +42,15 @@ const END_MARKER = "<!-- TOOLS:END -->";
  * handler, so no network/upstream contact happens.
  */
 function collectToolInventory(): ToolEntry[] {
-  // Pin to flat mode for the canonical inventory. Include optional tools so
-  // docs reflect the full catalog when explicitly enabled in production.
-  delete process.env.GROUPED_TOOLS;
+  // Pin to FLAT mode for the canonical inventory, and pin it EXPLICITLY.
+  // `delete process.env.GROUPED_TOOLS` used to mean flat; since grouping
+  // became the default it means grouped, which would silently reduce this
+  // inventory from every operation the server can perform to the ~25 domain
+  // tools that carry them. tools.json is the operation inventory — one row per
+  // callable operation — so it must be generated flat regardless of the
+  // deployed default. The grouped catalog is documented in README/ADR-003 and
+  // measured by `pnpm catalog:measure`.
+  process.env.GROUPED_TOOLS = "false";
   process.env.ENABLE_ADMIN_TOOLS = "true";
   process.env.ENABLE_WEBHOOK_SIMULATORS = "true";
 

@@ -124,6 +124,13 @@ export type GroupedActionDef = {
   description: string;
   /** Zod shape (Record<string, ZodType>) for this action's args. */
   inputShape: Record<string, z.ZodTypeAny>;
+  /**
+   * MCP annotation hints for this action (from `toolHints`). Used only to
+   * aggregate the group's own hints — a group is read-only iff every action
+   * in it is. Optional: an action that omits it is treated as NOT read-only,
+   * which is the safe default for a hint clients use to skip confirmation.
+   */
+  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean };
   /** Handler — receives the parsed input (still includes bearer_token). */
   handler: (
     input: Record<string, unknown>,
@@ -149,11 +156,14 @@ export function registerGroupedTool(
   // Build per-action z.object with an `action` literal discriminator.
   // Each branch is z.object({ action: z.literal(name), ...args }) — the
   // shape Zod's discriminatedUnion requires.
+  // NOTE: the `action` literal deliberately carries NO .describe(). The tool
+  // description below already lists every action and its purpose, and a
+  // per-literal describe() repeats that text verbatim inside the JSON Schema —
+  // the same sentence shipped twice to every model, on every turn. Removing it
+  // is pure token saving with no loss of information to the model.
   const branches = actions.map((a) =>
     z.object({
-      action: z
-        .literal(a.action)
-        .describe(`${a.title}: ${a.description.split("\n")[0].slice(0, 140)}`),
+      action: z.literal(a.action),
       ...a.inputShape,
     }),
   );
@@ -175,11 +185,22 @@ export function registerGroupedTool(
     .map((a) => `  • ${a.action} — ${a.description.split("\n")[0]}`)
     .join("\n");
 
+  // A group is only read-only if EVERY action in it is: one write action makes
+  // the whole tool a write, and a client that skips confirmation on a
+  // readOnlyHint must never be told otherwise. Same logic for idempotent.
+  // destructiveHint is the inverse — true if ANY action is destructive.
+  const groupAnnotations = {
+    readOnlyHint: actions.every((a) => a.annotations?.readOnlyHint === true),
+    idempotentHint: actions.every((a) => a.annotations?.idempotentHint === true),
+    destructiveHint: actions.some((a) => a.annotations?.destructiveHint === true),
+  };
+
   server.registerTool(
     groupName,
     {
       title: `${groupName.charAt(0).toUpperCase()}${groupName.slice(1)} (grouped)`,
       description: `${blurb}\n\nActions (set "action": "<one of>"):\n${actionsList}`,
+      annotations: groupAnnotations,
       // mcp-handler accepts a Zod schema as inputSchema; the discriminated
       // union flattens to oneOf in JSON Schema for the client.
       inputSchema: unionSchema,

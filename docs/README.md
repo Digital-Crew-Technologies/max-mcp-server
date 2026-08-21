@@ -1,6 +1,10 @@
 # `max-mcp-server` Documentation
 
-This server exposes the Digital Crew Max Agent API as a [Model Context Protocol](https://modelcontextprotocol.io) endpoint at `POST /mcp`. **158 tools** are registered across 25 domains with all feature flags on (149 in the default configuration; admin tools and webhook simulators are flag-gated, and `GROUPED_TOOLS=true` collapses the 19 `linkedin_*` tools into one). The generated inventory lives in [`tools.json`](tools.json) and is kept in sync with the code by `npm run docs:check` in CI.
+This server exposes the Digital Crew Max Agent API as a [Model Context Protocol](https://modelcontextprotocol.io) endpoint at `POST /mcp`. It carries **163 callable operations** with all feature flags on (154 with the flag-gated admin tools and webhook simulators off).
+
+By default those operations are exposed as **~25 grouped domain tools** — one per domain, each taking an `action` discriminator (`unibox` with `action: "list_chats"`). Grouping is the default because the flat catalog does not fit in the 128-tool cap max-agent applies to the merged MCP catalog: flat mode overflows it and ~30 tools are dropped silently on every turn. See [ADR-006](adr/006-grouped-by-default-and-client-cap.md); `pnpm catalog:measure` prints the sizes and runs the cap check.
+
+The generated operation inventory lives in [`tools.json`](tools.json) — one row per callable operation, generated in flat mode regardless of the deployed default — and is kept in sync with the code by `npm run docs:check` in CI.
 
 ## Documents
 
@@ -95,4 +99,4 @@ Token precedence (highest first):
 npm run verify -- http://localhost:3000
 ```
 
-If all 158 tools register with schemas, output ends with `All verifications passed.` and exit code is 0. There is also a public liveness endpoint at `GET /health`. CI runs lint + type-check + build + audit on every push.
+If every tool registers with a schema, output ends with `All verifications passed.` and exit code is 0. There is also a public liveness endpoint at `GET /health`. CI runs lint + type-check + build + audit on every push.

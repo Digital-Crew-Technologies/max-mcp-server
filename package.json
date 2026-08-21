@@ -2,7 +2,7 @@
   "name": "max-mcp-server",
   "version": "0.1.0",
   "private": true,
-  "description": "MCP server for Digital Crew Max — workspace profile tools (Streamable HTTP) via Next.js and mcp-handler.",
+  "description": "MCP server for Digital Crew Max \u2014 workspace profile tools (Streamable HTTP) via Next.js and mcp-handler.",
   "keywords": [
     "mcp",
     "model-context-protocol",
@@ -31,7 +31,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "docs:tools": "tsx scripts/gen-tool-docs.mts",
-    "docs:check": "tsx scripts/gen-tool-docs.mts --check"
+    "docs:check": "tsx scripts/gen-tool-docs.mts --check",
+    "catalog:measure": "tsx scripts/measure-catalog.mts"
   },
   "dependencies": {
     "mcp-handler": "^1.1.0",
