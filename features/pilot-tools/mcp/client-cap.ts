@@ -79,3 +79,21 @@ export function droppedByClientCap(
     .reverse()
     .map((r) => r.name);
 }
+
+/**
+ * How many distinct operations a registered tool exposes.
+ *
+ * A grouped tool is ONE registration carrying one union branch per action, so
+ * counting registrations undercounts what the server can actually do. Reads
+ * the Zod schema's own structure rather than its description text.
+ */
+export function operationCount(inputSchema: unknown): number {
+  if (!inputSchema || typeof inputSchema !== "object") return 1;
+  const def = (inputSchema as { _def?: { options?: unknown } })._def;
+  const options = def?.options;
+  if (Array.isArray(options) && options.length > 0) return options.length;
+  // Some zod versions expose union members on `.options` directly.
+  const direct = (inputSchema as { options?: unknown }).options;
+  if (Array.isArray(direct) && direct.length > 0) return direct.length;
+  return 1;
+}
