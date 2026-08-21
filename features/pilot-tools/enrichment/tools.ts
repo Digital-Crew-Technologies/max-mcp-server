@@ -1,6 +1,7 @@
 import { callApi, strip, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
+import { toPublishableShape } from "../mcp/publishable-schema";
 
 // Auto-Enrichment (feature #5): let the agent enrich a prospect or organization
 // with Claire deep-research, writing the result back onto the record. A
@@ -52,7 +53,7 @@ export function registerEnrichmentTools(server: McpServer): void {
       title: "Queue bulk enrichment",
       description:
         "Queue many prospects and/or organizations for background enrichment by the cron worker (does NOT run inline). Provide prospect_ids and/or organization_ids. Returns {accepted} — how many rows were queued. Use this instead of calling enrich_prospect in a loop when enriching more than a couple of records.",
-      inputSchema: S.bulkEnrichSchema,
+      inputSchema: toPublishableShape(S.bulkEnrichSchema) ?? {},
     },
     async (input) =>
       callApi(input.bearer_token, (t) =>
@@ -66,7 +67,7 @@ export function registerEnrichmentTools(server: McpServer): void {
       title: "Get enrichment status",
       description:
         "Check the enrichment state of a single prospect or organization. Provide exactly one of prospect_id or organization_id. Returns {enrichment_status, enrichment_updated_at, has_research}.",
-      inputSchema: S.getEnrichmentStatusSchema,
+      inputSchema: toPublishableShape(S.getEnrichmentStatusSchema) ?? {},
     },
     async (input) =>
       callApi(input.bearer_token, (t) =>

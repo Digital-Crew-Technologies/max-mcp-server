@@ -77,7 +77,7 @@ describe("registerAsGroup", () => {
       }),
     );
 
-    const schema = group.config.inputSchema as z.ZodTypeAny;
+    const schema = group.config._strictInputSchema as z.ZodTypeAny;
     // get_thing requires `id`; list_things does not accept it as required.
     expect(schema.safeParse({ action: "get_thing", id: "abc" }).success).toBe(true);
     expect(schema.safeParse({ action: "get_thing" }).success).toBe(false);
@@ -93,7 +93,7 @@ describe("registerAsGroup", () => {
       }),
     );
 
-    const schema = group.config.inputSchema as z.ZodTypeAny;
+    const schema = group.config._strictInputSchema as z.ZodTypeAny;
     expect(schema.safeParse({ action: "do_thing", id: "x" }).success).toBe(true);
     expect(schema.safeParse({ action: "do_thing" }).success).toBe(false);
   });

@@ -89,11 +89,27 @@ export function droppedByClientCap(
  */
 export function operationCount(inputSchema: unknown): number {
   if (!inputSchema || typeof inputSchema !== "object") return 1;
+
+  // A grouped tool PUBLISHES a flat shape whose `action` is an enum of its
+  // actions (see mcp/publishable-schema.ts). That enum is the operation count.
+  // Checked first because it is what actually reaches a client.
+  const shape = inputSchema as Record<string, unknown>;
+  const actionField = shape.action as
+    | { _def?: { values?: unknown; entries?: unknown } }
+    | undefined;
+  const values =
+    (actionField?._def?.values as unknown[] | undefined) ??
+    (actionField?._def?.entries
+      ? Object.keys(actionField._def.entries as object)
+      : undefined);
+  if (Array.isArray(values) && values.length > 0) return values.length;
+
+  // A raw discriminated union, for callers holding the strict schema.
   const def = (inputSchema as { _def?: { options?: unknown } })._def;
   const options = def?.options;
   if (Array.isArray(options) && options.length > 0) return options.length;
-  // Some zod versions expose union members on `.options` directly.
   const direct = (inputSchema as { options?: unknown }).options;
   if (Array.isArray(direct) && direct.length > 0) return direct.length;
+
   return 1;
 }

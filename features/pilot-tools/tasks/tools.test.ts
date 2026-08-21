@@ -36,7 +36,7 @@ function tool(name: string): Captured {
 
 /** The `tasks` grouped tool's discriminated-union input schema. */
 function tasksSchema(): z.ZodTypeAny {
-  return tool("tasks").config.inputSchema as z.ZodTypeAny;
+  return tool("tasks").config._strictInputSchema as z.ZodTypeAny;
 }
 
 function mockFetch(body: unknown, init: { status?: number } = {}) {

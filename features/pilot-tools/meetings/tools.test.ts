@@ -350,15 +350,33 @@ describe("meetings.get_transcript (bounded)", () => {
     expect(body.transcriptWindow.truncated).toBe(true); // started at 50
   });
 
-  it("caps the window at the 200-segment max even if a larger limit slips through", async () => {
+  it("rejects a limit past the 200-segment max at the argument gate", async () => {
     mockFetch({ data: { versionNumber: 1, segments: segments(500) } });
-    // The schema caps limit at 200; assert the transform enforces it too, so a
-    // client that bypasses validation still cannot demand 500 segments.
+    // Grouped tools validate against their strict per-action schema before
+    // dispatch, so an out-of-range limit is refused with a usable message
+    // rather than silently reinterpreted. (Before the schemas were published
+    // correctly this parse lived in the MCP SDK; it now lives in
+    // registerGroupedTool — same guarantee, same place in the call order.)
     const res = await tool("meetings").handler({
       action: "get_transcript",
       bearer_token: "t",
       id: SID,
       limit: 5000,
+    });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain("limit");
+  });
+
+  it("still caps the window at the 200-segment max — defence in depth", async () => {
+    mockFetch({ data: { versionNumber: 1, segments: segments(500) } });
+    // The gate above is not the only defence: a transcript with more segments
+    // than the window must still be cut to the max, so a caller asking for the
+    // legal maximum cannot pull 500 segments of tokens.
+    const res = await tool("meetings").handler({
+      action: "get_transcript",
+      bearer_token: "t",
+      id: SID,
+      limit: 200,
     });
     const body = JSON.parse(res.content[0].text);
     expect(body.data.segments).toHaveLength(200);
