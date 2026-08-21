@@ -7,6 +7,7 @@ import { getVerifiedHermesCallerHeader } from "@/shared/auth/request-context";
 import { VERIFIED_HERMES_CALLER_HEADER } from "@/shared/auth/hermes-caller";
 import { responseBodyText, sanitizeUpstreamError } from "@/shared/http/response";
 import { fetchWithRetry } from "./http";
+import { toPublishableShape } from "./mcp/publishable-schema";
 
 export { resolveBearerToken, fetchWithRetry, responseBodyText };
 
@@ -181,6 +182,17 @@ export function registerGroupedTool(
     branches as unknown as readonly [ActionBranch, ...ActionBranch[]],
   );
 
+  // What actually goes on the wire. If this ever comes back null the tool
+  // would publish an empty schema — the exact silent failure this guards.
+  const publishedShape = toPublishableShape(unionSchema);
+  if (!publishedShape) {
+    throw new Error(
+      `Grouped tool "${groupName}" produced no publishable input schema. It ` +
+        `would reach the model with no arguments at all. See ` +
+        `features/pilot-tools/mcp/publishable-schema.ts.`,
+    );
+  }
+
   const actionsList = actions
     .map((a) => `  • ${a.action} — ${a.description.split("\n")[0]}`)
     .join("\n");
@@ -201,9 +213,26 @@ export function registerGroupedTool(
       title: `${groupName.charAt(0).toUpperCase()}${groupName.slice(1)} (grouped)`,
       description: `${blurb}\n\nActions (set "action": "<one of>"):\n${actionsList}`,
       annotations: groupAnnotations,
-      // mcp-handler accepts a Zod schema as inputSchema; the discriminated
-      // union flattens to oneOf in JSON Schema for the client.
-      inputSchema: unionSchema,
+      // ⚠️ MUST be a raw shape, NOT `unionSchema`.
+      //
+      // @modelcontextprotocol/sdk 1.26 publishes a tool's inputSchema through
+      // normalizeObjectSchema, which accepts only a raw shape or a schema with
+      // `.shape`. A discriminated union has neither, so the SDK silently
+      // published `{"type":"object","properties":{}}` — every grouped tool
+      // reached the model with NO arguments at all, and nothing errored,
+      // because the SDK's CALL path falls back to the original schema.
+      // Verified over a real MCP client: 21 of 23 tools were empty.
+      //
+      // toPublishableShape flattens the union into `action` (an enum) plus
+      // every branch's fields as optional. Per-action requirements are not
+      // lost — `unionSchema` below still parses the input strictly before any
+      // handler runs.
+      inputSchema: publishedShape,
+      // Not part of MCP — the SDK destructures only the keys it knows and
+      // ignores this one. It carries the STRICT per-action union that governs
+      // dispatch, so tests can assert on what the server actually enforces
+      // rather than on the permissive shape it publishes.
+      _strictInputSchema: unionSchema,
     } as Record<string, unknown>,
     async (input: Record<string, unknown>) => {
       const action = String((input as { action?: unknown }).action ?? "");
@@ -221,7 +250,34 @@ export function registerGroupedTool(
           isError: true,
         };
       }
-      // Strip the discriminator before forwarding to the handler.
+      // The PUBLISHED shape is deliberately permissive — every field optional,
+      // because a field required by one action is not required by another.
+      // The strict union is what actually governs: parse against it here so a
+      // missing or mistyped argument is rejected with a useful message rather
+      // than reaching the upstream API as a malformed request.
+      const parsed = unionSchema.safeParse(input);
+      if (!parsed.success) {
+        const detail = parsed.error.issues
+          .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+          .join("; ");
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text:
+                `Invalid arguments for ${groupName}.${action}: ${detail}. ` +
+                `Check the action's required fields and try again.`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      // Forward the ORIGINAL input, not parsed.data. Zod's object parse strips
+      // unknown keys, and an action whose shape happens not to declare
+      // bearer_token would have it silently removed on the way to the handler —
+      // turning a validation step into a data-loss step. The parse above is a
+      // gate, not a transform.
       const { action: _drop, ...args } = input;
       void _drop;
       return handler(args);
