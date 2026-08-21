@@ -2,816 +2,979 @@
   {
     "name": "add_prospects_to_list",
     "title": "Add prospects to list",
-    "description": "Add prospects to a prospect list by their UUIDs."
+    "description": "Add prospects to a prospect list by their UUIDs.",
+    "operations": 1
   },
   {
     "name": "agent_draft_create",
     "title": "Create an agent action draft",
-    "description": "Stage an action (e.g. send a nudge, upsert a CRM contact, export a CSV) as a PENDING draft in the workspace for the human to approve. The draft is persisted in max-agent's agent_action_drafts table; nothing runs until the human approves. Returns { draft_id, state:'pending', review_url }. AFTER CREATING, POST THE RETURNED review_url (or a link to the agent drafts view in the workspace UI) TO THE USER'S CHAT CHANNEL SO THEY CAN APPROVE. Use this whenever an agent wants to take a write action on the user's behalf but the user hasn't pre-authorized the specific instance."
+    "description": "Stage an action (e.g. send a nudge, upsert a CRM contact, export a CSV) as a PENDING draft in the workspace for the human to approve. The draft is persisted in max-agent's agent_action_drafts table; nothing runs until the human approves. Returns { draft_id, state:'pending', review_url }. AFTER CREATING, POST THE RETURNED review_url (or a link to the agent drafts view in the workspace UI) TO THE USER'S CHAT CHANNEL SO THEY CAN APPROVE. Use this whenever an agent wants to take a write action on the user's behalf but the user hasn't pre-authorized the specific instance.",
+    "operations": 1
   },
   {
     "name": "agent_draft_get",
     "title": "Get one agent action draft",
-    "description": "Fetch one agent action draft by id, including its full payload, current state, audit trail, and any execution result. Use to inspect a specific draft before recommending approve/reject to the user."
+    "description": "Fetch one agent action draft by id, including its full payload, current state, audit trail, and any execution result. Use to inspect a specific draft before recommending approve/reject to the user.",
+    "operations": 1
   },
   {
     "name": "agent_draft_list",
     "title": "List agent action drafts",
-    "description": "List agent action drafts in the workspace, optionally filtered by state (pending/approved/rejected/executed/failed/canceled) and/or action_type. Paginated via { limit, cursor }. Returns { data: [...], next_cursor? }. Use to show the user what's awaiting their approval or to audit recently-executed actions."
+    "description": "List agent action drafts in the workspace, optionally filtered by state (pending/approved/rejected/executed/failed/canceled) and/or action_type. Paginated via { limit, cursor }. Returns { data: [...], next_cursor? }. Use to show the user what's awaiting their approval or to audit recently-executed actions.",
+    "operations": 1
   },
   {
     "name": "apollo_add_more",
     "title": "Add more leads from Apollo",
-    "description": "Append more leads to an existing Apollo list (async). Re-runs the saved search for additional results."
+    "description": "Append more leads to an existing Apollo list (async). Re-runs the saved search for additional results.",
+    "operations": 1
   },
   {
     "name": "apollo_create_list",
     "title": "Create Apollo prospect list",
-    "description": "Create an Apollo-backed prospect list (async). Starts people search → ingestion. Poll the list status (or use wait_for_prospect_list) for progress. Auto-generates an idempotency_key if not provided so retries are safe."
+    "description": "Create an Apollo-backed prospect list (async). Starts people search → ingestion. Poll the list status (or use wait_for_prospect_list) for progress. Auto-generates an idempotency_key if not provided so retries are safe.",
+    "operations": 1
   },
   {
     "name": "approve_inbox_draft",
     "title": "Approve and send an inbox draft",
-    "description": "Approve a drafted reply and send it in-thread via Unipile, setting the action's status to 'approved'. Optionally pass body to send an edited reply instead of the stored draft. Returns the updated {data: InboxAutopilotAction}. Fails with 404 (draft not found), 409 (action not in 'draft' status), or 400 SendReplyError (code CHAT_NOT_FOUND | ACCOUNT_NOT_FOUND | ACCOUNT_NOT_CONNECTED | NO_PROSPECT_EMAIL | SEND_FAILED)."
+    "description": "Approve a drafted reply and send it in-thread via Unipile, setting the action's status to 'approved'. Optionally pass body to send an edited reply instead of the stored draft. Returns the updated {data: InboxAutopilotAction}. Fails with 404 (draft not found), 409 (action not in 'draft' status), or 400 SendReplyError (code CHAT_NOT_FOUND | ACCOUNT_NOT_FOUND | ACCOUNT_NOT_CONNECTED | NO_PROSPECT_EMAIL | SEND_FAILED).",
+    "operations": 1
   },
   {
     "name": "approve_proposal",
     "title": "Approve and launch a signal proposal",
-    "description": "Approve a pending proposal and launch its draft campaign. SYNCHRONOUS — max-agent builds the prospect list, creates the campaign, and launches it (may take a while). Optionally pass modifications (titles, target_prospect_ids, campaign_name, campaign_description) to override the recommendation before launch; omit them to approve as-is. On success returns {data: SignalProposal (status 'launched', draft_campaign_id set), campaign_id}. Can fail with 402 (enrichment quota exceeded — proposal reverts to pending), 409 (not pending / already decided / expired), or 422 (no target prospects / no connected account)."
+    "description": "Approve a pending proposal and launch its draft campaign. SYNCHRONOUS — max-agent builds the prospect list, creates the campaign, and launches it (may take a while). Optionally pass modifications (titles, target_prospect_ids, campaign_name, campaign_description) to override the recommendation before launch; omit them to approve as-is. On success returns {data: SignalProposal (status 'launched', draft_campaign_id set), campaign_id}. Can fail with 402 (enrichment quota exceeded — proposal reverts to pending), 409 (not pending / already decided / expired), or 422 (no target prospects / no connected account).",
+    "operations": 1
   },
   {
     "name": "archive_campaign",
     "title": "Archive campaign",
-    "description": "Archive a campaign (soft delete) — hidden from default views but restorable."
+    "description": "Archive a campaign (soft delete) — hidden from default views but restorable.",
+    "operations": 1
   },
   {
     "name": "archive_chat",
     "title": "Archive chat",
-    "description": "Archive a chat (soft delete). Messages remain, use archived=true filter to see them."
+    "description": "Archive a chat (soft delete). Messages remain, use archived=true filter to see them.",
+    "operations": 1
   },
   {
     "name": "book_meeting",
     "title": "Book a Cal.com meeting",
-    "description": "Create a Cal.com booking and record it as a meeting. event_type_id defaults to the connection's default event type; start is a required ISO8601 UTC time; attendee_name, attendee_email, and attendee_time_zone (IANA) describe the attendee. Optionally pass prospect_id (advances that prospect to 'replied'), campaign_id, and a flat string metadata map. Returns the created {data: meeting row} (calcom_booking_uid, meeting_url, status 'scheduled', etc.). Fails with 409 (no calendar connected), 400 (invalid body / no default event type), or 4xx/502 CALCOM_ERROR (e.g. slot conflict / instance unreachable)."
+    "description": "Create a Cal.com booking and record it as a meeting. event_type_id defaults to the connection's default event type; start is a required ISO8601 UTC time; attendee_name, attendee_email, and attendee_time_zone (IANA) describe the attendee. Optionally pass prospect_id (advances that prospect to 'replied'), campaign_id, and a flat string metadata map. Returns the created {data: meeting row} (calcom_booking_uid, meeting_url, status 'scheduled', etc.). Fails with 409 (no calendar connected), 400 (invalid body / no default event type), or 4xx/502 CALCOM_ERROR (e.g. slot conflict / instance unreachable).",
+    "operations": 1
   },
   {
     "name": "bulk_delete_organizations",
     "title": "Bulk delete organizations",
-    "description": "Delete multiple organizations. Set deleteProspects=true to cascade-delete linked prospects."
+    "description": "Delete multiple organizations. Set deleteProspects=true to cascade-delete linked prospects.",
+    "operations": 1
   },
   {
     "name": "bulk_delete_prospects",
     "title": "Bulk delete prospects",
-    "description": "Delete multiple prospects by IDs."
+    "description": "Delete multiple prospects by IDs.",
+    "operations": 1
   },
   {
     "name": "bulk_enrich",
     "title": "Queue bulk enrichment",
-    "description": "Queue many prospects and/or organizations for background enrichment by the cron worker (does NOT run inline). Provide prospect_ids and/or organization_ids. Returns {accepted} — how many rows were queued. Use this instead of calling enrich_prospect in a loop when enriching more than a couple of records."
+    "description": "Queue many prospects and/or organizations for background enrichment by the cron worker (does NOT run inline). Provide prospect_ids and/or organization_ids. Returns {accepted} — how many rows were queued. Use this instead of calling enrich_prospect in a loop when enriching more than a couple of records.",
+    "operations": 1
   },
   {
     "name": "bulk_import_organizations",
     "title": "Bulk import organizations",
-    "description": "Import multiple organizations. Deduplicates by domain. Returns imported/existing/failed counts."
+    "description": "Import multiple organizations. Deduplicates by domain. Returns imported/existing/failed counts.",
+    "operations": 1
   },
   {
     "name": "bulk_import_prospects",
     "title": "Bulk import prospects",
-    "description": "Import multiple prospects at once. Deduplicates by email. Returns imported/existing/failed counts."
+    "description": "Import multiple prospects at once. Deduplicates by email. Returns imported/existing/failed counts.",
+    "operations": 1
   },
   {
     "name": "calendar_status",
     "title": "Get Cal.com connection status",
-    "description": "Return the workspace's Cal.com connection status. Returns {data: {connected: false}} when no instance is connected, or {data: CalendarStatus} (baseUrl, username, label, defaultEventTypeId, eventTypes) when connected. eventTypes may be [] if the instance is currently unreachable. The api_key is never returned."
+    "description": "Return the workspace's Cal.com connection status. Returns {data: {connected: false}} when no instance is connected, or {data: CalendarStatus} (baseUrl, username, label, defaultEventTypeId, eventTypes) when connected. eventTypes may be [] if the instance is currently unreachable. The api_key is never returned.",
+    "operations": 1
   },
   {
     "name": "cancel_meeting",
     "title": "Cancel a recorded meeting",
-    "description": "Cancel a recorded meeting by its meetings.id UUID. If the meeting has a Cal.com booking uid it is cancelled on Cal.com first, then the row is marked cancelled. Optionally pass a reason. Returns the updated {data: meeting row} with status 'cancelled'. Fails with 404 (unknown / not in this workspace), 409 (no calendar connected, only when a Cal.com cancel is needed), or 4xx/502 CALCOM_ERROR."
+    "description": "Cancel a recorded meeting by its meetings.id UUID. If the meeting has a Cal.com booking uid it is cancelled on Cal.com first, then the row is marked cancelled. Optionally pass a reason. Returns the updated {data: meeting row} with status 'cancelled'. Fails with 404 (unknown / not in this workspace), 409 (no calendar connected, only when a Cal.com cancel is needed), or 4xx/502 CALCOM_ERROR.",
+    "operations": 1
   },
   {
     "name": "claire_deep_research",
     "title": "Deep research on a person or company",
-    "description": "Multi-source background research on a named person or company. Returns recent activity, news, role context, company highlights, and proof points. Synchronous (may take 30-90s). Call this BEFORE crafting personalized outreach so the message reflects who the prospect actually is."
+    "description": "Multi-source background research on a named person or company. Returns recent activity, news, role context, company highlights, and proof points. Synchronous (may take 30-90s). Call this BEFORE crafting personalized outreach so the message reflects who the prospect actually is.",
+    "operations": 1
   },
   {
     "name": "claire_enrich_person",
     "title": "Enrich a person (BILLED per lookup)",
-    "description": "Resolve one person to their current title, seniority, employer (with headcount), location, dated career history and education — and optionally their work email and phone. COSTS CREDITS ON EVERY CALL, including when nothing is found: narrowing `sections` changes what comes back, not what it costs, so do not call this to browse or to check whether someone exists. Identify them with a LinkedIn URL, a work email, or a name PLUS a company or domain; a bare name is refused, because it matches the wrong person and is billed anyway. Add 'contact' to `sections` only when you intend to reach out — it runs a paid email/phone waterfall on top of the profile. Known gaps: `skills` is usually empty and there is no buyer-intent data, so do not retry hoping to fill them."
+    "description": "Resolve one person to their current title, seniority, employer (with headcount), location, dated career history and education — and optionally their work email and phone. COSTS CREDITS ON EVERY CALL, including when nothing is found: narrowing `sections` changes what comes back, not what it costs, so do not call this to browse or to check whether someone exists. Identify them with a LinkedIn URL, a work email, or a name PLUS a company or domain; a bare name is refused, because it matches the wrong person and is billed anyway. Add 'contact' to `sections` only when you intend to reach out — it runs a paid email/phone waterfall on top of the profile. Known gaps: `skills` is usually empty and there is no buyer-intent data, so do not retry hoping to fill them.",
+    "operations": 1
   },
   {
     "name": "claire_extract_prospects_from_url",
     "title": "Extract prospects from a URL via Claire",
-    "description": "Fetch a public URL (conference attendee list, team / about page, press release, panel announcement, etc.) and extract structured prospects (people / contacts) from it via Claire. Returns { prospects:[{ name, title, company, linkedin_url?, email?, ... }], source_url, extracted_count, claire_request_id? }. Use when the user pastes a URL and asks to 'find leads here' / 'build a list from this page'. Pair with create_prospect or import_prospect_list_csv to persist the result."
+    "description": "Fetch a public URL (conference attendee list, team / about page, press release, panel announcement, etc.) and extract structured prospects (people / contacts) from it via Claire. Returns { prospects:[{ name, title, company, linkedin_url?, email?, ... }], source_url, extracted_count, claire_request_id? }. Use when the user pastes a URL and asks to 'find leads here' / 'build a list from this page'. Pair with create_prospect or import_prospect_list_csv to persist the result.",
+    "operations": 1
   },
   {
     "name": "claire_find_competitors",
     "title": "Find competitors via Claire",
-    "description": "Identify direct competitors of a company by URL. Returns a list of competing companies with descriptions and sources. Synchronous (typically 1-3 min). Use to expand a prospect list with similar companies or to ground competitive positioning in outreach."
+    "description": "Identify direct competitors of a company by URL. Returns a list of competing companies with descriptions and sources. Synchronous (typically 1-3 min). Use to expand a prospect list with similar companies or to ground competitive positioning in outreach.",
+    "operations": 1
   },
   {
     "name": "claire_market_watch",
     "title": "Monitor a URL for market signals",
-    "description": "Run a market-watch pass on a URL, optionally filtered by criteria (e.g. 'pricing', 'hiring', 'funding'). Returns a snapshot of detected signals. Use to inform outreach timing (e.g. just-funded companies) or to spot competitive moves."
+    "description": "Run a market-watch pass on a URL, optionally filtered by criteria (e.g. 'pricing', 'hiring', 'funding'). Returns a snapshot of detected signals. Use to inform outreach timing (e.g. just-funded companies) or to spot competitive moves.",
+    "operations": 1
   },
   {
     "name": "claire_search",
     "title": "Run a Claire research search",
-    "description": "Free-text research query against Claire's hub. Use for quick lookups like industry trends, funding news, or any topic where you'd otherwise google. Synchronous — waits for Claire to finish and returns the result. Use mode='lite' for fast first-pass (default), 'full' for deeper multi-source."
+    "description": "Free-text research query against Claire's hub. Use for quick lookups like industry trends, funding news, or any topic where you'd otherwise google. Synchronous — waits for Claire to finish and returns the result. Use mode='lite' for fast first-pass (default), 'full' for deeper multi-source.",
+    "operations": 1
   },
   {
     "name": "clear_failed_requests",
     "title": "Clear failed requests queue",
-    "description": "Drain the dead-letter queue. Returns the number of entries removed. Use after manually replaying or after resolving the upstream issue."
+    "description": "Drain the dead-letter queue. Returns the number of entries removed. Use after manually replaying or after resolving the upstream issue.",
+    "operations": 1
   },
   {
     "name": "connect_calendar",
     "title": "Connect the workspace's Cal.com instance",
-    "description": "Connect the workspace's self-hosted Cal.com instance so Max can read availability and book meetings. Validates the credentials by calling Cal.com listEventTypes before storing them. Pass base_url (the instance API base, e.g. https://cal.example.com or .../api/v2), api_key, and optionally default_event_type_id. Returns {data: CalendarStatus} with connected:true, baseUrl, username, label, defaultEventTypeId, and the list of eventTypes. The api_key is never returned."
+    "description": "Connect the workspace's self-hosted Cal.com instance so Max can read availability and book meetings. Validates the credentials by calling Cal.com listEventTypes before storing them. Pass base_url (the instance API base, e.g. https://cal.example.com or .../api/v2), api_key, and optionally default_event_type_id. Returns {data: CalendarStatus} with connected:true, baseUrl, username, label, defaultEventTypeId, and the list of eventTypes. The api_key is never returned.",
+    "operations": 1
   },
   {
     "name": "create_campaign",
     "title": "Create campaign",
-    "description": "Create a new campaign in draft state. Requires name, included_lists, and accounts. Won't send until launched."
+    "description": "Create a new campaign in draft state. Requires name, included_lists, and accounts. Won't send until launched.",
+    "operations": 1
   },
   {
     "name": "create_intent_trigger",
     "title": "Create an intent trigger",
-    "description": "Set up a trigger that watches a target URL for a buying signal (funding, hiring, tech_stack, news, job_change, or custom). Optionally scope it to an organization or prospect and set how often it re-polls. Returns the created {data: IntentTrigger}. Used to start monitoring for intent before any signals exist."
+    "description": "Set up a trigger that watches a target URL for a buying signal (funding, hiring, tech_stack, news, job_change, or custom). Optionally scope it to an organization or prospect and set how often it re-polls. Returns the created {data: IntentTrigger}. Used to start monitoring for intent before any signals exist.",
+    "operations": 1
   },
   {
     "name": "create_organization",
     "title": "Create organization",
-    "description": "Create a new organization/company record."
+    "description": "Create a new organization/company record.",
+    "operations": 1
   },
   {
     "name": "create_prospect",
     "title": "Create prospect",
-    "description": "Create a single prospect. Deduplicates by email — returns existing row if email already exists."
+    "description": "Create a single prospect. Deduplicates by email — returns existing row if email already exists.",
+    "operations": 1
   },
   {
     "name": "create_prospect_list",
     "title": "Create prospect list",
-    "description": "Create an empty platform prospect list. For Apollo-sourced lists, use apollo_create_list instead."
+    "description": "Create an empty platform prospect list. For Apollo-sourced lists, use apollo_create_list instead.",
+    "operations": 1
   },
   {
     "name": "create_schedule_preset",
     "title": "Save a campaign schedule",
-    "description": "Save a scheduling_config under a name so later campaigns can reuse it. Names are unique per workspace. Set is_default to pre-fill it on new campaigns. Applying a preset copies it — later edits never retime a running campaign."
+    "description": "Save a scheduling_config under a name so later campaigns can reuse it. Names are unique per workspace. Set is_default to pre-fill it on new campaigns. Applying a preset copies it — later edits never retime a running campaign.",
+    "operations": 1
   },
   {
     "name": "crm_assign_prospects",
     "title": "Assign prospects to owners",
-    "description": "Assign prospects to HubSpot owners using agent_settings.assignment_rules (or assignment_rules_override). First matching rule wins; no match → owner_id null, reason 'no rule matched', priority 'low'. Priority otherwise derives from prospect.score (>=75 high, 50–74 med, <50 low) else 'med'. Returns { assignments: [{ id|email, owner_id, owner_name, owner_email, reasoning, priority }] }."
+    "description": "Assign prospects to HubSpot owners using agent_settings.assignment_rules (or assignment_rules_override). First matching rule wins; no match → owner_id null, reason 'no rule matched', priority 'low'. Priority otherwise derives from prospect.score (>=75 high, 50–74 med, <50 low) else 'med'. Returns { assignments: [{ id|email, owner_id, owner_name, owner_email, reasoning, priority }] }.",
+    "operations": 1
   },
   {
     "name": "crm_detect_forecast_changes",
     "title": "Detect forecast changes vs prior snapshot",
-    "description": "Compare current open HubSpot deals against the workspace's deal snapshot from window_days ago (read from max-agent's crm_deal_snapshots via GET /api/v1/crm/deal-snapshots). Flags amount changes (abs delta pct > threshold), stage moves (forward/backward via pipeline displayOrder), close-date slips (> threshold days), new deals since last snapshot, and deals that disappeared. Returns { window_days, baseline_iso, current_iso, changes:[{ deal_id, dealname, owner_id, owner_name, amount, prior_amount, amount_delta_pct, stage, prior_stage, stage_movement, close_date, prior_close_date, close_date_slip_days, flag_reasons[] }] }."
+    "description": "Compare current open HubSpot deals against the workspace's deal snapshot from window_days ago (read from max-agent's crm_deal_snapshots via GET /api/v1/crm/deal-snapshots). Flags amount changes (abs delta pct > threshold), stage moves (forward/backward via pipeline displayOrder), close-date slips (> threshold days), new deals since last snapshot, and deals that disappeared. Returns { window_days, baseline_iso, current_iso, changes:[{ deal_id, dealname, owner_id, owner_name, amount, prior_amount, amount_delta_pct, stage, prior_stage, stage_movement, close_date, prior_close_date, close_date_slip_days, flag_reasons[] }] }.",
+    "operations": 1
   },
   {
     "name": "crm_export_import_csv",
     "title": "Export prospects as HubSpot-import CSV",
-    "description": "Build a HubSpot-import CSV (base64-encoded) from prospects. When dedup_against_hubspot (default true), drops prospects whose email already exists in HubSpot (concurrency <=5). Columns: Email, First Name, Last Name, Job Title, Company, Company Domain, Country, Industry, Number of Employees [, HubSpot Owner ID when include_assignment]. Returns { csv_base64, row_count, deduped_count, deduped:[{ email, existing_id }] }."
+    "description": "Build a HubSpot-import CSV (base64-encoded) from prospects. When dedup_against_hubspot (default true), drops prospects whose email already exists in HubSpot (concurrency <=5). Columns: Email, First Name, Last Name, Job Title, Company, Company Domain, Country, Industry, Number of Employees [, HubSpot Owner ID when include_assignment]. Returns { csv_base64, row_count, deduped_count, deduped:[{ email, existing_id }] }.",
+    "operations": 1
   },
   {
     "name": "crm_get_contact",
     "title": "Get a CRM contact by email",
-    "description": "Fetch a single CRM contact by email (the dedup identity). Returns null if not found."
+    "description": "Fetch a single CRM contact by email (the dedup identity). Returns null if not found.",
+    "operations": 1
   },
   {
     "name": "crm_get_deal",
     "title": "Get a CRM deal by id",
-    "description": "Fetch a single HubSpot deal by id, including its full properties and associated company/contact ids. Returns null if not found."
+    "description": "Fetch a single HubSpot deal by id, including its full properties and associated company/contact ids. Returns null if not found.",
+    "operations": 1
   },
   {
     "name": "crm_list_activities",
     "title": "List CRM activities (engagements)",
-    "description": "List HubSpot engagements (call/email/meeting/note/task) with optional filters (deal, contact, owner, types, since). Per-type queries are merged sorted by timestamp desc. Returns id, type, timestamp, ownerId, dealId, contactId, subject, body."
+    "description": "List HubSpot engagements (call/email/meeting/note/task) with optional filters (deal, contact, owner, types, since). Per-type queries are merged sorted by timestamp desc. Returns id, type, timestamp, ownerId, dealId, contactId, subject, body.",
+    "operations": 1
   },
   {
     "name": "crm_list_deals",
     "title": "List CRM deals",
-    "description": "List deals from HubSpot with optional filters (stage, owner, pipeline, amount range, close-date range, modified-after). Returns id, dealname, amount, ownerId, stage, pipeline, closeDate, lastModified, lastActivityDate, nextStep, associated company/contact ids."
+    "description": "List deals from HubSpot with optional filters (stage, owner, pipeline, amount range, close-date range, modified-after). Returns id, dealname, amount, ownerId, stage, pipeline, closeDate, lastModified, lastActivityDate, nextStep, associated company/contact ids.",
+    "operations": 1
   },
   {
     "name": "crm_list_owners",
     "title": "List CRM owners",
-    "description": "List HubSpot owners (sales reps) for the workspace. Returns id, email, firstName, lastName, teams. Use to map deals/assignments to people."
+    "description": "List HubSpot owners (sales reps) for the workspace. Returns id, email, firstName, lastName, teams. Use to map deals/assignments to people.",
+    "operations": 1
   },
   {
     "name": "crm_list_pipeline_stages",
     "title": "List CRM pipeline stages",
-    "description": "List deal pipeline stages (optionally scoped to one pipeline). Returns id, label, displayOrder, pipelineId, isWonStage, isLostStage."
+    "description": "List deal pipeline stages (optionally scoped to one pipeline). Returns id, label, displayOrder, pipelineId, isWonStage, isLostStage.",
+    "operations": 1
   },
   {
     "name": "crm_pipeline_risk_scan",
     "title": "Scan open pipeline for risk",
-    "description": "Scan open HubSpot deals for risk: days inactive, days-to-close, missing fields (amount/owner/next_step/last_activity), close-date slipping, and high-value-low-activity. Computes a transparent weighted risk_score (0–100) and a PRIVATE suggested nudge draft to the owner (never sent). Uses agent_settings.risk_thresholds. Returns { scanned_count, flagged:[...] }."
+    "description": "Scan open HubSpot deals for risk: days inactive, days-to-close, missing fields (amount/owner/next_step/last_activity), close-date slipping, and high-value-low-activity. Computes a transparent weighted risk_score (0–100) and a PRIVATE suggested nudge draft to the owner (never sent). Uses agent_settings.risk_thresholds. Returns { scanned_count, flagged:[...] }.",
+    "operations": 1
   },
   {
     "name": "crm_score_prospects",
     "title": "Score prospects against ICP",
-    "description": "Score prospects 0–100 against the workspace ICP rules (agent_settings.icp_rules): country 25, industry 25, employee-in-range 20, any title keyword 30. With no rules configured, every prospect scores 50 (reason no_icp_rules_configured). Returns { scored: [{ id|email, score, matched[], missed[] }] }."
+    "description": "Score prospects 0–100 against the workspace ICP rules (agent_settings.icp_rules): country 25, industry 25, employee-in-range 20, any title keyword 30. With no rules configured, every prospect scores 50 (reason no_icp_rules_configured). Returns { scored: [{ id|email, score, matched[], missed[] }] }.",
+    "operations": 1
   },
   {
     "name": "crm_search_contacts",
     "title": "Search CRM contacts",
-    "description": "Search the connected CRM (HubSpot) for contacts by free text (name, email, company). Returns matching contacts. Use before creating a contact to check if one already exists."
+    "description": "Search the connected CRM (HubSpot) for contacts by free text (name, email, company). Returns matching contacts. Use before creating a contact to check if one already exists.",
+    "operations": 1
   },
   {
     "name": "crm_status",
     "title": "CRM connection status",
-    "description": "Report whether HubSpot is connected for this workspace. Attempts a cheap HubSpot read; returns { connected: bool, ... }."
+    "description": "Report whether HubSpot is connected for this workspace. Attempts a cheap HubSpot read; returns { connected: bool, ... }.",
+    "operations": 1
   },
   {
     "name": "crm_upsert_company",
     "title": "Create or update a CRM company",
-    "description": "Create-or-update a company in the connected CRM, matched by domain — never creates a duplicate. Requires a read + write HubSpot connection."
+    "description": "Create-or-update a company in the connected CRM, matched by domain — never creates a duplicate. Requires a read + write HubSpot connection.",
+    "operations": 1
   },
   {
     "name": "crm_upsert_contact",
     "title": "Create or update a CRM contact",
-    "description": "Create-or-update a contact in the connected CRM, matched by email — never creates a duplicate. Use when the user asks to add or update a contact in HubSpot. Requires a read + write HubSpot connection."
+    "description": "Create-or-update a contact in the connected CRM, matched by email — never creates a duplicate. Use when the user asks to add or update a contact in HubSpot. Requires a read + write HubSpot connection.",
+    "operations": 1
   },
   {
     "name": "crm_weekly_brief_compose",
     "title": "Compose a weekly sales brief",
-    "description": "Compose a structured weekly sales brief from last week's activities, current open deals, the pipeline risk scan, and per-rep aggregates. Pure data (no writes). Returns { week_ending, last_week_summary, this_week_priorities, stale_deals, deals_without_next_step, top_risks, per_rep_questions, suggested_bj_notes, action_items }. Pass the result to notion_publish_weekly_brief to draft it in Notion."
+    "description": "Compose a structured weekly sales brief from last week's activities, current open deals, the pipeline risk scan, and per-rep aggregates. Pure data (no writes). Returns { week_ending, last_week_summary, this_week_priorities, stale_deals, deals_without_next_step, top_risks, per_rep_questions, suggested_bj_notes, action_items }. Pass the result to notion_publish_weekly_brief to draft it in Notion.",
+    "operations": 1
   },
   {
     "name": "delete_campaign",
     "title": "Delete campaign",
-    "description": "Permanently delete a campaign and all its workflow executions. Prefer archive for soft removal."
+    "description": "Permanently delete a campaign and all its workflow executions. Prefer archive for soft removal.",
+    "operations": 1
   },
   {
     "name": "delete_organization",
     "title": "Delete organization",
-    "description": "Delete an organization. Linked prospects get organization_id = null."
+    "description": "Delete an organization. Linked prospects get organization_id = null.",
+    "operations": 1
   },
   {
     "name": "delete_prospect",
     "title": "Delete prospect",
-    "description": "Delete a prospect permanently."
+    "description": "Delete a prospect permanently.",
+    "operations": 1
   },
   {
     "name": "delete_prospect_list",
     "title": "Delete prospect list",
-    "description": "Delete a prospect list (prospects themselves are NOT deleted)."
+    "description": "Delete a prospect list (prospects themselves are NOT deleted).",
+    "operations": 1
   },
   {
     "name": "delete_schedule_preset",
     "title": "Delete a saved campaign schedule",
-    "description": "Delete a saved schedule. Campaigns keep their own copy, so this never changes how an existing campaign sends."
+    "description": "Delete a saved schedule. Campaigns keep their own copy, so this never changes how an existing campaign sends.",
+    "operations": 1
   },
   {
     "name": "disable_trigger",
     "title": "Disable an intent trigger",
-    "description": "Disable an intent trigger (sets active=false) so it stops re-polling. Returns the updated {data: IntentTrigger}, or a 404 error if the trigger is not in this workspace."
+    "description": "Disable an intent trigger (sets active=false) so it stops re-polling. Returns the updated {data: IntentTrigger}, or a 404 error if the trigger is not in this workspace.",
+    "operations": 1
   },
   {
     "name": "disconnect_account",
     "title": "Disconnect account",
-    "description": "Disconnect a LinkedIn or email account from the workspace. Use hosted_auth_link to reconnect."
+    "description": "Disconnect a LinkedIn or email account from the workspace. Use hosted_auth_link to reconnect.",
+    "operations": 1
   },
   {
     "name": "enrich_organization",
     "title": "Enrich an organization with Claire research",
-    "description": "Run Claire deep-research on an organization and save the result onto the record. SYNCHRONOUS — waits for Claire (may take 30-180s) and returns {status} ('complete' with the research, 'skipped' if the org has no name, or 'busy' if another enrichment is already running). Counts against the workspace's daily enrichment quota; returns a 429 quota error when exhausted. Set force=true to re-enrich an already-complete record."
+    "description": "Run Claire deep-research on an organization and save the result onto the record. SYNCHRONOUS — waits for Claire (may take 30-180s) and returns {status} ('complete' with the research, 'skipped' if the org has no name, or 'busy' if another enrichment is already running). Counts against the workspace's daily enrichment quota; returns a 429 quota error when exhausted. Set force=true to re-enrich an already-complete record.",
+    "operations": 1
   },
   {
     "name": "enrich_prospect",
     "title": "Enrich a prospect with Claire research",
-    "description": "Run Claire deep-research on a prospect and save the result onto the record. SYNCHRONOUS — waits for Claire (may take 30-180s) and returns {status} ('complete' with the research, 'skipped' if the prospect has no name, or 'busy' if another enrichment is already running). Counts against the workspace's daily enrichment quota; returns a 429 quota error when exhausted. Set force=true to re-enrich an already-complete record. Call this BEFORE crafting personalized outreach."
+    "description": "Run Claire deep-research on a prospect and save the result onto the record. SYNCHRONOUS — waits for Claire (may take 30-180s) and returns {status} ('complete' with the research, 'skipped' if the prospect has no name, or 'busy' if another enrichment is already running). Counts against the workspace's daily enrichment quota; returns a 429 quota error when exhausted. Set force=true to re-enrich an already-complete record. Call this BEFORE crafting personalized outreach.",
+    "operations": 1
   },
   {
     "name": "explorium_add_more",
     "title": "Add more leads from Explorium",
-    "description": "Append more leads to an existing Explorium list (async). Re-runs the saved search for additional results. Poll the list (or use wait_for_prospect_list) for progress."
+    "description": "Append more leads to an existing Explorium list (async). Re-runs the saved search for additional results. Poll the list (or use wait_for_prospect_list) for progress.",
+    "operations": 1
   },
   {
     "name": "explorium_create_company_list",
     "title": "Create Explorium company list",
-    "description": "Create an Explorium-backed company (organization) list (async). Runs a business search with the given filters → enrichment → ingestion. Returns a pending list DTO; poll its status (or use wait_for_prospect_list) until completed. Auto-generates an idempotency_key if not provided so retries are safe."
+    "description": "Create an Explorium-backed company (organization) list (async). Runs a business search with the given filters → enrichment → ingestion. Returns a pending list DTO; poll its status (or use wait_for_prospect_list) until completed. Auto-generates an idempotency_key if not provided so retries are safe.",
+    "operations": 1
   },
   {
     "name": "explorium_create_list",
     "title": "Create Explorium prospect list",
-    "description": "Create an Explorium-backed prospect (people) list (async). Runs a people search with the given filters → enrichment → ingestion. Returns a pending list DTO; poll its status (or use wait_for_prospect_list) until completed. Auto-generates an idempotency_key if not provided so retries are safe."
+    "description": "Create an Explorium-backed prospect (people) list (async). Runs a people search with the given filters → enrichment → ingestion. Returns a pending list DTO; poll its status (or use wait_for_prospect_list) until completed. Auto-generates an idempotency_key if not provided so retries are safe.",
+    "operations": 1
   },
   {
     "name": "generate_message_preview",
     "title": "Generate message preview (AI)",
-    "description": "Use AI to generate a personalized message for a prospect. Charges credits. Specify channel and prompt."
+    "description": "Use AI to generate a personalized message for a prospect. Charges credits. Specify channel and prompt.",
+    "operations": 1
   },
   {
     "name": "generate_workflow",
     "title": "Generate campaign workflow (AI)",
-    "description": "Use AI to generate a campaign workflow from natural language. Charges credits. Provide a prompt or structured fields."
+    "description": "Use AI to generate a campaign workflow from natural language. Charges credits. Provide a prompt or structured fields.",
+    "operations": 1
   },
   {
     "name": "get_account",
     "title": "Get account",
-    "description": "Get full details of a connected account — provider, channel, config, sync status."
+    "description": "Get full details of a connected account — provider, channel, config, sync status.",
+    "operations": 1
   },
   {
     "name": "get_account_rate_limits",
     "title": "Get account rate limits",
-    "description": "Get daily/weekly sending limits and current usage for a specific account."
+    "description": "Get daily/weekly sending limits and current usage for a specific account.",
+    "operations": 1
   },
   {
     "name": "get_availability",
     "title": "Get Cal.com availability",
-    "description": "Fetch open booking slots for an event type, grouped by date. event_type_id defaults to the connection's default event type; start defaults to now and end to now + 14 days; time_zone is an optional IANA string to localize slots. Returns {data: {eventTypeId, slotsByDate: {<YYYY-MM-DD>: [{start, end?}]}}}. Fails with 409 if no calendar is connected, or 400 if no event type id is available."
+    "description": "Fetch open booking slots for an event type, grouped by date. event_type_id defaults to the connection's default event type; start defaults to now and end to now + 14 days; time_zone is an optional IANA string to localize slots. Returns {data: {eventTypeId, slotsByDate: {<YYYY-MM-DD>: [{start, end?}]}}}. Fails with 409 if no calendar is connected, or 400 if no event type id is available.",
+    "operations": 1
   },
   {
     "name": "get_campaign",
     "title": "Get campaign",
-    "description": "Get full details of a campaign by ID — workflow, scheduling, accounts, prospect lists, stats."
+    "description": "Get full details of a campaign by ID — workflow, scheduling, accounts, prospect lists, stats.",
+    "operations": 1
   },
   {
     "name": "get_campaign_engagement_summary",
     "title": "Get campaign engagement summary",
-    "description": "Engagement summary for a campaign: open/click/reply/bounce rates plus per-link click detail (top links, distinct URLs clicked)."
+    "description": "Engagement summary for a campaign: open/click/reply/bounce rates plus per-link click detail (top links, distinct URLs clicked).",
+    "operations": 1
   },
   {
     "name": "get_campaign_lead_analytics",
     "title": "Get campaign lead analytics",
-    "description": "Per-prospect breakdown — where each lead is in the workflow and message event history."
+    "description": "Per-prospect breakdown — where each lead is in the workflow and message event history.",
+    "operations": 1
   },
   {
     "name": "get_campaign_memory",
     "title": "Get campaign memory",
-    "description": "Read Max's durable memory for a campaign (ICP, decisions, notes). Recall this when working on one of several simultaneous campaigns so you keep them straight."
+    "description": "Read Max's durable memory for a campaign (ICP, decisions, notes). Recall this when working on one of several simultaneous campaigns so you keep them straight.",
+    "operations": 1
   },
   {
     "name": "get_campaign_node_run_counts",
     "title": "Get campaign node run counts",
-    "description": "Map of workflow node ID → execution count. Useful for funnel visualization."
+    "description": "Map of workflow node ID → execution count. Useful for funnel visualization.",
+    "operations": 1
   },
   {
     "name": "get_campaign_stats",
     "title": "Get campaign stats",
-    "description": "Aggregate performance stats — email open/reply rates, LinkedIn connection/reply rates, execution counts."
+    "description": "Aggregate performance stats — email open/reply rates, LinkedIn connection/reply rates, execution counts.",
+    "operations": 1
   },
   {
     "name": "get_chat",
     "title": "Get chat",
-    "description": "Get full details of a single Unibox chat/conversation thread."
+    "description": "Get full details of a single Unibox chat/conversation thread.",
+    "operations": 1
   },
   {
     "name": "get_circuit_status",
     "title": "Get circuit breaker status",
-    "description": "Inspect the circuit-breaker state for each upstream host the MCP server has called. Shows whether requests are being fast-failed (state=open), probing (half-open), or flowing normally (closed)."
+    "description": "Inspect the circuit-breaker state for each upstream host the MCP server has called. Shows whether requests are being fast-failed (state=open), probing (half-open), or flowing normally (closed).",
+    "operations": 1
   },
   {
     "name": "get_dashboard_kpis",
     "title": "Get dashboard KPIs",
-    "description": "Workspace-wide aggregate stats — execution counts, email/LinkedIn rates, completion percentage."
+    "description": "Workspace-wide aggregate stats — execution counts, email/LinkedIn rates, completion percentage.",
+    "operations": 1
   },
   {
     "name": "get_email_tracking_events",
     "title": "Get email tracking events",
-    "description": "Raw per-event email tracking rows for a prospect (opens, clicks, replies, bounces) with url/ip/user_agent detail. Newest first. Optionally filter by event_types."
+    "description": "Raw per-event email tracking rows for a prospect (opens, clicks, replies, bounces) with url/ip/user_agent detail. Newest first. Optionally filter by event_types.",
+    "operations": 1
   },
   {
     "name": "get_enrichment_credits",
     "title": "Get daily enrichment quota",
-    "description": "Return the workspace's daily enrichment quota usage: {cap, used_today, remaining}. Check this before a large bulk enrichment to confirm there's headroom."
+    "description": "Return the workspace's daily enrichment quota usage: {cap, used_today, remaining}. Check this before a large bulk enrichment to confirm there's headroom.",
+    "operations": 1
   },
   {
     "name": "get_enrichment_status",
     "title": "Get enrichment status",
-    "description": "Check the enrichment state of a single prospect or organization. Provide exactly one of prospect_id or organization_id. Returns {enrichment_status, enrichment_updated_at, has_research}."
+    "description": "Check the enrichment state of a single prospect or organization. Provide exactly one of prospect_id or organization_id. Returns {enrichment_status, enrichment_updated_at, has_research}.",
+    "operations": 1
   },
   {
     "name": "get_inbox_autopilot_status",
     "title": "Get inbox autopilot status",
-    "description": "Return the workspace's current inbox autopilot setting: {enabled, mode ('auto_safe'|'draft_all'|'off'), daily_cap}. Use this to confirm whether autopilot is active and how it is configured before changing it or reviewing drafts."
+    "description": "Return the workspace's current inbox autopilot setting: {enabled, mode ('auto_safe'|'draft_all'|'off'), daily_cap}. Use this to confirm whether autopilot is active and how it is configured before changing it or reviewing drafts.",
+    "operations": 1
   },
   {
     "name": "get_link_click_details",
     "title": "Get link click details",
-    "description": "Link clicks for a campaign grouped by url, with total click counts and unique-prospect counts. Sorted by clicks desc."
+    "description": "Link clicks for a campaign grouped by url, with total click counts and unique-prospect counts. Sorted by clicks desc.",
+    "operations": 1
   },
   {
     "name": "get_organization",
     "title": "Get organization",
-    "description": "Get full details of an organization — domain, industry, employee count, funding, social URLs."
+    "description": "Get full details of an organization — domain, industry, employee count, funding, social URLs.",
+    "operations": 1
   },
   {
     "name": "get_prospect",
     "title": "Get prospect",
-    "description": "Get full profile of a prospect — name, title, company, LinkedIn, email, location, enrichment data."
+    "description": "Get full profile of a prospect — name, title, company, LinkedIn, email, location, enrichment data.",
+    "operations": 1
   },
   {
     "name": "get_prospect_campaign_activity",
     "title": "Get prospect campaign activity",
-    "description": "Chronological log of message events for a prospect across all campaigns (newest first)."
+    "description": "Chronological log of message events for a prospect across all campaigns (newest first).",
+    "operations": 1
   },
   {
     "name": "get_prospect_engagement_timeline",
     "title": "Get prospect engagement timeline",
-    "description": "Chronological email engagement timeline for a prospect (oldest first) — every open, click, reply, and bounce."
+    "description": "Chronological email engagement timeline for a prospect (oldest first) — every open, click, reply, and bounce.",
+    "operations": 1
   },
   {
     "name": "get_prospect_list",
     "title": "Get prospect list",
-    "description": "Get full details of a prospect list by ID — status, search config, result counts, timestamps."
+    "description": "Get full details of a prospect list by ID — status, search config, result counts, timestamps.",
+    "operations": 1
   },
   {
     "name": "get_signal_history",
     "title": "Get signal history for a trigger",
-    "description": "Return the detected SignalEvent rows for a single trigger — each event records whether the poll found changes, a summary, and the raw scrape. Returns {data: SignalEvent[]}."
+    "description": "Return the detected SignalEvent rows for a single trigger — each event records whether the poll found changes, a summary, and the raw scrape. Returns {data: SignalEvent[]}.",
+    "operations": 1
   },
   {
     "name": "get_signal_proposal",
     "title": "Get a signal proposal",
-    "description": "Fetch a single signal proposal by id, including its full recommendation (campaign name/description, workflow_config, target_prospect_ids, estimated contacts/credits, matched ICP, and entity). Returns {data: SignalProposal}, or a 404 error if not found."
+    "description": "Fetch a single signal proposal by id, including its full recommendation (campaign name/description, workflow_config, target_prospect_ids, estimated contacts/credits, matched ICP, and entity). Returns {data: SignalProposal}, or a 404 error if not found.",
+    "operations": 1
   },
   {
     "name": "get_upcoming_meetings",
     "title": "List upcoming meetings",
-    "description": "List upcoming non-cancelled meetings ordered by start time ascending. from defaults to now and to defaults to now + 30 days (both ISO8601). Returns {data: meeting row[]} (status one of scheduled|rescheduled|completed|no_show)."
+    "description": "List upcoming non-cancelled meetings ordered by start time ascending. from defaults to now and to defaults to now + 30 days (both ISO8601). Returns {data: meeting row[]} (status one of scheduled|rescheduled|completed|no_show).",
+    "operations": 1
   },
   {
     "name": "get_workspace_profile",
     "title": "Get workspace profile",
-    "description": "Fetch workspace profile settings (company info) for the authenticated workspace via DigitalCrew API. Uses the MCP connection Authorization: Bearer token when set."
+    "description": "Fetch workspace profile settings (company info) for the authenticated workspace via DigitalCrew API. Uses the MCP connection Authorization: Bearer token when set.",
+    "operations": 1
   },
   {
     "name": "hosted_auth_link",
     "title": "Generate hosted auth link",
-    "description": "Generate a short-lived URL for the user to connect a LinkedIn or email account via Unipile hosted auth."
+    "description": "Generate a short-lived URL for the user to connect a LinkedIn or email account via Unipile hosted auth.",
+    "operations": 1
   },
   {
     "name": "import_prospect_list_csv",
     "title": "Import prospect list from CSV",
-    "description": "Create a new prospect list and import prospects in one call. Each row needs an email (for dedup)."
+    "description": "Create a new prospect list and import prospects in one call. Each row needs an email (for dedup).",
+    "operations": 1
   },
   {
     "name": "launch_campaign",
     "title": "Launch campaign",
-    "description": "Launch a draft campaign — transitions draft → active and creates workflow executions for each prospect."
+    "description": "Launch a draft campaign — transitions draft → active and creates workflow executions for each prospect.",
+    "operations": 1
   },
   {
     "name": "linkedin_cancel_invitation",
     "title": "Cancel sent LinkedIn invitation",
-    "description": "Cancel/withdraw a sent LinkedIn invitation by its invitation_id (from list_invitations_sent)."
+    "description": "Cancel/withdraw a sent LinkedIn invitation by its invitation_id (from list_invitations_sent).",
+    "operations": 1
   },
   {
     "name": "linkedin_comment_on_post",
     "title": "Comment on LinkedIn post",
-    "description": "Comment on a LinkedIn post."
+    "description": "Comment on a LinkedIn post.",
+    "operations": 1
   },
   {
     "name": "linkedin_create_post",
     "title": "Create LinkedIn post",
-    "description": "Create a LinkedIn post from the connected account."
+    "description": "Create a LinkedIn post from the connected account.",
+    "operations": 1
   },
   {
     "name": "linkedin_find_profile",
     "title": "Find LinkedIn profile",
-    "description": "Find a LinkedIn profile by name, company and/or title. Searches LinkedIn directly — always use this before any invitation or message. If multiple people share the name, returns candidates with ambiguous:true; show them to the user and ask which one. Never guess a slug or proceed when ambiguous."
+    "description": "Find a LinkedIn profile by name, company and/or title. Searches LinkedIn directly — always use this before any invitation or message. If multiple people share the name, returns candidates with ambiguous:true; show them to the user and ask which one. Never guess a slug or proceed when ambiguous.",
+    "operations": 1
   },
   {
     "name": "linkedin_get_all_messages",
     "title": "Get all LinkedIn messages",
-    "description": "Get all recent LinkedIn messages across all conversations."
+    "description": "Get all recent LinkedIn messages across all conversations.",
+    "operations": 1
   },
   {
     "name": "linkedin_get_company_profile",
     "title": "Get LinkedIn company profile",
-    "description": "Get a LinkedIn company profile by its identifier or slug."
+    "description": "Get a LinkedIn company profile by its identifier or slug.",
+    "operations": 1
   },
   {
     "name": "linkedin_get_conversation_messages",
     "title": "Get LinkedIn conversation messages",
-    "description": "Get messages in a specific LinkedIn conversation."
+    "description": "Get messages in a specific LinkedIn conversation.",
+    "operations": 1
   },
   {
     "name": "linkedin_get_own_profile",
     "title": "Get own LinkedIn profile",
-    "description": "Get the profile of the connected LinkedIn account. Useful to confirm the account is active."
+    "description": "Get the profile of the connected LinkedIn account. Useful to confirm the account is active.",
+    "operations": 1
   },
   {
     "name": "linkedin_get_profile",
     "title": "Get LinkedIn profile",
-    "description": "Get a full LinkedIn profile by slug (public identifier). Returns provider_id and profile data."
+    "description": "Get a full LinkedIn profile by slug (public identifier). Returns provider_id and profile data.",
+    "operations": 1
   },
   {
     "name": "linkedin_get_user_posts",
     "title": "Get LinkedIn user posts",
-    "description": "Get recent posts by a LinkedIn user."
+    "description": "Get recent posts by a LinkedIn user.",
+    "operations": 1
   },
   {
     "name": "linkedin_list_connections",
     "title": "List LinkedIn connections",
-    "description": "List first-degree LinkedIn connections of the connected account."
+    "description": "List first-degree LinkedIn connections of the connected account.",
+    "operations": 1
   },
   {
     "name": "linkedin_list_conversations",
     "title": "List LinkedIn conversations",
-    "description": "List LinkedIn conversations (inbox)."
+    "description": "List LinkedIn conversations (inbox).",
+    "operations": 1
   },
   {
     "name": "linkedin_list_invitations_received",
     "title": "List received LinkedIn invitations",
-    "description": "List pending LinkedIn invitations received from others."
+    "description": "List pending LinkedIn invitations received from others.",
+    "operations": 1
   },
   {
     "name": "linkedin_list_invitations_sent",
     "title": "List sent LinkedIn invitations",
-    "description": "List pending LinkedIn invitations you have sent."
+    "description": "List pending LinkedIn invitations you have sent.",
+    "operations": 1
   },
   {
     "name": "linkedin_react_to_post",
     "title": "React to LinkedIn post",
-    "description": "React to a LinkedIn post."
+    "description": "React to a LinkedIn post.",
+    "operations": 1
   },
   {
     "name": "linkedin_reply_in_chat",
     "title": "Reply in LinkedIn chat",
-    "description": "Reply in an existing LinkedIn conversation."
+    "description": "Reply in an existing LinkedIn conversation.",
+    "operations": 1
   },
   {
     "name": "linkedin_search_people",
     "title": "Search LinkedIn people",
-    "description": "Search LinkedIn for people by keywords."
+    "description": "Search LinkedIn for people by keywords.",
+    "operations": 1
   },
   {
     "name": "linkedin_send_invitation",
     "title": "Send LinkedIn invitation",
-    "description": "Send a LinkedIn connection request. ALWAYS call find_profile first to get provider_id."
+    "description": "Send a LinkedIn connection request. ALWAYS call find_profile first to get provider_id.",
+    "operations": 1
   },
   {
     "name": "linkedin_send_message",
     "title": "Send LinkedIn message",
-    "description": "Send a LinkedIn direct message to start a new conversation. Requires existing connection or InMail credits."
+    "description": "Send a LinkedIn direct message to start a new conversation. Requires existing connection or InMail credits.",
+    "operations": 1
   },
   {
     "name": "list_accounts",
     "title": "List accounts",
-    "description": "List all connected LinkedIn and email accounts — name, email, status, daily limits."
+    "description": "List all connected LinkedIn and email accounts — name, email, status, daily limits.",
+    "operations": 1
   },
   {
     "name": "list_campaigns",
     "title": "List campaigns",
-    "description": "List all outreach campaigns. Filter by status, search by name, paginate and sort."
+    "description": "List all outreach campaigns. Filter by status, search by name, paginate and sort.",
+    "operations": 1
   },
   {
     "name": "list_chat_messages",
     "title": "List chat messages",
-    "description": "Get all messages in a conversation — body, direction (in/out), timestamp, status."
+    "description": "Get all messages in a conversation — body, direction (in/out), timestamp, status.",
+    "operations": 1
   },
   {
     "name": "list_chats",
     "title": "List chats (Unibox)",
-    "description": "List LinkedIn and email conversations — filter by channel, prospect, account, or archived status."
+    "description": "List LinkedIn and email conversations — filter by channel, prospect, account, or archived status.",
+    "operations": 1
   },
   {
     "name": "list_failed_requests",
     "title": "List failed write requests",
-    "description": "Inspect the dead-letter queue — write requests (POST/PATCH/DELETE) that exhausted all retries. Useful for forensics or manual replay. Backed by Redis if REDIS_URL is set, otherwise an in-memory ring buffer of up to 500 entries."
+    "description": "Inspect the dead-letter queue — write requests (POST/PATCH/DELETE) that exhausted all retries. Useful for forensics or manual replay. Backed by Redis if REDIS_URL is set, otherwise an in-memory ring buffer of up to 500 entries.",
+    "operations": 1
   },
   {
     "name": "list_inbox_drafts",
     "title": "List inbox autopilot drafts",
-    "description": "List the autopilot-generated reply drafts awaiting review (status='draft') for the workspace, newest first. Returns {data: InboxAutopilotAction[]}, each row including intent, sentiment, confidence, and the proposed reply_body. Review these before calling approve_inbox_draft or reject_inbox_draft."
+    "description": "List the autopilot-generated reply drafts awaiting review (status='draft') for the workspace, newest first. Returns {data: InboxAutopilotAction[]}, each row including intent, sentiment, confidence, and the proposed reply_body. Review these before calling approve_inbox_draft or reject_inbox_draft.",
+    "operations": 1
   },
   {
     "name": "list_intent_signals",
     "title": "List intent triggers and recent signals",
-    "description": "List the workspace's intent triggers (optionally filtered by active state) so you can see what is being monitored and review recent signal activity. Returns {data: IntentTrigger[]}, each row including last_run_at and last_error. Use get_signal_history to drill into the detected events for a specific trigger."
+    "description": "List the workspace's intent triggers (optionally filtered by active state) so you can see what is being monitored and review recent signal activity. Returns {data: IntentTrigger[]}, each row including last_run_at and last_error. Use get_signal_history to drill into the detected events for a specific trigger.",
+    "operations": 1
   },
   {
     "name": "list_organizations",
     "title": "List organizations",
-    "description": "List all organizations/companies — search by name or domain, filter by industry/country."
+    "description": "List all organizations/companies — search by name or domain, filter by industry/country.",
+    "operations": 1
   },
   {
     "name": "list_prospect_list_members",
     "title": "List prospect list members",
-    "description": "List all prospects in a specific list — paginated, searchable, sortable."
+    "description": "List all prospects in a specific list — paginated, searchable, sortable.",
+    "operations": 1
   },
   {
     "name": "list_prospect_lists",
     "title": "List prospect lists",
-    "description": "List all prospect lists — name, status, result counts, and search criteria."
+    "description": "List all prospect lists — name, status, result counts, and search criteria.",
+    "operations": 1
   },
   {
     "name": "list_prospects",
     "title": "List prospects",
-    "description": "List prospects with rich filtering — search, status, org, titles, countries, industries, pagination, sorting."
+    "description": "List prospects with rich filtering — search, status, org, titles, countries, industries, pagination, sorting.",
+    "operations": 1
   },
   {
     "name": "list_schedule_presets",
     "title": "List saved campaign schedules",
-    "description": "List the workspace's reusable sending schedules (timezone, available days, time windows). Check these before asking someone to spell out a schedule — copy the default one's scheduling_config into a new campaign."
+    "description": "List the workspace's reusable sending schedules (timezone, available days, time windows). Check these before asking someone to spell out a schedule — copy the default one's scheduling_config into a new campaign.",
+    "operations": 1
   },
   {
     "name": "list_signal_proposals",
     "title": "List signal proposals",
-    "description": "List the AI-generated campaign proposals produced from detected signals, optionally filtered by status (pending, approved, rejected, modified, launched, expired). An unknown status is ignored and all proposals are returned. Returns {data: SignalProposal[]}. Review pending proposals before approving them."
+    "description": "List the AI-generated campaign proposals produced from detected signals, optionally filtered by status (pending, approved, rejected, modified, launched, expired). An unknown status is ignored and all proposals are returned. Returns {data: SignalProposal[]}. Review pending proposals before approving them.",
+    "operations": 1
   },
   {
     "name": "meetings",
     "title": "Meetings (grouped)",
-    "description": "Read the workspace's meetings from the meeting hub. The workspace comes from your bearer token — prospect_id filters within it.\n\nActions (set \"action\": \"<one of>\"):\n  • list — List the workspace's meetings, newest first. Filter by prospect_id, status, free-text search, and a from/to window over startedAt. Returns {data: MeetingSessionSummaryDto[], nextCursor}: each row has id, title, platform, source, status, startedAt, endedAt, participantCount, hasTranscript, hasSummary, hasRecording and openTaskCount. Paginated — pass the returned nextCursor back as cursor to get the next page; nextCursor null means the last page.\n  • get — Get one meeting in detail by session id: a MeetingSessionDetailDto with per-stage health, the participant roster, the current summary, the current transcript POINTER (version number + staleness), and derived flags (summaryStale, recordingAvailable). To control token cost the raw transcript SEGMENTS are omitted here — the response carries transcriptOmitted {segmentCount, transcriptVersionNumber}; call get_transcript for the words. Returns {data: MeetingSessionDetailDto, transcriptOmitted?}. 404 if the meeting is not in your workspace.\n  • get_transcript — Get one meeting's transcript. Omit version for the current (authoritative) version; pass a version number for a historical one. BOUNDED FOR TOKEN COST: returns a WINDOW of segments (default 50, max 200), not the whole transcript — the response carries transcriptWindow {totalSegments, offset, limit, returnedSegments, nextOffset, truncated}. Page by re-calling with offset = the previous nextOffset (null means no more). Prefer get_summary for an overview; page the transcript only when you need exact wording. Returns {data: TranscriptVersionDto (windowed segments), transcriptWindow}. 400 on a bad version, 404 if the meeting or version is not found.\n  • get_summary — Get one meeting's current summary — the token-cheap overview to reach for before the raw transcript. Returns {data: MeetingSummaryDto} with summary, keyDecisions, discussionPoints, risksOpenQuestions, sentiment, nextSteps, and the source transcript version it was generated from. Returns {data: null} (not an error) when the meeting exists but has no summary yet (e.g. still processing). 404 if the meeting is not in your workspace.\n  • list_participants — List one meeting's participant roster. Returns {data: MeetingParticipantDto[]}: each has displayName, email, role, isInternal, and the SUGGESTED prospect match (prospectId, matchStatus, matchConfidence, relationType). A match is a machine suggestion until a human confirms it — never treat matchStatus 'suggested' as fact. Unpaginated (bounded by meeting size). 404 if the meeting is not in your workspace."
+    "description": "Read the workspace's meetings from the meeting hub. The workspace comes from your bearer token — prospect_id filters within it.\n\nActions (set \"action\": \"<one of>\"):\n  • list — List the workspace's meetings, newest first. Filter by prospect_id, status, free-text search, and a from/to window over startedAt. Returns {data: MeetingSessionSummaryDto[], nextCursor}: each row has id, title, platform, source, status, startedAt, endedAt, participantCount, hasTranscript, hasSummary, hasRecording and openTaskCount. Paginated — pass the returned nextCursor back as cursor to get the next page; nextCursor null means the last page.\n  • get — Get one meeting in detail by session id: a MeetingSessionDetailDto with per-stage health, the participant roster, the current summary, the current transcript POINTER (version number + staleness), and derived flags (summaryStale, recordingAvailable). To control token cost the raw transcript SEGMENTS are omitted here — the response carries transcriptOmitted {segmentCount, transcriptVersionNumber}; call get_transcript for the words. Returns {data: MeetingSessionDetailDto, transcriptOmitted?}. 404 if the meeting is not in your workspace.\n  • get_transcript — Get one meeting's transcript. Omit version for the current (authoritative) version; pass a version number for a historical one. BOUNDED FOR TOKEN COST: returns a WINDOW of segments (default 50, max 200), not the whole transcript — the response carries transcriptWindow {totalSegments, offset, limit, returnedSegments, nextOffset, truncated}. Page by re-calling with offset = the previous nextOffset (null means no more). Prefer get_summary for an overview; page the transcript only when you need exact wording. Returns {data: TranscriptVersionDto (windowed segments), transcriptWindow}. 400 on a bad version, 404 if the meeting or version is not found.\n  • get_summary — Get one meeting's current summary — the token-cheap overview to reach for before the raw transcript. Returns {data: MeetingSummaryDto} with summary, keyDecisions, discussionPoints, risksOpenQuestions, sentiment, nextSteps, and the source transcript version it was generated from. Returns {data: null} (not an error) when the meeting exists but has no summary yet (e.g. still processing). 404 if the meeting is not in your workspace.\n  • list_participants — List one meeting's participant roster. Returns {data: MeetingParticipantDto[]}: each has displayName, email, role, isInternal, and the SUGGESTED prospect match (prospectId, matchStatus, matchConfidence, relationType). A match is a machine suggestion until a human confirms it — never treat matchStatus 'suggested' as fact. Unpaginated (bounded by meeting size). 404 if the meeting is not in your workspace.",
+    "operations": 5
   },
   {
     "name": "modify_proposal",
     "title": "Modify a pending signal proposal",
-    "description": "Adjust a pending proposal WITHOUT launching it: pass modifications (titles, target_prospect_ids, campaign_name, campaign_description) to re-select prospects and regenerate the campaign workflow. The proposal stays pending so it can be reviewed and approved later. Returns the updated {data: SignalProposal}. Fails with 409 if the proposal is not pending, or 404 if not found."
+    "description": "Adjust a pending proposal WITHOUT launching it: pass modifications (titles, target_prospect_ids, campaign_name, campaign_description) to re-select prospects and regenerate the campaign workflow. The proposal stays pending so it can be reviewed and approved later. Returns the updated {data: SignalProposal}. Fails with 409 if the proposal is not pending, or 404 if not found.",
+    "operations": 1
   },
   {
     "name": "notion_append_blocks",
     "title": "Append blocks to a Notion page",
-    "description": "Append an array of Notion block JSON objects to an existing page (chunked into ≤100-block requests). Requires agent_settings.allow_notion_writes (default true). Returns { appended }."
+    "description": "Append an array of Notion block JSON objects to an existing page (chunked into ≤100-block requests). Requires agent_settings.allow_notion_writes (default true). Returns { appended }.",
+    "operations": 1
   },
   {
     "name": "notion_create_page",
     "title": "Create a Notion page",
-    "description": "Create a new Notion page under a parent page, with an optional body of Notion block JSON. Requires agent_settings.allow_notion_writes (default true). Returns { id, url }."
+    "description": "Create a new Notion page under a parent page, with an optional body of Notion block JSON. Requires agent_settings.allow_notion_writes (default true). Returns { id, url }.",
+    "operations": 1
   },
   {
     "name": "notion_get_page",
     "title": "Get a Notion page",
-    "description": "Fetch a Notion page object plus all of its child blocks (paginated). Returns { page, blocks }."
+    "description": "Fetch a Notion page object plus all of its child blocks (paginated). Returns { page, blocks }.",
+    "operations": 1
   },
   {
     "name": "notion_publish_weekly_brief",
     "title": "Publish weekly brief to Notion (draft)",
-    "description": "Render a crm_weekly_brief_compose output as a DRAFT Notion page (H1 title + H2 section per part) under the workspace's Drafts/the assistant parent. Write-gated by agent_settings.allow_notion_writes. Defaults parent to agent_settings.notion_drafts_parent_id and template to agent_settings.notion_weekly_template_id. Returns { page_id, url, status:'draft', partial_success? }."
+    "description": "Render a crm_weekly_brief_compose output as a DRAFT Notion page (H1 title + H2 section per part) under the workspace's Drafts/the assistant parent. Write-gated by agent_settings.allow_notion_writes. Defaults parent to agent_settings.notion_drafts_parent_id and template to agent_settings.notion_weekly_template_id. Returns { page_id, url, status:'draft', partial_success? }.",
+    "operations": 1
   },
   {
     "name": "notion_search_pages",
     "title": "Search Notion pages",
-    "description": "Search the connected Notion workspace for pages matching a free-text query. Returns [{ id, title, url }]."
+    "description": "Search the connected Notion workspace for pages matching a free-text query. Returns [{ id, title, url }].",
+    "operations": 1
   },
   {
     "name": "pause_campaign",
     "title": "Pause campaign",
-    "description": "Pause an active campaign — stops dequeueing new actions (in-flight calls finish)."
+    "description": "Pause an active campaign — stops dequeueing new actions (in-flight calls finish).",
+    "operations": 1
   },
   {
     "name": "propose_times",
     "title": "Propose the soonest available times",
-    "description": "Return the n soonest available slots as a flat list — handy for offering a prospect a few concrete times. count is 1-50 (default 3); event_type_id defaults to the connection's default event type; time_zone is an optional IANA string. Returns {data: {eventTypeId, slots: [{start, end?}]}}. Fails with 409 if no calendar is connected."
+    "description": "Return the n soonest available slots as a flat list — handy for offering a prospect a few concrete times. count is 1-50 (default 3); event_type_id defaults to the connection's default event type; time_zone is an optional IANA string. Returns {data: {eventTypeId, slots: [{start, end?}]}}. Fails with 409 if no calendar is connected.",
+    "operations": 1
   },
   {
     "name": "prospect_list_meetings",
     "title": "List a prospect's meetings",
-    "description": "List the meetings involving one prospect, newest first — the prospect meeting feed. Same filters and shape as the `meetings` group's list action, with prospect_id required. Returns {data: MeetingSessionSummaryDto[], nextCursor}. Paginated: echo nextCursor back as cursor; null means the last page. prospect_id filters within your authenticated workspace."
+    "description": "List the meetings involving one prospect, newest first — the prospect meeting feed. Same filters and shape as the `meetings` group's list action, with prospect_id required. Returns {data: MeetingSessionSummaryDto[], nextCursor}. Paginated: echo nextCursor back as cursor; null means the last page. prospect_id filters within your authenticated workspace.",
+    "operations": 1
   },
   {
     "name": "prospect_list_tasks",
     "title": "List a prospect's tasks",
-    "description": "List the tasks about one prospect, newest first. Same filters and shape as the `tasks` group's list action, with prospect_id required. Returns {data: TaskDto[], nextCursor}. Paginated: echo nextCursor back as cursor; null means the last page. prospect_id filters within your authenticated workspace."
+    "description": "List the tasks about one prospect, newest first. Same filters and shape as the `tasks` group's list action, with prospect_id required. Returns {data: TaskDto[], nextCursor}. Paginated: echo nextCursor back as cursor; null means the last page. prospect_id filters within your authenticated workspace.",
+    "operations": 1
   },
   {
     "name": "reject_inbox_draft",
     "title": "Reject an inbox draft",
-    "description": "Reject a drafted reply so it will not be sent, setting the action's status to 'rejected'. No message is sent. Returns the updated {data: InboxAutopilotAction}. Fails with 404 (draft not found) or 409 (action not in 'draft' status)."
+    "description": "Reject a drafted reply so it will not be sent, setting the action's status to 'rejected'. No message is sent. Returns the updated {data: InboxAutopilotAction}. Fails with 404 (draft not found) or 409 (action not in 'draft' status).",
+    "operations": 1
   },
   {
     "name": "reject_proposal",
     "title": "Reject a signal proposal",
-    "description": "Reject a pending proposal so it will not be launched. Returns the updated {data: SignalProposal (status 'rejected')}. Fails with 409 if the proposal is not pending."
+    "description": "Reject a pending proposal so it will not be launched. Returns the updated {data: SignalProposal (status 'rejected')}. Fails with 409 if the proposal is not pending.",
+    "operations": 1
   },
   {
     "name": "remove_prospects_from_list",
     "title": "Remove prospects from list",
-    "description": "Remove prospects from a prospect list by their UUIDs."
+    "description": "Remove prospects from a prospect list by their UUIDs.",
+    "operations": 1
   },
   {
     "name": "restore_campaign",
     "title": "Restore campaign",
-    "description": "Restore an archived campaign back to draft status."
+    "description": "Restore an archived campaign back to draft status.",
+    "operations": 1
   },
   {
     "name": "resume_campaign",
     "title": "Resume campaign",
-    "description": "Resume a paused campaign — transitions paused → active."
+    "description": "Resume a paused campaign — transitions paused → active.",
+    "operations": 1
   },
   {
     "name": "search_prospect_lists",
     "title": "Search prospects (preview)",
-    "description": "Preview filter results without creating a list — search by titles, countries, industries, employee count, etc."
+    "description": "Preview filter results without creating a list — search by titles, countries, industries, employee count, etc.",
+    "operations": 1
   },
   {
     "name": "send_booking_link",
     "title": "Get the rep's public Cal.com booking link",
-    "description": "Compose the rep's public Cal.com booking link so it can be shared with a prospect. Does NOT call Cal.com. Optionally pass prospect_id for context. Returns {data: {url, username}}. Fails with 409 if no calendar is connected."
+    "description": "Compose the rep's public Cal.com booking link so it can be shared with a prospect. Does NOT call Cal.com. Optionally pass prospect_id for context. Returns {data: {url, username}}. Fails with 409 if no calendar is connected.",
+    "operations": 1
   },
   {
     "name": "send_chat_message",
     "title": "Send chat message",
-    "description": "Send a manual reply in an existing Unibox chat. Channel (email/LinkedIn) is inferred from the chat."
+    "description": "Send a manual reply in an existing Unibox chat. Channel (email/LinkedIn) is inferred from the chat.",
+    "operations": 1
   },
   {
     "name": "send_new_email",
     "title": "Send new email",
-    "description": "Compose and send a brand-new email to any recipient, outside any chat or campaign. Sends from the workspace's connected email account. Use send_chat_message instead to reply within an existing conversation."
+    "description": "Compose and send a brand-new email to any recipient, outside any chat or campaign. Sends from the workspace's connected email account. Use send_chat_message instead to reply within an existing conversation.",
+    "operations": 1
   },
   {
     "name": "set_inbox_autopilot",
     "title": "Configure inbox autopilot",
-    "description": "Set the workspace's inbox autopilot configuration. enabled is the master kill switch (false = do nothing). When enabled, the autopilot reads each inbound email reply, drafts a suggested reply in the rep's voice, and NOTIFIES the user to review/approve it — it NEVER auto-sends; a human approves every reply (via list_inbox_drafts + approve_inbox_draft). mode: 'off' suppresses entirely; 'auto_safe' and 'draft_all' both draft-and-notify (auto-send is disabled in v1). daily_cap is reserved for a future auto-send mode. Returns the saved {data: inboxAutopilot}."
+    "description": "Set the workspace's inbox autopilot configuration. enabled is the master kill switch (false = do nothing). When enabled, the autopilot reads each inbound email reply, drafts a suggested reply in the rep's voice, and NOTIFIES the user to review/approve it — it NEVER auto-sends; a human approves every reply (via list_inbox_drafts + approve_inbox_draft). mode: 'off' suppresses entirely; 'auto_safe' and 'draft_all' both draft-and-notify (auto-send is disabled in v1). daily_cap is reserved for a future auto-send mode. Returns the saved {data: inboxAutopilot}.",
+    "operations": 1
   },
   {
     "name": "simulate_account_connected",
     "title": "Simulate account-connected webhook",
-    "description": "Fire a Unipile account-connected webhook event. Use to test the handler that creates/updates an account record when Unipile finishes connecting."
+    "description": "Fire a Unipile account-connected webhook event. Use to test the handler that creates/updates an account record when Unipile finishes connecting.",
+    "operations": 1
   },
   {
     "name": "simulate_account_status",
     "title": "Simulate account-status webhook",
-    "description": "Fire a Unipile account-status webhook. Use to test status changes (OK, CREDENTIALS, ERROR, CONNECTING, STOPPED). Useful for verifying that disconnected accounts are flagged correctly."
+    "description": "Fire a Unipile account-status webhook. Use to test status changes (OK, CREDENTIALS, ERROR, CONNECTING, STOPPED). Useful for verifying that disconnected accounts are flagged correctly.",
+    "operations": 1
   },
   {
     "name": "simulate_email_tracking",
     "title": "Simulate email-tracking webhook",
-    "description": "Fire a Unipile mail_opened or mail_link_clicked tracking event. Pass label as 'execution_state_id:node_id' to link the event to a campaign execution and increment open/click counts."
+    "description": "Fire a Unipile mail_opened or mail_link_clicked tracking event. Pass label as 'execution_state_id:node_id' to link the event to a campaign execution and increment open/click counts.",
+    "operations": 1
   },
   {
     "name": "simulate_linkedin_messaging",
     "title": "Simulate LinkedIn messaging webhook",
-    "description": "Fire a Unipile LinkedIn messaging event (message_received, message_read, message_delivered, etc.). Use to test reply detection and campaign execution advancement on LinkedIn."
+    "description": "Fire a Unipile LinkedIn messaging event (message_received, message_read, message_delivered, etc.). Use to test reply detection and campaign execution advancement on LinkedIn.",
+    "operations": 1
   },
   {
     "name": "simulate_new_email",
     "title": "Simulate new-email webhook",
-    "description": "Fire a Unipile mail_received webhook. Use to test inbound email handling — reply detection, chat thread creation, and campaign execution advancement."
+    "description": "Fire a Unipile mail_received webhook. Use to test inbound email handling — reply detection, chat thread creation, and campaign execution advancement.",
+    "operations": 1
   },
   {
     "name": "simulate_new_relation",
     "title": "Simulate LinkedIn new-relation webhook",
-    "description": "Fire a Unipile new_relation event (LinkedIn invitation accepted). Use to test that the connection record is updated and any waiting campaign executions are advanced."
+    "description": "Fire a Unipile new_relation event (LinkedIn invitation accepted). Use to test that the connection record is updated and any waiting campaign executions are advanced.",
+    "operations": 1
   },
   {
     "name": "stop_campaign",
     "title": "Stop campaign",
-    "description": "Stop an active or paused campaign permanently — cannot be resumed."
+    "description": "Stop an active or paused campaign permanently — cannot be resumed.",
+    "operations": 1
   },
   {
     "name": "tasks",
     "title": "Tasks (grouped)",
-    "description": "Read tasks and propose new ones. Agents propose, humans dispose: you can create suggestions and drive accepted work forward, but only a human can approve or reject a suggestion. The workspace comes from your bearer token.\n\nActions (set \"action\": \"<one of>\"):\n  • list — List the workspace's tasks, newest first. Filter by prospect_id, session_id, status, and assignee. Use status:[\"suggested\"] to see what is waiting on human review. Returns {data: TaskDto[], nextCursor}. Paginated — pass nextCursor back as cursor; null means the last page.\n  • get — Get one task by UUID. Returns {data: TaskDto} — including `updatedAt`, which is the expected_version token you must pass to update or complete. 404 if the task is not in your workspace.\n  • create_suggestion — Propose a task for human review. Always creates it with status='suggested' — you cannot create an approved task, and there is no tool to approve one; a human does that in the UI. Pass dedup_key to make retries idempotent (a known key returns the stored task with deduplicated:true instead of creating a duplicate). Returns {data: TaskDto}.\n  • update — Edit a task's fields, or move it to in_progress / completed / cancelled. Requires expected_version — the `updatedAt` you last read (get it from tasks/get). If someone changed the task since you read it the call returns 409 with the current task: re-read it, re-apply your edit, then retry. You cannot set status to approved or rejected — only a signed-in human can review a suggestion. Returns {data: TaskDto}.\n  • complete — Mark an approved or in-progress task completed. Requires expected_version — the `updatedAt` you last read; a mismatch returns 409 with the current task. An unreviewed suggestion cannot be completed (409 invalid_transition): a human approves it first. Returns {data: TaskDto}."
+    "description": "Read tasks and propose new ones. Agents propose, humans dispose: you can create suggestions and drive accepted work forward, but only a human can approve or reject a suggestion. The workspace comes from your bearer token.\n\nActions (set \"action\": \"<one of>\"):\n  • list — List the workspace's tasks, newest first. Filter by prospect_id, session_id, status, and assignee. Use status:[\"suggested\"] to see what is waiting on human review. Returns {data: TaskDto[], nextCursor}. Paginated — pass nextCursor back as cursor; null means the last page.\n  • get — Get one task by UUID. Returns {data: TaskDto} — including `updatedAt`, which is the expected_version token you must pass to update or complete. 404 if the task is not in your workspace.\n  • create_suggestion — Propose a task for human review. Always creates it with status='suggested' — you cannot create an approved task, and there is no tool to approve one; a human does that in the UI. Pass dedup_key to make retries idempotent (a known key returns the stored task with deduplicated:true instead of creating a duplicate). Returns {data: TaskDto}.\n  • update — Edit a task's fields, or move it to in_progress / completed / cancelled. Requires expected_version — the `updatedAt` you last read (get it from tasks/get). If someone changed the task since you read it the call returns 409 with the current task: re-read it, re-apply your edit, then retry. You cannot set status to approved or rejected — only a signed-in human can review a suggestion. Returns {data: TaskDto}.\n  • complete — Mark an approved or in-progress task completed. Requires expected_version — the `updatedAt` you last read; a mismatch returns 409 with the current task. An unreviewed suggestion cannot be completed (409 invalid_transition): a human approves it first. Returns {data: TaskDto}.",
+    "operations": 5
   },
   {
     "name": "update_account",
     "title": "Update account config",
-    "description": "Update account sender name, timezone, working hours, and email signature."
+    "description": "Update account sender name, timezone, working hours, and email signature.",
+    "operations": 1
   },
   {
     "name": "update_account_rate_limit",
     "title": "Update account rate limit",
-    "description": "Update daily or weekly sending cap for a specific rate-limit row."
+    "description": "Update daily or weekly sending cap for a specific rate-limit row.",
+    "operations": 1
   },
   {
     "name": "update_campaign",
     "title": "Update campaign",
-    "description": "Partial update of a campaign — name, description, workflow, lists, accounts, scheduling. Name and description can be changed at any status (including launched campaigns); all other fields require the campaign to be in 'draft' or 'stopped'."
+    "description": "Partial update of a campaign — name, description, workflow, lists, accounts, scheduling. Name and description can be changed at any status (including launched campaigns); all other fields require the campaign to be in 'draft' or 'stopped'.",
+    "operations": 1
   },
   {
     "name": "update_campaign_memory",
     "title": "Update campaign memory",
-    "description": "Record/update Max's durable memory for a campaign. Pass a partial 'memory' object (top-level keys merge; send the full array to change decisions/notes). Use it to remember ICP, decisions, and progress per campaign."
+    "description": "Record/update Max's durable memory for a campaign. Pass a partial 'memory' object (top-level keys merge; send the full array to change decisions/notes). Use it to remember ICP, decisions, and progress per campaign.",
+    "operations": 1
   },
   {
     "name": "update_chat",
     "title": "Update chat",
-    "description": "Update chat metadata — title, read state, archived status, prospect link."
+    "description": "Update chat metadata — title, read state, archived status, prospect link.",
+    "operations": 1
   },
   {
     "name": "update_organization",
     "title": "Update organization",
-    "description": "Update an organization's fields (partial update)."
+    "description": "Update an organization's fields (partial update).",
+    "operations": 1
   },
   {
     "name": "update_prospect",
     "title": "Update prospect",
-    "description": "Update a prospect's fields (partial update)."
+    "description": "Update a prospect's fields (partial update).",
+    "operations": 1
   },
   {
     "name": "update_prospect_list",
     "title": "Update prospect list",
-    "description": "Update a prospect list (only list_name and status are editable)."
+    "description": "Update a prospect list (only list_name and status are editable).",
+    "operations": 1
   },
   {
     "name": "update_schedule_preset",
     "title": "Update a saved campaign schedule",
-    "description": "Rename a saved schedule, replace its scheduling_config, or make it the workspace default. At least one field beyond the id is required."
+    "description": "Rename a saved schedule, replace its scheduling_config, or make it the workspace default. At least one field beyond the id is required.",
+    "operations": 1
   },
   {
     "name": "update_workspace_profile",
     "title": "Update workspace profile",
-    "description": "Create or update workspace profile settings for the authenticated workspace via DigitalCrew API (PUT upsert). Uses the MCP connection Authorization: Bearer token when set."
+    "description": "Create or update workspace profile settings for the authenticated workspace via DigitalCrew API (PUT upsert). Uses the MCP connection Authorization: Bearer token when set.",
+    "operations": 1
   },
   {
     "name": "wait_for_prospect_list",
     "title": "Wait for prospect list to finish",
-    "description": "Poll a prospect list (typically Apollo-backed) until its status becomes completed, failed, or cancelled — or the timeout elapses. Use this after apollo_create_list / apollo_add_more so the agent doesn't need to manage polling itself."
+    "description": "Poll a prospect list (typically Apollo-backed) until its status becomes completed, failed, or cancelled — or the timeout elapses. Use this after apollo_create_list / apollo_add_more so the agent doesn't need to manage polling itself.",
+    "operations": 1
   }
 ]

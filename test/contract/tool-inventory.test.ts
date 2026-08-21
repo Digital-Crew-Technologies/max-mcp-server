@@ -8,6 +8,7 @@ import { registerWorkspaceProfileTools } from "@/features/workspace-profile/mcp/
 import {
   MCP_TOOL_BUDGET,
   droppedByClientCap,
+  operationCount,
 } from "@/features/pilot-tools/mcp/client-cap";
 
 type Captured = { name: string; inputSchema: unknown };
@@ -140,5 +141,45 @@ describe("GROUPED_TOOLS mode resolution", () => {
 
   it("falls back to grouped — never the overflowing mode — on an unknown value", () => {
     expect(resolveToolMode("banana")).toBe("grouped");
+  });
+});
+
+describe("capability is packaging-independent (contract)", () => {
+  /** Total operations the catalog exposes, however it is packaged. */
+  const operations = (tools: Captured[]) =>
+    tools.reduce((total, t) => total + operationCount(t.inputSchema), 0);
+
+  // ── THE GUARANTEE THIS FILE OWES ─────────────────────────────────────────
+  // Grouping changes how operations are ADDRESSED, never how many exist.
+  // `list_chats` becomes `unibox` + action "list_chats"; it does not disappear.
+  // Without this test, a botched grouping could quietly drop a domain's
+  // actions and every other assertion here would still pass — the tool count
+  // would even look better.
+  it("grouped mode exposes exactly as many operations as flat mode", () => {
+    expect(operations(captureInventory(undefined))).toBe(
+      operations(captureInventory("false")),
+    );
+  });
+
+  it("holds for the legacy linkedin-only mode too", () => {
+    expect(operations(captureInventory("linkedin"))).toBe(
+      operations(captureInventory("false")),
+    );
+  });
+
+  it("holds with the optional flag-gated tools off", () => {
+    const opts = { admin: false, simulators: false };
+    expect(operations(captureInventory(undefined, opts))).toBe(
+      operations(captureInventory("false", opts)),
+    );
+  });
+
+  it("collapses many registrations into far fewer, without losing operations", () => {
+    const flat = captureInventory("false");
+    const grouped = captureInventory(undefined);
+    // Far fewer entries...
+    expect(grouped.length).toBeLessThan(flat.length / 3);
+    // ...carrying strictly more operations than entries, i.e. really grouped.
+    expect(operations(grouped)).toBeGreaterThan(grouped.length);
   });
 });
