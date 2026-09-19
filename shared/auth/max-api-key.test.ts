@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
+  API_KEY_HEADER,
+  API_KEY_QUERY_PARAM,
   looksLikeMaxApiKey,
   readBearerToken,
+  readMaxApiKey,
+  readMaxApiKeyFromUrl,
   isMaxApiKeyAuthConfigured,
   verifyMaxApiKey,
   resetMaxApiKeyCache,
@@ -42,6 +46,60 @@ describe("readBearerToken", () => {
     );
     expect(
       readBearerToken(new Headers({ Authorization: "Basic dXNlcjpwdw==" })),
+    ).toBeUndefined();
+  });
+});
+
+describe("readMaxApiKey", () => {
+  const KEY = "max_live_abc123";
+
+  it("prefers a Max key in the Authorization bearer", () => {
+    expect(readMaxApiKey(new Headers({ Authorization: `Bearer ${KEY}` }))).toBe(
+      KEY,
+    );
+  });
+
+  it("falls back to x-api-key, raw or with a pasted Bearer prefix", () => {
+    expect(API_KEY_HEADER).toBe("x-api-key");
+    expect(readMaxApiKey(new Headers({ "x-api-key": KEY }))).toBe(KEY);
+    expect(readMaxApiKey(new Headers({ "X-Api-Key": `Bearer ${KEY}` }))).toBe(
+      KEY,
+    );
+  });
+
+  it("ignores a non-Max bearer and still reads x-api-key", () => {
+    const headers = new Headers({
+      Authorization: "Bearer eyJhbGciOi.J9.sig",
+      "x-api-key": KEY,
+    });
+    expect(readMaxApiKey(headers)).toBe(KEY);
+  });
+
+  it("returns undefined when neither header carries a Max key", () => {
+    expect(readMaxApiKey(new Headers())).toBeUndefined();
+    expect(
+      readMaxApiKey(new Headers({ "x-api-key": "sk-something-else" })),
+    ).toBeUndefined();
+    expect(readMaxApiKey(new Headers({ "x-api-key": "  " }))).toBeUndefined();
+  });
+});
+
+describe("readMaxApiKeyFromUrl", () => {
+  it("reads a Max key from the documented query parameter", () => {
+    expect(API_KEY_QUERY_PARAM).toBe("key");
+    expect(
+      readMaxApiKeyFromUrl(new URLSearchParams("key=max_live_abc123")),
+    ).toBe("max_live_abc123");
+  });
+
+  it("returns undefined for a missing, blank or non-Max value", () => {
+    expect(readMaxApiKeyFromUrl(new URLSearchParams(""))).toBeUndefined();
+    expect(readMaxApiKeyFromUrl(new URLSearchParams("key="))).toBeUndefined();
+    expect(
+      readMaxApiKeyFromUrl(new URLSearchParams("key=sk-something-else")),
+    ).toBeUndefined();
+    expect(
+      readMaxApiKeyFromUrl(new URLSearchParams("token=max_live_abc123")),
     ).toBeUndefined();
   });
 });
