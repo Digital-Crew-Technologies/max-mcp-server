@@ -194,7 +194,7 @@ Set these environment variables (e.g. in `.env.local` for local dev, or in your 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `DIGITALCREW_API_BASE_URL` | Yes | Base URL of the Digital Crew API (no trailing slash) |
-| `MCP_GATEWAY_SECRET` | Yes (prod) | Shared secret; callers send `X-MCP-Gateway-Key` on `/mcp` and `/chat` |
+| `MCP_GATEWAY_SECRET` | Yes (prod) | Shared secret; first-party callers send `X-MCP-Gateway-Key` on `/mcp` and `/chat`. External MCP clients use a workspace Max API key instead — `Authorization: Bearer max_live_…`, `x-api-key: max_live_…` or `/mcp?key=max_live_…` — on `/mcp` only |
 | `MCP_ADMIN_GATEWAY_KEY` | No | Separate key required for admin tools when `ENABLE_ADMIN_TOOLS=true` |
 | `ALLOW_ENV_TOKEN_FALLBACK` | No | Set `true` only for legacy scripts that cannot send per-request tokens |
 | `DIGITALCREW_API_TOKEN` or `DIGITALCREW_BEARER_TOKEN` | No* | Used only when `ALLOW_ENV_TOKEN_FALLBACK=true` |
@@ -204,7 +204,7 @@ Set these environment variables (e.g. in `.env.local` for local dev, or in your 
 | `CHAT_DAILY_REQUEST_CAP` | No | Daily OpenRouter call cap per key (default 500) |
 | `REDIS_URL` | No | Shared dead-letter queue and circuit-breaker state across instances |
 
-\*Preferred auth: **`Authorization: Bearer <token>`** on the MCP HTTP request, or `bearer_token` on a tool call. Precedence: tool `bearer_token` → MCP `Authorization` → env (only if fallback enabled).
+\*Preferred auth: **`Authorization: Bearer <token>`** on the MCP HTTP request, or `bearer_token` on a tool call. Precedence: tool `bearer_token` → MCP `Authorization` → env (only if fallback enabled). A Max API key sent as `x-api-key` or as `?key=` on the URL is re-issued as `Authorization: Bearer` by the gateway middleware before it reaches the tools. Claude's connector dialog reserves the `Authorization` name for OAuth, so `x-api-key` is the header its users can attach; ChatGPT's connector form has no header field at all, so its users put the key on the URL (it is stripped from the URL before the route handler runs, but does appear in edge request logs — revoke the key if that URL leaks).
 
 ## Getting started
 

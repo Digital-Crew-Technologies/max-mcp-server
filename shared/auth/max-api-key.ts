@@ -6,6 +6,18 @@
 // accepted `X-MCP-Gateway-Key`, so every pasted config was answered with 401
 // and no external MCP client could connect.
 //
+// THREE SPELLINGS, ONE DOWNSTREAM HEADER. Besides the bearer, the key arrives:
+//   - as `x-api-key: max_live_…` — Claude's "Add custom connector" dialog
+//     reserves the `Authorization` header name for its own OAuth flow and greys
+//     it out in the request-header picker, so a Claude app can only carry a
+//     static key under a name from the picker's allowlist;
+//   - as `?key=max_live_…` on the URL — ChatGPT's connector form offers OAuth
+//     or "No authentication" and nothing in between, so the URL is the only
+//     place a ChatGPT user can put a credential. The key shows up in request
+//     logs for that path; middleware strips it before the route handler runs.
+// Middleware normalises both back to `Authorization: Bearer` before the
+// request reaches the tools, so everything downstream still reads one header.
+//
 // HOW: the key is validated by asking max-agent — the only service that can
 // hash-match it against `api_keys` and honour revocation/expiry. Results are
 // cached briefly so a chatty MCP session costs one round trip, not one per
@@ -82,6 +94,42 @@ export function readBearerToken(headers: Headers): string | undefined {
   const header = headers.get("authorization")?.trim();
   if (!header?.toLowerCase().startsWith("bearer ")) return undefined;
   return header.slice(7).trim() || undefined;
+}
+
+/** Header Claude's connector dialog lets a user attach a static key under. */
+export const API_KEY_HEADER = "x-api-key";
+
+/** Query parameter a ChatGPT user can carry the key in: `/mcp?key=max_live_…`. */
+export const API_KEY_QUERY_PARAM = "key";
+
+/**
+ * The Max API key carried on the URL, or undefined. Only ever consulted after
+ * the header forms, and only on paths that admit API keys at all.
+ */
+export function readMaxApiKeyFromUrl(
+  searchParams: URLSearchParams,
+): string | undefined {
+  const raw = searchParams.get(API_KEY_QUERY_PARAM)?.trim();
+  return raw && looksLikeMaxApiKey(raw) ? raw : undefined;
+}
+
+/**
+ * The Max API key presented on this request, whichever header carries it:
+ * `Authorization: Bearer max_live_…` (config-file clients, Claude Code, the
+ * Anthropic API) or `x-api-key: max_live_…` (Claude's connector dialog). A
+ * pasted "Bearer " prefix on `x-api-key` is tolerated — people copy the whole
+ * value — but the raw key is the documented form.
+ */
+export function readMaxApiKey(headers: Headers): string | undefined {
+  const bearer = readBearerToken(headers);
+  if (bearer && looksLikeMaxApiKey(bearer)) return bearer;
+
+  const raw = headers.get(API_KEY_HEADER)?.trim();
+  if (!raw) return undefined;
+  const key = raw.toLowerCase().startsWith("bearer ")
+    ? raw.slice(7).trim()
+    : raw;
+  return looksLikeMaxApiKey(key) ? key : undefined;
 }
 
 /** True when max-agent is reachable enough for API-key admission to work. */

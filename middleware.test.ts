@@ -124,6 +124,125 @@ describe("gateway middleware", () => {
       );
       expect(res.status).toBe(200);
     });
+
+    // Claude's connector dialog reserves `Authorization` for OAuth, so a key
+    // from a Claude app can only ever arrive under another name.
+    describe("as x-api-key", () => {
+      it("admits the key and re-issues it as the bearer the tools read", async () => {
+        const res = await middleware(request("/mcp", { "x-api-key": KEY }));
+        expect(res.status).toBe(200);
+        expect(fetchMock).toHaveBeenCalledWith(
+          `${BASE}/api/v1/api-keys/verify`,
+          expect.anything(),
+        );
+        // NextResponse.next({ request: { headers } }) carries the override to
+        // the route handler as x-middleware-request-* headers.
+        expect(res.headers.get("x-middleware-request-authorization")).toBe(
+          `Bearer ${KEY}`,
+        );
+      });
+
+      it("tolerates a pasted Bearer prefix", async () => {
+        const res = await middleware(
+          request("/mcp", { "x-api-key": `Bearer ${KEY}` }),
+        );
+        expect(res.status).toBe(200);
+        expect(res.headers.get("x-middleware-request-authorization")).toBe(
+          `Bearer ${KEY}`,
+        );
+      });
+
+      it("forwards a genuine Authorization bearer unchanged", async () => {
+        const res = await middleware(
+          request("/mcp", { Authorization: `Bearer ${KEY}` }),
+        );
+        expect(res.status).toBe(200);
+        // Every request header is echoed as x-middleware-request-*; the point
+        // is that the original bearer is what arrives, not a rewritten one.
+        expect(res.headers.get("x-middleware-request-authorization")).toBe(
+          `Bearer ${KEY}`,
+        );
+      });
+
+      it("does not call max-agent for a value that isn't a Max API key", async () => {
+        const res = await middleware(
+          request("/mcp", { "x-api-key": "sk-something-else" }),
+        );
+        expect(res.status).toBe(401);
+        expect(fetchMock).not.toHaveBeenCalled();
+      });
+
+      it("rejects a key max-agent refuses", async () => {
+        fetchMock.mockResolvedValue(new Response("{}", { status: 401 }));
+        const res = await middleware(request("/mcp", { "x-api-key": KEY }));
+        expect(res.status).toBe(401);
+        expect(res.headers.get("x-middleware-request-authorization")).toBeNull();
+      });
+
+      it("is named in the denial next to the bearer form", async () => {
+        const message = await messageOf(await middleware(request("/mcp")));
+        expect(message).toContain("x-api-key: max_live_");
+      });
+    });
+
+    // ChatGPT's connector form offers OAuth or nothing, so the URL is the only
+    // place its users can carry a credential.
+    describe("as ?key= on the URL", () => {
+      it("admits the key, re-issues it as the bearer and strips it from the URL", async () => {
+        const res = await middleware(request(`/mcp?key=${KEY}`));
+        expect(res.status).toBe(200);
+        expect(fetchMock).toHaveBeenCalledWith(
+          `${BASE}/api/v1/api-keys/verify`,
+          expect.anything(),
+        );
+        expect(res.headers.get("x-middleware-request-authorization")).toBe(
+          `Bearer ${KEY}`,
+        );
+        // NextResponse.rewrite() names the URL the handler will see.
+        const rewrite = res.headers.get("x-middleware-rewrite");
+        expect(rewrite).toBeTruthy();
+        expect(rewrite).not.toContain(KEY);
+        expect(new URL(rewrite!).pathname).toBe("/mcp");
+      });
+
+      it("keeps other query parameters when stripping the key", async () => {
+        const res = await middleware(request(`/mcp?sessionId=abc&key=${KEY}`));
+        expect(res.status).toBe(200);
+        const rewrite = new URL(res.headers.get("x-middleware-rewrite")!);
+        expect(rewrite.searchParams.get("sessionId")).toBe("abc");
+        expect(rewrite.searchParams.has("key")).toBe(false);
+      });
+
+      it("yields to a header credential when both are present", async () => {
+        const res = await middleware(
+          request(`/mcp?key=max_live_fromurl`, { "x-api-key": KEY }),
+        );
+        expect(res.status).toBe(200);
+        expect(res.headers.get("x-middleware-request-authorization")).toBe(
+          `Bearer ${KEY}`,
+        );
+        // Header path taken → plain next(), no rewrite.
+        expect(res.headers.get("x-middleware-rewrite")).toBeNull();
+      });
+
+      it("does not call max-agent for a value that isn't a Max API key", async () => {
+        const res = await middleware(request("/mcp?key=sk-something-else"));
+        expect(res.status).toBe(401);
+        expect(fetchMock).not.toHaveBeenCalled();
+      });
+
+      it("rejects a key max-agent refuses", async () => {
+        fetchMock.mockResolvedValue(new Response("{}", { status: 401 }));
+        const res = await middleware(request(`/mcp?key=${KEY}`));
+        expect(res.status).toBe(401);
+        expect(res.headers.get("x-middleware-rewrite")).toBeNull();
+      });
+
+      it("is named in the denial", async () => {
+        const message = await messageOf(await middleware(request("/mcp")));
+        expect(message).toContain("?key=max_live_");
+      });
+    });
   });
 
   describe("/chat stays shared-secret only", () => {
@@ -142,6 +261,20 @@ describe("gateway middleware", () => {
       const res = await middleware(
         request("/chat", { Authorization: `Bearer ${KEY}` }),
       );
+      expect(res.status).toBe(401);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects x-api-key on /chat too", async () => {
+      process.env.MCP_GATEWAY_SECRET = SECRET;
+      const res = await middleware(request("/chat", { "x-api-key": KEY }));
+      expect(res.status).toBe(401);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects ?key= on /chat too", async () => {
+      process.env.MCP_GATEWAY_SECRET = SECRET;
+      const res = await middleware(request(`/chat?key=${KEY}`));
       expect(res.status).toBe(401);
       expect(fetchMock).not.toHaveBeenCalled();
     });

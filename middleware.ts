@@ -17,6 +17,12 @@
 //     your tools" panel hands out, so a pasted client config works with no
 //     shared secret to distribute. /chat stays secret-only because it relays
 //     to a paid LLM and rate-limits per gateway key.
+//     The same key is also accepted as `x-api-key: max_live_…` (Claude's
+//     connector dialog reserves the `Authorization` header name for OAuth)
+//     and as `?key=max_live_…` on the URL (ChatGPT's connector form has no
+//     header field at all). Once verified it is re-issued downstream as
+//     `Authorization: Bearer`, so the tools keep reading a single header, and
+//     a URL-borne key is stripped from the URL the route handler sees.
 //
 // TRUST BOUNDARIES: MCP_GATEWAY_SECRET (this gate) and DIGITALCREW_API_TOKEN
 // (upstream credential) are DIFFERENT secrets — never reuse one for the other.
@@ -32,9 +38,12 @@ import {
   HermesCallerError,
 } from "@/shared/auth/hermes-caller";
 import {
+  API_KEY_HEADER,
+  API_KEY_QUERY_PARAM,
   isMaxApiKeyAuthConfigured,
-  looksLikeMaxApiKey,
   readBearerToken,
+  readMaxApiKey,
+  readMaxApiKeyFromUrl,
   verifyMaxApiKey,
 } from "@/shared/auth/max-api-key";
 
@@ -88,17 +97,24 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   let authorized =
     !!expected && !!provided && (await secretMatches(provided, expected));
 
+  let admittedKey: string | undefined;
+  let keyCameFromUrl = false;
   if (!authorized && apiKeyAuthAvailable) {
-    const bearer = readBearerToken(req.headers);
-    if (bearer && looksLikeMaxApiKey(bearer)) {
-      authorized = await verifyMaxApiKey(bearer);
+    let key = readMaxApiKey(req.headers);
+    if (!key) {
+      key = readMaxApiKeyFromUrl(req.nextUrl.searchParams);
+      keyCameFromUrl = !!key;
+    }
+    if (key) {
+      authorized = await verifyMaxApiKey(key);
+      if (authorized) admittedKey = key;
     }
   }
 
   if (!authorized) {
     return deny(
       apiKeyAuthAvailable
-        ? "Unauthorized: send your Max API key as `Authorization: Bearer max_live_…`, or the shared secret as `X-MCP-Gateway-Key`"
+        ? `Unauthorized: send your Max API key as \`Authorization: Bearer max_live_…\`, \`${API_KEY_HEADER}: max_live_…\` or \`?${API_KEY_QUERY_PARAM}=max_live_…\`, or the shared secret as \`X-MCP-Gateway-Key\``
         : "Unauthorized: missing or invalid X-MCP-Gateway-Key",
       401,
     );
@@ -109,6 +125,13 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   // be set by us after a real signature check (prevents identity spoofing).
   const forwardHeaders = new Headers(req.headers);
   forwardHeaders.delete(VERIFIED_HERMES_CALLER_HEADER);
+
+  // A key that arrived as `x-api-key` or on the URL is re-issued as the bearer
+  // every tool reads (see request-context.ts), so admitting another spelling
+  // never means teaching the tools another spelling.
+  if (admittedKey && readBearerToken(req.headers) !== admittedKey) {
+    forwardHeaders.set("authorization", `Bearer ${admittedKey}`);
+  }
 
   const rawCaller = req.headers.get(RAW_HERMES_CALLER_HEADER)?.trim();
   if (rawCaller) {
@@ -129,6 +152,14 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     }
     // If HERMES_CALLER_SECRET is unset the feature is off: we can't verify, so we
     // leave the verified header stripped and continue. The envelope has no effect.
+  }
+
+  if (keyCameFromUrl) {
+    // Same route, same headers — minus the credential in the query string, so
+    // the handler's own logging and any error that echoes the URL stay clean.
+    const clean = req.nextUrl.clone();
+    clean.searchParams.delete(API_KEY_QUERY_PARAM);
+    return NextResponse.rewrite(clean, { request: { headers: forwardHeaders } });
   }
 
   return NextResponse.next({ request: { headers: forwardHeaders } });
