@@ -10,7 +10,6 @@
 // ⚠️ Server-only.
 
 import { apiUrl, authHeaders, fetchWithRetry, responseBodyText } from "../shared";
-import { getHubSpotAccessToken } from "./token-resolver";
 
 export interface IcpRules {
   countries?: string[];
@@ -110,8 +109,8 @@ export function resolveAgentSettings(cfg: AgentSettingsConfig): ResolvedAgentSet
   const rt = cfg.risk_thresholds ?? {};
   return {
     // NOTE: these resolved flags are informational only — they are NOT the write
-    // gate. HubSpot writes are gated by the connected token's access_mode (see
-    // areCrmWritesAllowed); Notion writes remain permanently disabled (see
+    // gate. HubSpot writes are gated by max-agent's scoped CRM routes, which
+    // refuse them on a read-only connection (403 crm_read_only); Notion writes remain permanently disabled (see
     // areNotionWritesAllowed). Kept false here so nothing reads a stale "true".
     allow_crm_writes: false,
     allow_notion_writes: false,
@@ -141,24 +140,6 @@ export function resolveAgentSettings(cfg: AgentSettingsConfig): ResolvedAgentSet
 /** Fetch + resolve in one call. */
 export async function getAgentSettingsResolved(maxBearer: string): Promise<ResolvedAgentSettings> {
   return resolveAgentSettings(await getAgentSettingsConfig(maxBearer));
-}
-
-/**
- * HubSpot writes are permitted ONLY when the workspace connected via the
- * read+write app — i.e. the resolved token's access_mode is "write". A
- * read-only token is minted without any `*.write` scope, so HubSpot itself
- * rejects writes regardless of code paths; this gate mirrors that capability so
- * the agent fails fast with a clear message instead of a raw HubSpot 403.
- *
- * A customer switches read-only → read+write by RECONNECTING through the
- * read+write app (the connect toggle on the HubSpot integration card).
- *
- * Propagates HUBSPOT_NOT_CONNECTED / HUBSPOT_TOKEN_FETCH_FAILED from the
- * resolver so callers surface the right "connect HubSpot" / transient error.
- */
-export async function areCrmWritesAllowed(maxBearer: string): Promise<boolean> {
-  const { access_mode } = await getHubSpotAccessToken(maxBearer);
-  return access_mode === "write";
 }
 
 /**

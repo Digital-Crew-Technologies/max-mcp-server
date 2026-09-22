@@ -154,6 +154,20 @@ export function registerGroupedTool(
 ): void {
   if (actions.length === 0) return;
 
+  // `action` is the discriminator. An action with its own `action` argument
+  // would REPLACE the literal in its union branch below, and the operation
+  // would silently vanish from the grouped catalog while flat mode still shows
+  // it. Rename the argument and map it back to the upstream field in the handler.
+  for (const a of actions) {
+    if ("action" in a.inputShape) {
+      throw new Error(
+        `Action "${a.action}" in group "${groupName}" declares an argument named ` +
+          `"action", which collides with the group's discriminator. Rename it ` +
+          `(e.g. "decision", "operation", "rule_action") and map it back in the handler.`,
+      );
+    }
+  }
+
   // Build per-action z.object with an `action` literal discriminator.
   // Each branch is z.object({ action: z.literal(name), ...args }) — the
   // shape Zod's discriminatedUnion requires.

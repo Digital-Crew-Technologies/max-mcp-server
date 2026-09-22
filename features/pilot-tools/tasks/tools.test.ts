@@ -82,8 +82,15 @@ describe("tasks tool registration", () => {
     expect(names).toContain("prospect_list_tasks");
   });
 
-  it("exposes exactly the five intended actions", async () => {
-    for (const action of ["list", "get", "create_suggestion", "update", "complete"]) {
+  it("exposes exactly the six intended actions", async () => {
+    for (const action of [
+      "list",
+      "get",
+      "get_thread",
+      "create_suggestion",
+      "update",
+      "complete",
+    ]) {
       const parsed = tasksSchema().safeParse({
         action,
         id: UUID,
@@ -331,6 +338,25 @@ describe("expectedVersion and the 409 conflict", () => {
   });
 });
 
+describe("get_thread", () => {
+  it("GETs the task's conversation by id", async () => {
+    const fetchMock = mockFetch({ data: null, contact: null });
+    const res = await tool("tasks").handler({
+      action: "get_thread",
+      bearer_token: "t",
+      id: UUID,
+    });
+    expect(res.isError).toBeUndefined();
+    expect(calledMethod(fetchMock) ?? "GET").toBe("GET");
+    expect(calledUrl(fetchMock).pathname).toBe(`/api/v1/tasks/${UUID}/thread`);
+  });
+
+  it("requires a UUID id", () => {
+    const parsed = tasksSchema().safeParse({ action: "get_thread", id: "nope" });
+    expect(parsed.success).toBe(false);
+  });
+});
+
 describe("complete", () => {
   it("PATCHes status=completed with the version token", async () => {
     const fetchMock = mockFetch({ data: { id: UUID, status: "completed" } });
@@ -459,6 +485,7 @@ describe("tasks capability names", () => {
     expect(TASKS_CAPABILITIES).toEqual({
       "tasks.list": "tasks.read",
       "tasks.get": "tasks.read",
+      "tasks.get_thread": "tasks.read",
       "tasks.create_suggestion": "tasks.suggest",
       "tasks.update": "tasks.update",
       "tasks.complete": "tasks.complete",

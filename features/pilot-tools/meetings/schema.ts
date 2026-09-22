@@ -149,3 +149,186 @@ export const listParticipantsSchema = z.object({
   ...withToken,
   id: z.string().uuid().describe("Meeting session UUID."),
 });
+
+// ── calendar + workspace-level conversation-intelligence reads ──────────────
+
+/** Mirror of max-agent's calendar.service MAX_CALENDAR_LIMIT (default 100). */
+export const CALENDAR_MAX_LIMIT = 250;
+
+export const listCalendarSchema = z.object({
+  ...withToken,
+  from: z
+    .string()
+    .datetime()
+    .optional()
+    .describe("Only events with startsAt >= this ISO8601 UTC time."),
+  to: z
+    .string()
+    .datetime()
+    .optional()
+    .describe("Only events with startsAt <= this ISO8601 UTC time."),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(CALENDAR_MAX_LIMIT)
+    .optional()
+    .describe(`Page size, 1-${CALENDAR_MAX_LIMIT} (default 100).`),
+  cursor: z
+    .string()
+    .max(500)
+    .optional()
+    .describe("Opaque cursor: echo back the previous page's nextCursor."),
+});
+
+export const listCoachingLibrarySchema = z.object({ ...withToken });
+
+export const getConversationConfigSchema = z.object({ ...withToken });
+
+// ── per-meeting reads ───────────────────────────────────────────────────────
+
+const sessionId = z.string().uuid().describe("Meeting session UUID.");
+
+export const getConversationAnalysisSchema = z.object({ ...withToken, id: sessionId });
+
+export const listFeedbackSchema = z.object({ ...withToken, id: sessionId });
+
+export const listNotesSchema = z.object({ ...withToken, id: sessionId });
+
+/** Client-side segment window shared by the live and Vexa transcript reads. */
+const segmentWindow = {
+  offset: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("Segment window start (default 0); page with the returned transcriptWindow.nextOffset."),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(TRANSCRIPT_MAX_SEGMENTS)
+    .optional()
+    .describe(
+      `Segments per window, 1-${TRANSCRIPT_MAX_SEGMENTS} (default ${TRANSCRIPT_DEFAULT_SEGMENTS}).`,
+    ),
+};
+
+export const getLiveTranscriptSchema = z.object({
+  ...withToken,
+  id: sessionId,
+  ...segmentWindow,
+});
+
+// ── meeting writes ──────────────────────────────────────────────────────────
+
+/** Mirrors max-agent's meeting-notes.core MAX_MEETING_NOTE_TEXT_CHARS. */
+export const NOTE_MAX_CHARS = 20_000;
+
+export const addNoteSchema = z.object({
+  ...withToken,
+  id: sessionId,
+  body: z
+    .string()
+    .min(1)
+    .max(NOTE_MAX_CHARS)
+    .describe(`Note text, 1-${NOTE_MAX_CHARS} chars.`),
+  format: z
+    .enum(["text", "markdown"])
+    .optional()
+    .describe("text (default) or markdown."),
+});
+
+export const deleteNoteSchema = z.object({
+  ...withToken,
+  id: sessionId,
+  note_id: z.string().uuid().describe("Note UUID (from list_notes)."),
+});
+
+/** Mirrors max-agent's MAX_BATCH_CHANGES for PATCH /segments. */
+export const SEGMENT_BATCH_MAX = 500;
+
+export const correctTranscriptSchema = z.object({
+  ...withToken,
+  id: sessionId,
+  expected_version: z
+    .number()
+    .int()
+    .min(1)
+    .describe(
+      "The transcript versionNumber you are editing (get_transcript's data.versionNumber). A stale value returns 409 version_conflict.",
+    ),
+  changes: z
+    .array(
+      z.object({
+        sequence_number: z
+          .number()
+          .int()
+          .min(1)
+          .describe("Segment sequenceNumber to replace."),
+        text: z.string().min(1).max(10_000).describe("Corrected segment text."),
+      }),
+    )
+    .min(1)
+    .max(SEGMENT_BATCH_MAX)
+    .describe(
+      `1-${SEGMENT_BATCH_MAX} segment edits saved as ONE new version. Each sequence_number at most once.`,
+    ),
+  change_summary: z
+    .string()
+    .max(500)
+    .optional()
+    .describe("Short reason for the correction, kept on the version."),
+});
+
+export const regenerateSummarySchema = z.object({ ...withToken, id: sessionId });
+
+export const createMeetingSchema = z.object({
+  ...withToken,
+  title: z.string().trim().min(1).max(200).describe("Meeting title, 1-200 chars."),
+  started_at: z
+    .string()
+    .datetime()
+    .describe("Start, ISO8601 UTC (e.g. 2026-07-01T15:00:00Z)."),
+  ended_at: z
+    .string()
+    .datetime()
+    .describe("End, ISO8601 UTC; must be after started_at."),
+  meeting_url: z
+    .string()
+    .url()
+    .max(2000)
+    .regex(/^https?:\/\//i, "must be an http(s) URL")
+    .optional()
+    .describe("Optional http(s) meeting link to store on the record."),
+});
+
+export const disableShareLinkSchema = z.object({ ...withToken, id: sessionId });
+
+// ── Vexa bots ───────────────────────────────────────────────────────────────
+
+/** Platforms Vexa can send a bot to (max-agent's VexaBotPlatform). */
+export const VEXA_PLATFORMS = ["google_meet", "zoom", "teams"] as const;
+
+const vexaMeetingRef = {
+  platform: z.enum(VEXA_PLATFORMS).describe("Meeting platform."),
+  native_meeting_id: z
+    .string()
+    .min(1)
+    .max(128)
+    .describe(
+      "Platform meeting id, not a URL: Meet code (abc-defg-hij), Zoom numeric id, or Teams thread id (19:…@thread.v2).",
+    ),
+};
+
+export const listBotsSchema = z.object({ ...withToken });
+
+export const listBotMeetingsSchema = z.object({ ...withToken });
+
+export const getBotTranscriptSchema = z.object({
+  ...withToken,
+  ...vexaMeetingRef,
+  ...segmentWindow,
+});
+
+export const stopBotSchema = z.object({ ...withToken, ...vexaMeetingRef });

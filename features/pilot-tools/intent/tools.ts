@@ -1,4 +1,4 @@
-import { callApi, strip, type McpServer } from "../shared";
+import { callApi, strip, toolHints, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
 
@@ -14,7 +14,7 @@ export function registerIntentTools(server: McpServer): void {
     {
       title: "Create an intent trigger",
       description:
-        "Set up a trigger that watches a target URL for a buying signal (funding, hiring, tech_stack, news, job_change, or custom). Optionally scope it to an organization or prospect and set how often it re-polls. Returns the created {data: IntentTrigger}. Used to start monitoring for intent before any signals exist.",
+        "Set up a monitor that watches for a buying signal (funding, hiring, tech_stack, news, job_change, topic, or custom): either a specific target_url, or a person/organization's stored profile on a platform. Optionally set the re-poll frequency and campaigns to auto-launch when it fires. Returns the created {data: IntentTrigger}.",
       inputSchema: S.createIntentTriggerSchema,
     },
     async (input) =>
@@ -128,6 +128,35 @@ export function registerIntentTools(server: McpServer): void {
     async (input) =>
       callApi(input.bearer_token, (t) =>
         repo.modifyProposal(t, input.proposal_id, input.modifications),
+      ),
+  );
+
+  server.registerTool(
+    "bulk_create_intent_triggers",
+    {
+      title: "Bulk-create intent triggers",
+      description:
+        "Create one monitor per member of a prospect_list_id (first 200) OR per organization_ids, sharing signal_type/platform/frequency/criteria/campaign_ids. Members with no URL for the platform are skipped, not fatal. Returns 201 {data: {created, skipped[{member_id, member_name, reason}], truncated}}; 422 if no member is monitorable or a linked campaign is not launch-ready.",
+      inputSchema: S.bulkCreateIntentTriggersSchema,
+    },
+    async (input) =>
+      callApi(input.bearer_token, (t) =>
+        repo.bulkCreateTriggers(t, strip(input, "bearer_token")),
+      ),
+  );
+
+  server.registerTool(
+    "attach_campaign_to_intent_trigger",
+    {
+      title: "Attach a campaign to intent triggers",
+      description:
+        "Link an existing campaign to up to 20 intent triggers so a changed signal auto-launches it. Idempotent. Returns {data: {attached, requested}}; 404 if the campaign or none of the triggers are in this workspace.",
+      inputSchema: S.attachCampaignToIntentTriggerSchema,
+      ...toolHints.idempotent,
+    },
+    async (input) =>
+      callApi(input.bearer_token, (t) =>
+        repo.attachCampaignToTriggers(t, strip(input, "bearer_token")),
       ),
   );
 }

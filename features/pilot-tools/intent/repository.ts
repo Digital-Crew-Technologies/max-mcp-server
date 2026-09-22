@@ -97,3 +97,34 @@ export async function modifyProposal(
     body: JSON.stringify(body),
   });
 }
+
+// Bulk create resolves up to 200 list/company members and inserts one monitor
+// each (maxDuration=120 upstream). Not idempotent — a retry would create a
+// second set of monitors — so give it a long timeout and no retries.
+const BULK_CONFIG = { timeoutMs: 120_000, maxRetries: 0 };
+
+export async function bulkCreateTriggers(
+  token: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  return fetchWithRetry(
+    apiUrl(`/api/v1/intent/triggers/bulk`),
+    {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(body),
+    },
+    BULK_CONFIG,
+  );
+}
+
+export async function attachCampaignToTriggers(
+  token: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/intent/triggers/attach-campaign`), {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+}

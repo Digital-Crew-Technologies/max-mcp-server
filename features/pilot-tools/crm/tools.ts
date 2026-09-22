@@ -1,20 +1,31 @@
 import { resolveBearerToken, type McpServer } from "../shared";
+import { responseBodyText, sanitizeUpstreamError } from "@/shared/http/response";
 import * as S from "./schema";
+import * as repo from "./repository";
 import { HubSpotClient } from "./hubspot-client";
 import {
   getHubSpotAccessToken,
   invalidateHubSpotToken,
 } from "./token-resolver";
-import { areCrmWritesAllowed } from "./agent-settings";
 
-// CRM (HubSpot) tools. v1 of these proxied to max-agent /api/v1/crm/*; they now
-// call HubSpot's official MCP (mcp.hubspot.com) DIRECTLY via HubSpotClient. The
-// per-workspace HubSpot OAuth token is still resolved from max-agent (which owns
-// the connection) via GET /api/v1/crm/access-token, cached per-bearer.
+// CRM (HubSpot) tools. Two paths:
+//
+//   • Contacts, companies and connection status go through max-agent's scoped
+//     CRM routes (POST /api/v1/crm/{search-contacts,get-contact,upsert-contact,
+//     upsert-company}, GET /api/v1/crm/status). max-agent resolves the
+//     workspace's HubSpot client server-side and enforces the read/write
+//     connection mode itself (403 code "crm_read_only").
+//   • Deals, activities, owners and pipeline stages still call HubSpot's
+//     official MCP DIRECTLY via HubSpotClient, with the token resolved from
+//     GET /api/v1/crm/access-token. ⚠️ max-agent no longer serves that route
+//     (HubSpot credentials are never returned to API callers), and it has no
+//     scoped equivalent for these reads yet, so these tools fail until one
+//     exists.
 //
 // Error mapping → standard MCP envelope:
-//   HUBSPOT_NOT_CONNECTED → friendly "connect HubSpot" message
-//   HubSpotMcpError / others → { isError: true, content: [{ text: "<Cls>: <msg>" }] }
+//   not connected (409 / HUBSPOT_NOT_CONNECTED) → friendly "connect HubSpot" message
+//   read-only connection (403 crm_read_only)    → friendly "reconnect with write" message
+//   anything else → { isError: true, content: [{ text: "<detail>" }] }
 
 type McpEnvelope = {
   content: Array<{ type: "text"; text: string }>;
@@ -23,6 +34,9 @@ type McpEnvelope = {
 
 const WRITES_DISABLED_MSG =
   "HubSpot is connected in read-only mode for this workspace. To let Max update HubSpot, reconnect with read + write access (the toggle on the HubSpot integration card), then retry.";
+
+const NOT_CONNECTED_MSG =
+  "HubSpot is not connected for this workspace. Connect HubSpot in workspace settings, then retry.";
 
 function ok(payload: unknown): McpEnvelope {
   const text = typeof payload === "string" ? payload : JSON.stringify(payload);
@@ -41,15 +55,35 @@ function isAuthError(msg: string): boolean {
 function mapError(e: unknown): McpEnvelope {
   const msg = e instanceof Error ? e.message : String(e);
   if (msg === "HUBSPOT_NOT_CONNECTED") {
-    return err(
-      "HubSpot is not connected for this workspace. Connect HubSpot in workspace settings, then retry.",
-    );
+    return err(NOT_CONNECTED_MSG);
   }
   if (msg.startsWith("HUBSPOT_TOKEN_FETCH_FAILED")) {
     return err(msg);
   }
   const cls = e instanceof Error ? e.name : "Error";
   return err(`${cls}: ${msg}`);
+}
+
+/**
+ * Call one of max-agent's scoped CRM routes and translate its CRM-specific
+ * failures into the same friendly messages the direct path uses.
+ */
+async function viaMaxAgent(
+  bearerOverride: string | undefined,
+  fn: (token: string) => Promise<Response>,
+): Promise<McpEnvelope> {
+  let res: Response;
+  try {
+    res = await fn(resolveBearerToken(bearerOverride));
+  } catch (e) {
+    return mapError(e);
+  }
+  const text = await responseBodyText(res);
+  if (res.ok) return ok(text);
+  if (res.status === 409) return err(NOT_CONNECTED_MSG);
+  if (res.status === 403 && text.includes("crm_read_only")) return err(WRITES_DISABLED_MSG);
+  const detail = text ? sanitizeUpstreamError(text) : res.statusText;
+  return err(`API error (${res.status}): ${detail}`);
 }
 
 /**
@@ -93,12 +127,12 @@ export function registerCrmTools(server: McpServer): void {
     {
       title: "Search CRM contacts",
       description:
-        "Search the connected CRM (HubSpot) for contacts by free text (name, email, company). Returns matching contacts. Use before creating a contact to check if one already exists.",
+        "Search the connected CRM (HubSpot) for contacts by free text (name, email, company). Returns {data: contacts[]}. Use before creating a contact to check if one already exists.",
       inputSchema: S.crmSearchContactsSchema,
     },
     async (input) =>
-      withClient(input.bearer_token, (c) =>
-        c.searchContacts(String(input.query), input.limit ?? 20),
+      viaMaxAgent(input.bearer_token, (t) =>
+        repo.searchContacts(t, { query: input.query, limit: input.limit ?? 20 }),
       ),
   );
 
@@ -107,11 +141,11 @@ export function registerCrmTools(server: McpServer): void {
     {
       title: "Get a CRM contact by email",
       description:
-        "Fetch a single CRM contact by email (the dedup identity). Returns null if not found.",
+        "Fetch a single CRM contact by email (the dedup identity). Returns {data: contact} or {data: null} if not found.",
       inputSchema: S.crmGetContactSchema,
     },
     async (input) =>
-      withClient(input.bearer_token, (c) => c.getContactByEmail(String(input.email))),
+      viaMaxAgent(input.bearer_token, (t) => repo.getContact(t, { email: input.email })),
   );
 
   server.registerTool(
@@ -123,28 +157,8 @@ export function registerCrmTools(server: McpServer): void {
       inputSchema: S.crmUpsertContactSchema,
     },
     async (input) => {
-      let bearer: string;
-      try {
-        bearer = resolveBearerToken(input.bearer_token);
-      } catch (e) {
-        return mapError(e);
-      }
-      // Write-gate: do NOT touch HubSpot when writes are disabled.
-      try {
-        if (!(await areCrmWritesAllowed(bearer))) return err(WRITES_DISABLED_MSG);
-      } catch (e) {
-        return mapError(e);
-      }
-      return withClient(bearer, (c) =>
-        c.upsertContact({
-          email: String(input.email),
-          firstName: input.firstName,
-          lastName: input.lastName,
-          company: input.company,
-          jobTitle: input.jobTitle,
-          phone: input.phone,
-        }),
-      );
+      const { bearer_token, ...body } = input;
+      return viaMaxAgent(bearer_token, (t) => repo.upsertContact(t, body));
     },
   );
 
@@ -157,20 +171,8 @@ export function registerCrmTools(server: McpServer): void {
       inputSchema: S.crmUpsertCompanySchema,
     },
     async (input) => {
-      let bearer: string;
-      try {
-        bearer = resolveBearerToken(input.bearer_token);
-      } catch (e) {
-        return mapError(e);
-      }
-      try {
-        if (!(await areCrmWritesAllowed(bearer))) return err(WRITES_DISABLED_MSG);
-      } catch (e) {
-        return mapError(e);
-      }
-      return withClient(bearer, (c) =>
-        c.upsertCompany({ domain: String(input.domain), name: input.name }),
-      );
+      const { bearer_token, ...body } = input;
+      return viaMaxAgent(bearer_token, (t) => repo.upsertCompany(t, body));
     },
   );
 
@@ -179,27 +181,19 @@ export function registerCrmTools(server: McpServer): void {
     {
       title: "CRM connection status",
       description:
-        "Report whether HubSpot is connected for this workspace. Attempts a cheap HubSpot read; returns { connected: bool, ... }.",
+        "Report whether HubSpot is connected for this workspace. Returns { connected: bool, provider, connections: [{ provider, portal_id, connected_at, last_refresh_at }] }.",
       inputSchema: S.crmStatusSchema,
     },
     async (input) => {
-      let bearer: string;
+      const res = await viaMaxAgent(input.bearer_token, (t) => repo.getStatus(t));
+      if (res.isError) return res;
       try {
-        bearer = resolveBearerToken(input.bearer_token);
-      } catch (e) {
-        return mapError(e);
-      }
-      try {
-        const { access_token, auth_method } = await getHubSpotAccessToken(bearer);
-        // Cheap probe: a 1-result contact search confirms the token works.
-        const contacts = await new HubSpotClient(access_token, auth_method).searchContacts("", 1);
-        return ok({ connected: true, provider: "hubspot", probe: "search_crm_objects:contacts", sampleCount: contacts.length });
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        if (msg === "HUBSPOT_NOT_CONNECTED") {
-          return ok({ connected: false, provider: "hubspot", reason: "not_connected" });
-        }
-        return ok({ connected: false, provider: "hubspot", reason: msg });
+        const connections =
+          (JSON.parse(res.content[0].text) as { data?: { connections?: unknown[] } })
+            ?.data?.connections ?? [];
+        return ok({ connected: connections.length > 0, provider: "hubspot", connections });
+      } catch {
+        return res;
       }
     },
   );

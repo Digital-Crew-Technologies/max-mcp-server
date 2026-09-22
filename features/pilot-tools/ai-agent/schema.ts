@@ -18,3 +18,21 @@ export const generateMessagePreviewSchema = z.object({
   model: z.string().optional(),
   temperature: z.number().min(0).max(1).optional(),
 });
+
+// Mirrors max-agent's suggestCampaignIdeasRequestSchema (.strict() upstream —
+// unknown keys are a 400, so only these fields are sent).
+export const suggestCampaignIdeasSchema = z.object({
+  ...withToken,
+  audience_summary: z
+    .string()
+    .max(2000)
+    .optional()
+    .describe("Compact sample of the target audience: roles, industries, companies."),
+  company_summary: z
+    .string()
+    .max(2000)
+    .optional()
+    .describe("Your own company context (offer, positioning) as prose."),
+  list_name: z.string().max(200).optional().describe("Prospect list name the ideas are for."),
+  limit: z.number().int().min(3).max(8).optional().describe("Number of ideas, 3-8."),
+});

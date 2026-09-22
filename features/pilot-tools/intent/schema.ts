@@ -7,23 +7,51 @@ import { withToken } from "../shared";
 // All schemas mirror the max-agent /api/v1/intent/* route contracts.
 
 const signalTypeSchema = z
-  .enum(["funding", "hiring", "tech_stack", "news", "job_change", "custom"])
+  .enum(["funding", "hiring", "tech_stack", "news", "job_change", "topic", "custom"])
   .describe(
-    "What kind of buying signal to watch for: funding, hiring, tech_stack, news, job_change, or custom.",
+    "What kind of buying signal to watch for: funding, hiring, tech_stack, news, job_change, topic, or custom.",
   );
 
+// Mirrors max-agent FREQUENCY_VALUES (src/features/intent/intent.types.ts).
+// Sub-hour tokens are best-effort: polling is never finer than the detection
+// cron's cadence.
 const frequencySchema = z
-  .enum(["daily", "weekly", "monthly"])
+  .enum([
+    "1s", "60s", "5m", "10m", "15m", "30m", "60m", "3h", "6h", "12h", "24h",
+    "48h", "72h", "1w", "2w", "1mo", "3mo", "6mo", "1y", "2y",
+    "daily", "weekly", "monthly",
+  ])
   .optional()
-  .describe("How often the trigger re-polls the target URL (default daily).");
+  .describe("How often the trigger re-polls, e.g. 6h, daily, 1w, 1mo (default daily).");
+
+const platformSchema = z
+  .enum([
+    "website",
+    "linkedin",
+    "twitter",
+    "instagram",
+    "facebook",
+    "tiktok",
+    "youtube",
+    "github",
+    "other",
+  ])
+  .optional();
 
 export const createIntentTriggerSchema = z.object({
   ...withToken,
   signal_type: signalTypeSchema,
+  name: z.string().trim().min(1).max(200).optional().describe("Display name for the monitor."),
+  target_type: z
+    .enum(["person", "organization", "specific"])
+    .optional()
+    .describe("specific (default) watches target_url; person/organization watch that record's stored profile URL for `platform`."),
+  platform: platformSchema.describe("Which profile to watch for person/organization monitors (default website)."),
   target_url: z
     .string()
     .url()
-    .describe("The URL to monitor for the signal (e.g. a company news page)."),
+    .optional()
+    .describe("The URL to monitor (required when target_type is specific, e.g. a company news page)."),
   criteria: z
     .string()
     .optional()
@@ -35,12 +63,17 @@ export const createIntentTriggerSchema = z.object({
     .string()
     .uuid()
     .optional()
-    .describe("Optional organization UUID this trigger is scoped to."),
+    .describe("Optional organization UUID this trigger is scoped to (the company for an organization monitor)."),
   prospect_id: z
     .string()
     .uuid()
     .optional()
-    .describe("Optional prospect UUID this trigger is scoped to."),
+    .describe("Optional prospect UUID this trigger is scoped to (the person for a person monitor)."),
+  campaign_ids: z
+    .array(z.string().uuid())
+    .max(20)
+    .optional()
+    .describe("Launch-ready campaigns to auto-launch when a signal fires."),
 });
 
 export const listIntentSignalsSchema = z.object({
@@ -120,4 +153,52 @@ export const modifyProposalSchema = z.object({
     .describe(
       "Adjustments to apply to the pending proposal (titles, target_prospect_ids, campaign_name, campaign_description). The workflow is regenerated and the proposal stays pending.",
     ),
+});
+
+// POST /api/v1/intent/triggers/bulk — one monitor per prospect-list member or
+// per organization. max-agent requires EXACTLY ONE of prospect_list_id /
+// organization_ids (400 otherwise); not refined here so the schema stays a
+// plain ZodObject for grouped mode.
+export const bulkCreateIntentTriggersSchema = z.object({
+  ...withToken,
+  signal_type: signalTypeSchema,
+  prospect_list_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe("Monitor each person in this prospect list (first 200). Use this OR organization_ids."),
+  organization_ids: z
+    .array(z.string().uuid())
+    .min(1)
+    .max(200)
+    .optional()
+    .describe("Monitor each of these organizations. Use this OR prospect_list_id."),
+  platform: platformSchema.describe("Which of each member's profiles to watch (default website)."),
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(150)
+    .optional()
+    .describe("Name prefix; monitors are named '<prefix> — <member name>'."),
+  criteria: z
+    .string()
+    .optional()
+    .describe("Natural-language criteria for what counts as a relevant signal."),
+  frequency: frequencySchema,
+  campaign_ids: z
+    .array(z.string().uuid())
+    .max(20)
+    .optional()
+    .describe("Launch-ready campaigns to auto-launch when a signal fires."),
+});
+
+export const attachCampaignToIntentTriggerSchema = z.object({
+  ...withToken,
+  campaign_id: z.string().uuid().describe("Campaign UUID to link."),
+  trigger_ids: z
+    .array(z.string().uuid())
+    .min(1)
+    .max(20)
+    .describe("Intent trigger UUIDs to link the campaign to."),
 });

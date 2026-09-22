@@ -6,7 +6,8 @@
 
 HTTP API for Digital Crew **Max Agent** — an AI-powered outbound sales automation platform.
 Covers: campaigns, prospects, organizations, prospect lists, connected accounts (Unipile),
-Unibox (unified inbox), Apollo & Explorium data suppliers, AI agent, billing, and workspace tooling.
+Unibox (unified inbox), GetLeads / Explorium / Apollo data suppliers (tried in that order), AI agent,
+billing, and workspace tooling.
 
 Production base URL: https://max.digitalcrew.tech
 Local dev base URL:  http://localhost:3006
@@ -42,8 +43,9 @@ The server detects auth type by token shape: three dots → JWT, `max_live_…` 
 | Dashboard          | dashboard:read              | —                            |
 | Workspace profile  | workspace:read              | workspace:write              |
 | AI agent           | (uses related scope per op) |                              |
-| Apollo             | —                           | prospect-lists:write         |
+| GetLeads           | —                           | prospect-lists:write         |
 | Explorium          | —                           | prospect-lists:write         |
+| Apollo             | —                           | prospect-lists:write         |
 
 JWT-only tags (API keys rejected): Billing, Notifications, API keys, Onboarding.
 
@@ -107,11 +109,12 @@ Future: 429 with Retry-After header + X-RateLimit-* headers.
 
 ## Async Operations
 
-Two flows are async (return immediately, finish in background):
+These flows are async (return immediately, finish in background):
 
-1. POST /api/v1/apollo/people/create-list
+1. POST /api/v1/prospect-lists/auto/create-list (or a provider-pinned
+   /getleads/, /explorium/ or /apollo/ .../people/create-list)
    - Creates prospect_list with status: "pending"
-   - Cron runs every minute to process; status advances: pending → processing → completed (or failed)
+   - A cron processes it; status advances: pending → processing → completed (or failed)
    - Poll GET /prospect-lists/{id} — watch: status, processed_results, total_results, error_message
 
 2. POST /api/v1/campaigns/{id}/launch
@@ -298,8 +301,10 @@ GET    /api/v1/prospect-lists
 
 POST   /api/v1/prospect-lists
   Create empty platform list. Scope: prospect-lists:write
-  For Apollo-sourced lists use POST /api/v1/apollo/people/create-list, or for
-  Explorium-sourced lists POST /api/v1/explorium/people/create-list instead.
+  To source NEW leads use POST /api/v1/prospect-lists/auto/create-list
+  (GetLeads first, Explorium fallback), or pin a provider in this order:
+  /getleads/people/create-list, /explorium/people/create-list, and
+  /apollo/people/create-list as a last resort.
   Body: { list_name, search_source: "platform" }
 
 GET    /api/v1/prospect-lists/{id}
@@ -543,36 +548,73 @@ POST   /api/v1/ai-agent/generate-message-preview
   (subject+body for email/InMail; message for LinkedIn DM)
 
 =============================================================================
-### APOLLO
-People-search → prospect-list ingestion (async).
+### SOURCING (AUTO: GETLEADS → EXPLORIUM)
+The default way to find new leads. Max runs the providers itself, cheapest
+first: GetLeads (~100× cheaper), then Explorium when GetLeads cannot express the
+filters or finds nothing. Apollo is never part of this chain.
+=============================================================================
+
+POST   /api/v1/prospect-lists/auto/create-list
+  Create a people list from unified criteria (async). Scope: prospect-lists:write
+  Body: {
+    list_name: string,
+    criteria: {                        // camelCase, all optional; ≥1 targeting field
+      jobTitles?, seniorities?, personLocations?, industries?, companySize?: {min,max},
+      companyDomains?, excludeCompanyDomains?, keywords?, jobDepartments?,
+      companyRevenue?, intent?, intentTopics?, enrichments?, limit? (default 100),
+      requireEmail?, requirePhone?, verifiedEmailsOnly?, excludeExistingOrganizations?,
+      excludeExistingProspects?, excludeLinkedInConnections?, maxPerCompany?
+    },
+    provider?: "getleads" | "explorium",   // pin one; omit for the chain
+    icp_id?: uuid, idempotency_key?: string
+  }
+  Response: { data: ProspectList } (status: "pending", search_source: "auto")
+
+POST   /api/v1/organizations/search
+  Bounded, unsaved company search preview (1–25 rows). Scope: organizations:read
+  Body: { criteria: UnifiedOrgSearchCriteria, provider?: "getleads"|"explorium", limit? }
+  Response: { data: Company[], provider, attempts, dropped_filters }
+
+POST   /api/v1/organizations/search/create-list
+  Saved company list from unified criteria (async). Scope: prospect-lists:write
+  Body: { list_name, criteria: UnifiedOrgSearchCriteria, provider?, idempotency_key? }
+
+=============================================================================
+### GETLEADS
+GetLeads contacts-search → prospect-list ingestion (async). FIRST choice when
+pinning a provider. Billed per contact actually returned.
 Scope: prospect-lists:write
 =============================================================================
 
-POST   /api/v1/apollo/people/create-list
-  Create Apollo-backed prospect list (async). Scope: prospect-lists:write
-  Creates prospect_list with status:"pending", then cron processes every minute.
-  Status progression: pending → processing → completed (or failed after 3 retries).
-  Poll GET /prospect-lists/{id} for progress.
+POST   /api/v1/getleads/people/create-list
+  Create GetLeads-backed prospect list (async). Scope: prospect-lists:write
   Body: {
     list_name: string,
-    apollo_search_payload: object,  // Apollo mixed_people/search body
-    idempotency_key?: string        // safe to retry with same key
+    getleads_search_criteria: object,  // ≥1 of job_titles, seniority, countries,
+                                       // industries, domains; plus exclude_domains,
+                                       // company_size_min/max, verified_only,
+                                       // require_email, require_phone,
+                                       // max_per_company, searchLimit, ...
+    data_supplier?: "personal",        // run on the workspace's own GetLeads key
+    icp_id?: uuid,
+    idempotency_key?: string
   }
-  Example apollo_search_payload:
-    { person_titles: ["Founder","CEO"], organization_locations: ["United States"],
-      organization_num_employees_ranges: ["1-10","11-50"] }
+  Example getleads_search_criteria:
+    { job_titles: ["Head of Sales"], countries: ["Germany"],
+      company_size_min: 50, verified_only: true, searchLimit: 200 }
+  Errors: 400 MISSING_TARGETING_FILTER, 402 INSUFFICIENT_CREDITS
   Response: { data: ProspectList } (status: "pending")
 
-POST   /api/v1/apollo/people/add-more
-  Append more leads to existing Apollo list (async). Scope: prospect-lists:write
-  Re-runs saved apollo_search_payload to pull next N results.
+POST   /api/v1/getleads/people/add-more
+  Append more contacts to a COMPLETED GetLeads list (async). Scope: prospect-lists:write
   Body: { list_id: uuid, count?: int (1-10000, default: 100) }
-  Response: { data: { list: ProspectList, message: string } }
 
 =============================================================================
 ### EXPLORIUM
 Prospect-search → contact enrichment → prospect-list ingestion (async).
-Alternative data supplier to Apollo. Scope: prospect-lists:write
+SECOND choice after GetLeads: use it for filters GetLeads cannot express (buyer
+intent, departments, revenue, website keywords, tech stack, enrichments) or when
+GetLeads returns nothing. Scope: prospect-lists:write
 =============================================================================
 
 POST   /api/v1/explorium/people/create-list
@@ -619,6 +661,34 @@ POST   /api/v1/explorium/companies/create-list
 POST   /api/v1/explorium/people/add-more
   Append more leads to existing Explorium list (async). Scope: prospect-lists:write
   Re-runs saved explorium_search_criteria to pull next N results.
+  Body: { list_id: uuid, count?: int (1-10000, default: 100) }
+  Response: { data: { list: ProspectList, message: string } }
+
+=============================================================================
+### APOLLO
+People-search → prospect-list ingestion (async). LAST RESORT: use only when
+GetLeads and Explorium cannot serve the request. The managed auto chain never
+uses Apollo. Scope: prospect-lists:write
+=============================================================================
+
+POST   /api/v1/apollo/people/create-list
+  Create Apollo-backed prospect list (async). Scope: prospect-lists:write
+  Creates prospect_list with status:"pending", then cron processes every minute.
+  Status progression: pending → processing → completed (or failed after 3 retries).
+  Poll GET /prospect-lists/{id} for progress.
+  Body: {
+    list_name: string,
+    apollo_search_payload: object,  // Apollo mixed_people/search body
+    idempotency_key?: string        // safe to retry with same key
+  }
+  Example apollo_search_payload:
+    { person_titles: ["Founder","CEO"], organization_locations: ["United States"],
+      organization_num_employees_ranges: ["1-10","11-50"] }
+  Response: { data: ProspectList } (status: "pending")
+
+POST   /api/v1/apollo/people/add-more
+  Append more leads to existing Apollo list (async). Scope: prospect-lists:write
+  Re-runs saved apollo_search_payload to pull next N results.
   Body: { list_id: uuid, count?: int (1-10000, default: 100) }
   Response: { data: { list: ProspectList, message: string } }
 
@@ -851,6 +921,8 @@ Organizations: deduplicated by normalized primary_domain
 =============================================================================
 
 Credits are consumed by:
+  - GetLeads people search (per contact returned)
+  - Explorium people/company search and enrichments
   - Apollo people search (per lead ingested)
   - AI workflow generation
   - AI message preview generation

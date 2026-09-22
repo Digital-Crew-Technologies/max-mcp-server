@@ -12,10 +12,14 @@ function buildCriteria(input: Record<string, unknown>): Record<string, unknown> 
   return criteria;
 }
 
+// Explorium is the SECOND sourcing choice: richer (buyer intent, departments,
+// revenue, tech stack, enrichments) but ~100× the cost of GetLeads. Reach for it
+// only when GetLeads cannot express the request or came back empty.
+
 export function registerExploriumTools(server: McpServer): void {
   server.registerTool("explorium_create_list", {
     title: "Create Explorium prospect list",
-    description: "Create an Explorium-backed prospect (people) list (async). Runs a people search with the given filters → enrichment → ingestion. Returns a pending list DTO; poll its status (or use wait_for_prospect_list) until completed. Auto-generates an idempotency_key if not provided so retries are safe.",
+    description: "SECOND CHOICE after getleads_create_list: create an Explorium-backed prospect (people) list (async). Use when GetLeads can't express the filters (buyer intent, departments, revenue, website keywords, enrichments) or returned nothing. People search → enrichment → ingestion; ~100× GetLeads' cost. Returns a pending list; poll with wait_for_prospect_list.",
     inputSchema: S.exploriumCreateListSchema,
   }, async (input) => {
     const body = {
@@ -28,7 +32,7 @@ export function registerExploriumTools(server: McpServer): void {
 
   server.registerTool("explorium_create_company_list", {
     title: "Create Explorium company list",
-    description: "Create an Explorium-backed company (organization) list (async). Runs a business search with the given filters → enrichment → ingestion. Returns a pending list DTO; poll its status (or use wait_for_prospect_list) until completed. Auto-generates an idempotency_key if not provided so retries are safe.",
+    description: "Create an Explorium-backed company (organization) list (async). Prefer auto_create_organization_list, which tries GetLeads first; use this to pin Explorium for revenue, age, tech-stack or intent filters. Business search → enrichment → ingestion. Returns a pending list; poll with wait_for_prospect_list.",
     inputSchema: S.exploriumCreateCompanyListSchema,
   }, async (input) => {
     const body = {

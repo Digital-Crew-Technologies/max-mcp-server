@@ -128,4 +128,20 @@ describe("registerAsGroup", () => {
       ),
     ).toThrow(/contains "_"/);
   });
+
+  it("rejects a flat tool with its own `action` argument, which would replace the discriminator", () => {
+    // social_handle_invitation once took `action: accept|decline`; grouped, its
+    // branch lost its literal and the operation vanished from the catalog.
+    expect(() =>
+      capture((s) =>
+        registerAsGroup(s, "demo", "Demo.", (r) => {
+          r.registerTool("handle_invitation", {
+            title: "Handle",
+            description: "Accept or decline.",
+            inputSchema: z.object({ action: z.enum(["accept", "decline"]) }),
+          }, ok);
+        }),
+      ),
+    ).toThrow(/argument named "action"/);
+  });
 });

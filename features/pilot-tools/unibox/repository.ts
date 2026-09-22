@@ -53,3 +53,64 @@ export async function sendNewEmail(token: string, body: Record<string, unknown>)
     body: JSON.stringify(body),
   });
 }
+
+// ── Channels + sync rules ─────────────────────────────────────────────────────
+export async function listChannels(token: string): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/unibox/channels`), { headers: authHeaders(token) });
+}
+
+export async function getChannelSyncRules(token: string, accountId: string): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/unibox/channels/${accountId}/rules`), {
+    headers: authHeaders(token),
+  });
+}
+
+export async function setChannelSyncRules(
+  token: string,
+  accountId: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/unibox/channels/${accountId}/rules`), {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+}
+
+// ── AI reply suggestions ──────────────────────────────────────────────────────
+// A model call that charges an automation credit on success, with no
+// idempotency key: never retry (a retry would bill twice).
+export async function suggestChatReplies(token: string, chatId: string): Promise<Response> {
+  return fetchWithRetry(
+    apiUrl(`/api/v1/unibox/chats/${chatId}/reply-suggestions`),
+    { method: "POST", headers: authHeaders(token) },
+    { timeoutMs: 90_000, maxRetries: 0 },
+  );
+}
+
+// ── Messages ──────────────────────────────────────────────────────────────────
+export async function getMessage(token: string, messageId: string): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/unibox/messages/${messageId}`), {
+    headers: authHeaders(token),
+  });
+}
+
+// ── History import ────────────────────────────────────────────────────────────
+// The route runs up to its 300s maxDuration (soft deadline 280s). Idempotent,
+// but a client-side retry after a timeout would just start a second long pass
+// racing the first, so don't retry: the caller re-invokes on partial:true.
+export async function syncUnibox(token: string, accountId?: string): Promise<Response> {
+  return fetchWithRetry(
+    apiUrl(`/api/v1/unibox/sync`),
+    {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(accountId ? { accountId } : {}),
+    },
+    { timeoutMs: 295_000, maxRetries: 0 },
+  );
+}
+
+export async function getSyncProgress(token: string): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/unibox/sync/progress`), { headers: authHeaders(token) });
+}

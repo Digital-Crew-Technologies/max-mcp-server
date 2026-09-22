@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { withToken } from "../shared";
 
-const prospectStatusEnum = z.enum(["prospect", "contacted", "replied", "not_interested", "existing_client"]);
+const prospectStatusEnum = z.enum(["prospect", "contacted", "replied", "interested", "not_interested", "existing_client"]);
 
 export const listProspectListsSchema = z.object({
   ...withToken,
@@ -89,4 +89,88 @@ export const importProspectListCsvSchema = z.object({
     linkedin_url: z.string().optional(),
     country: z.string().optional(),
   })).min(1).describe("Prospect records with required email"),
+});
+
+const listId = z.string().uuid().describe("Prospect list UUID");
+
+/** Any tool whose only argument is the list id. */
+export const prospectListIdSchema = z.object({
+  ...withToken,
+  id: listId,
+});
+
+export const listProspectListOrganizationsSchema = z.object({
+  ...withToken,
+  id: listId,
+  page: z.number().int().min(1).optional().describe("Page number (default 1)"),
+  pageSize: z.number().int().min(1).max(100).optional().describe("Results per page (default 20, max 100)"),
+  search: z.string().optional().describe("Substring match on name, domain, industry"),
+  sortBy: z.enum(["name", "created_at", "updated_at"]).optional(),
+  sortOrder: z.enum(["asc", "desc"]).optional(),
+});
+
+export const listProspectListMemberIdsSchema = z.object({
+  ...withToken,
+  id: listId,
+  search: z.string().optional().describe("Search by name, email, or title"),
+  limit: z.number().int().min(1).max(10000).optional().describe("Max ids (default 5000, max 10000)"),
+  status: z.array(prospectStatusEnum).optional().describe("Prospect pipeline statuses"),
+  titles: z.array(z.string()).optional().describe("Job titles (contains-any)"),
+  seniorities: z.array(z.string()).optional(),
+  countries: z.array(z.string()).optional(),
+  states: z.array(z.string()).optional(),
+  cities: z.array(z.string()).optional(),
+  organization_ids: z.array(z.string().uuid()).optional().describe("Organization UUIDs"),
+  email_verification: z.array(z.string()).optional().describe("Verdicts, e.g. valid, invalid, catch_all, unknown"),
+  has_email: z.boolean().optional(),
+  has_phone: z.boolean().optional(),
+  has_linkedin: z.boolean().optional(),
+  created_from: z.string().optional().describe("ISO date, inclusive lower bound on prospect creation"),
+  created_to: z.string().optional().describe("ISO date, inclusive upper bound on prospect creation"),
+});
+
+export const createLinkedInProspectListSchema = z.object({
+  ...withToken,
+  list_name: z.string().min(1).describe("Name for the new list"),
+  criteria: z.object({
+    jobTitles: z.array(z.string()).optional(),
+    seniorities: z
+      .array(z.enum(["c_suite", "vp", "director", "manager", "senior", "entry", "owner", "partner"]))
+      .optional()
+      .describe("Sales Navigator only"),
+    personLocations: z.array(z.string()).optional().describe("Place names, resolved by LinkedIn"),
+    industries: z.array(z.string()).optional(),
+    companySize: z
+      .object({ min: z.number().int().min(0).optional(), max: z.number().int().min(0).optional() })
+      .optional()
+      .describe("Employee range (Sales Navigator only)"),
+    companyDomains: z.array(z.string()).optional().describe("Target company domains"),
+    keywords: z.array(z.string()).optional(),
+    jobDepartments: z.array(z.string()).optional().describe("Sales Navigator only"),
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(50000)
+      .optional()
+      .describe("Max people (default 100; capped at 1000 classic, 2500 Sales Navigator)"),
+    excludeExistingProspects: z.boolean().optional().describe("Skip people already in the workspace (default true)"),
+    excludeLinkedInConnections: z.boolean().optional().describe("Skip the workspace's LinkedIn connections (default false)"),
+    linkedin: z.object({
+      accountId: z.string().uuid().describe("Connected LinkedIn account id (from list_accounts)"),
+      api: z.enum(["classic", "sales_navigator"]).optional().describe("Default classic; a pasted URL decides it"),
+      url: z
+        .string()
+        .max(4000)
+        .nullable()
+        .optional()
+        .describe("Pasted LinkedIn/Sales Navigator people-search URL; if set it IS the search"),
+      networkDistance: z
+        .array(z.number().int().min(1).max(3))
+        .optional()
+        .describe("Connection degrees to include: 1, 2, 3 (default all)"),
+    }),
+  }).describe("Needs at least one targeting filter or linkedin.url"),
+  idempotency_key: z.string().optional().describe("Replay guard: a second create with the same key is refused"),
+  icp_id: z.string().uuid().optional().describe("ICP the criteria came from (provenance only)"),
 });

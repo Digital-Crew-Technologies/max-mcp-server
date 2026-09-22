@@ -4,7 +4,9 @@
 // ⚠️ Server-only.
 
 import { resolveBearerToken, type McpServer } from "../shared";
+import { responseBodyText, sanitizeUpstreamError } from "@/shared/http/response";
 import * as S from "./schema";
+import * as repo from "./repository";
 import { HubSpotClient } from "./hubspot-client";
 import { getHubSpotAccessToken } from "./token-resolver";
 import {
@@ -36,6 +38,26 @@ function mapError(e: unknown): McpEnvelope {
   }
   const cls = e instanceof Error ? e.name : "Error";
   return err(`${cls}: ${msg}`);
+}
+
+/**
+ * The HubSpot contact id for `email`, or null when there is none. Goes through
+ * max-agent's scoped route (crm:read) — max-agent no longer hands out the
+ * HubSpot token, so a direct HubSpot lookup is not possible here. A 400 means
+ * the address itself is invalid, which cannot match an existing contact.
+ */
+async function findHubSpotContactId(bearer: string, email: string): Promise<string | null> {
+  const res = await repo.getContact(bearer, { email });
+  const text = await responseBodyText(res);
+  if (res.status === 409) throw new Error("HUBSPOT_NOT_CONNECTED");
+  if (res.status === 400) return null;
+  if (!res.ok) {
+    throw new Error(
+      `HubSpot lookup failed (${res.status}): ${text ? sanitizeUpstreamError(text) : res.statusText}`,
+    );
+  }
+  const id = (JSON.parse(text) as { data?: { id?: unknown } | null }).data?.id;
+  return id == null ? null : String(id);
 }
 
 type Prospect = {
@@ -338,19 +360,12 @@ export function registerCrmLeadDispatchTools(server: McpServer): void {
       let kept = prospects;
 
       if (dedup) {
-        let client: HubSpotClient;
-        try {
-          const { access_token, auth_method } = await getHubSpotAccessToken(bearer);
-          client = new HubSpotClient(access_token, auth_method);
-        } catch (e) {
-          return mapError(e);
-        }
         try {
           const flags = await mapLimit(prospects, 5, async (p) => {
             if (!p.email) return { drop: false as const };
-            const existing = await client.getContactByEmail(p.email);
-            if (existing) {
-              return { drop: true as const, email: p.email, existing_id: existing.id };
+            const existingId = await findHubSpotContactId(bearer, p.email);
+            if (existingId) {
+              return { drop: true as const, email: p.email, existing_id: existingId };
             }
             return { drop: false as const };
           });

@@ -51,3 +51,33 @@ export async function bulkDeleteOrganizations(token: string, body: Record<string
     body: JSON.stringify(body),
   });
 }
+
+export async function getOrganizationGeoPoints(token: string): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/organizations/geo-points`), { headers: authHeaders(token) });
+}
+
+export async function getOrganizationGeoStats(token: string): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/organizations/geo-stats`), { headers: authHeaders(token) });
+}
+
+function shareLinkPath(id: string): string {
+  return `/api/v1/organizations/${encodeURIComponent(id)}/share-link`;
+}
+
+export async function getOrganizationShareLink(token: string, id: string): Promise<Response> {
+  return fetchWithRetry(apiUrl(shareLinkPath(id)), { headers: authHeaders(token) });
+}
+
+export async function createOrganizationShareLink(token: string, id: string): Promise<Response> {
+  return fetchWithRetry(apiUrl(shareLinkPath(id)), {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+}
+
+export async function revokeOrganizationShareLink(token: string, id: string): Promise<Response> {
+  return fetchWithRetry(apiUrl(shareLinkPath(id)), {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}

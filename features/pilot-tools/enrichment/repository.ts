@@ -75,3 +75,79 @@ export async function getEnrichmentCredits(token: string): Promise<Response> {
     headers: authHeaders(token),
   });
 }
+
+// ── Contact enrichment + email verification (supplier waterfall) ────────────
+// POST /contact-enrichment/enrich and /email-verification/verify page through
+// whole lists and submit several provider batches (maxDuration=300 upstream),
+// and both charge credits — long timeout, NO retries (a retry could double-bill).
+
+const CONTACT_RUN_CONFIG = { timeoutMs: ENRICH_TIMEOUT_MS, maxRetries: 0 };
+
+// Preview is read-only (spends nothing) but pages through a whole list
+// (maxDuration=60 upstream), so it only needs a longer timeout.
+const PREVIEW_CONFIG = { timeoutMs: 60_000 };
+
+export async function enrichContactDetails(
+  token: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  return fetchWithRetry(
+    apiUrl(`/api/v1/contact-enrichment/enrich`),
+    {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(body),
+    },
+    CONTACT_RUN_CONFIG,
+  );
+}
+
+export async function getContactEnrichmentJob(
+  token: string,
+  jobId: string,
+): Promise<Response> {
+  return fetchWithRetry(
+    apiUrl(`/api/v1/contact-enrichment/jobs/${encodeURIComponent(jobId)}`),
+    { headers: authHeaders(token) },
+  );
+}
+
+export async function verifyEmails(
+  token: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  return fetchWithRetry(
+    apiUrl(`/api/v1/email-verification/verify`),
+    {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(body),
+    },
+    CONTACT_RUN_CONFIG,
+  );
+}
+
+export async function getEmailVerificationJob(
+  token: string,
+  jobId: string,
+): Promise<Response> {
+  return fetchWithRetry(
+    apiUrl(`/api/v1/email-verification/jobs/${encodeURIComponent(jobId)}`),
+    { headers: authHeaders(token) },
+  );
+}
+
+export async function previewEnrichment(
+  token: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  return fetchWithRetry(
+    apiUrl(`/api/v1/enrichment/preview`),
+    {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(body),
+    },
+    PREVIEW_CONFIG,
+  );
+}

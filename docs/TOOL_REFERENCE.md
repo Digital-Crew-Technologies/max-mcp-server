@@ -1,6 +1,6 @@
 # MCP Tool Reference
 
-Complete catalog of the operations exposed by `max-mcp-server` — **163** with all feature flags on (`ENABLE_ADMIN_TOOLS`, `ENABLE_WEBHOOK_SIMULATORS`), 154 without them.
+Catalog of the operations exposed by `max-mcp-server` up to the 163-operation release. The server now carries **444** operations with all feature flags on (`ENABLE_ADMIN_TOOLS`, `ENABLE_WEBHOOK_SIMULATORS`, `ENABLE_PURCHASE_TOOLS`) and 432 without them. The domains and tools added since are listed, with their endpoints, in [`ENDPOINT_COVERAGE.md`](./ENDPOINT_COVERAGE.md); every tool is in [`tools.json`](./tools.json).
 
 Each entry below is named by its **flat** name. Under the default grouped configuration an operation is reached as an `action` on its domain tool — `list_chats` is `unibox` with `action: "list_chats"` — except LinkedIn, whose actions keep short names (`linkedin` with `action: "get_profile"`). Set `GROUPED_TOOLS=false` to register these as flat tools instead, at the cost of overflowing the client's catalog cap. See [ADR-006](./adr/006-grouped-by-default-and-client-cap.md). The machine-generated source of truth is [`docs/tools.json`](./tools.json) (regenerate with `npm run docs:tools`; CI enforces sync via `npm run docs:check`). Each entry below includes the underlying HTTP endpoint and a one-line description; legacy domains also list the required scope.
 

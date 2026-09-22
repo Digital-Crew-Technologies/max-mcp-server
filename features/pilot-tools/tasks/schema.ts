@@ -109,6 +109,11 @@ export const getTaskSchema = z.object({
   id: z.string().uuid().describe("Task UUID."),
 });
 
+export const getTaskThreadSchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Task UUID."),
+});
+
 /**
  * Input for `create_suggestion`.
  *

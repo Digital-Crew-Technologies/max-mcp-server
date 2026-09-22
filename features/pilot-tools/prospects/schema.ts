@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { withToken } from "../shared";
 
-const prospectStatusEnum = z.enum(["prospect", "contacted", "replied", "not_interested", "existing_client"]);
+const prospectStatusEnum = z.enum(["prospect", "contacted", "replied", "interested", "not_interested", "existing_client"]);
 
 export const listProspectsSchema = z.object({
   ...withToken,
@@ -84,4 +84,69 @@ export const bulkDeleteProspectsSchema = z.object({
 export const getProspectCampaignActivitySchema = z.object({
   ...withToken,
   id: z.string().uuid().describe("Prospect UUID"),
+});
+
+// ── Prospect sub-resources ───────────────────────────────────────────────────
+
+const prospectId = z.string().uuid().describe("Prospect UUID");
+const hookId = z.string().uuid().describe("Profile hook UUID");
+
+/** Any tool whose only argument is the prospect id. */
+export const prospectIdSchema = z.object({
+  ...withToken,
+  id: prospectId,
+});
+
+const hookSourceEnum = z
+  .enum(["all", "linkedin", "twitter", "instagram", "facebook", "tiktok", "youtube"])
+  .describe("Platform to poll (scrapecreators hooks; default all)");
+const hookFrequencyEnum = z.enum(["daily", "weekly", "monthly"]).describe("How often the hook re-runs");
+const hookLabel = z.string().max(120).nullable().optional().describe("Display label");
+const hookPrompt = z
+  .string()
+  .max(2000)
+  .nullable()
+  .optional()
+  .describe("Claire hooks: custom research question (else a person deep-research)");
+
+export const createProspectProfileHookSchema = z.object({
+  ...withToken,
+  id: prospectId,
+  provider: z
+    .enum(["scrapecreators", "fullenrich", "claire"])
+    .describe("scrapecreators = social posts; fullenrich = contact re-enrichment; claire = research"),
+  source: hookSourceEnum.optional(),
+  label: hookLabel,
+  custom_prompt: hookPrompt,
+  frequency: hookFrequencyEnum.optional(),
+});
+
+export const updateProspectProfileHookSchema = z.object({
+  ...withToken,
+  id: prospectId,
+  hook_id: hookId,
+  source: hookSourceEnum.optional(),
+  label: hookLabel,
+  custom_prompt: hookPrompt,
+  frequency: hookFrequencyEnum.optional(),
+  active: z.boolean().optional().describe("false pauses the hook"),
+});
+
+export const prospectProfileHookIdSchema = z.object({
+  ...withToken,
+  id: prospectId,
+  hook_id: hookId,
+});
+
+/** Tools with no arguments beyond the token (workspace People share link). */
+export const tokenOnlySchema = z.object({ ...withToken });
+
+export const searchWorkspaceSchema = z.object({
+  ...withToken,
+  q: z.string().min(1).max(200).describe("Search text (under 2 chars returns no groups)"),
+  types: z
+    .array(z.enum(["person", "organization", "deal", "list", "campaign", "task", "note"]))
+    .optional()
+    .describe("Entity kinds to search (default all enabled)"),
+  limit: z.number().int().min(1).max(20).optional().describe("Hits per group (default 5, max 20)"),
 });
