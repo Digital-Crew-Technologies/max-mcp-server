@@ -18,9 +18,8 @@ import {
   type McpServer,
 } from "../shared";
 import * as S from "./schema";
-import { HubSpotClient } from "./hubspot-client";
-import { getHubSpotAccessToken } from "./token-resolver";
-import type { CrmDeal, CrmOwner, CrmPipelineStage } from "./hubspot-client.types";
+import { fetchDeals, fetchOwners, fetchPipelineStages } from "./reads";
+import type { CrmDeal, CrmOwner, CrmPipelineStage } from "./types";
 
 type McpEnvelope = {
   content: Array<{ type: "text"; text: string }>;
@@ -41,9 +40,6 @@ function mapError(e: unknown): McpEnvelope {
     return err(
       "HubSpot is not connected for this workspace. Connect HubSpot in workspace settings, then retry.",
     );
-  }
-  if (msg.startsWith("HUBSPOT_TOKEN_FETCH_FAILED")) {
-    return err(msg);
   }
   if (msg.startsWith("DEAL_SNAPSHOT_FETCH_FAILED")) {
     return err(msg);
@@ -269,7 +265,7 @@ export function detectForecastChanges(
 
     changes.push({
       deal_id: d.id,
-      dealname: d.dealname,
+      dealname: d.name,
       owner_id: d.ownerId,
       owner_name: ownerName(d.ownerId ? ownerById.get(d.ownerId) : undefined),
       amount: d.amount,
@@ -341,13 +337,11 @@ export function registerCrmForecastTools(server: McpServer): void {
       const currentIso = new Date(now).toISOString();
 
       try {
-        const { access_token, auth_method } = await getHubSpotAccessToken(bearer);
-        const client = new HubSpotClient(access_token, auth_method);
         const [currentDeals, priorSnapshots, owners, stages] = await Promise.all([
-          client.listDeals(input.owner_id ? { ownerId: input.owner_id } : {}),
+          fetchDeals(bearer, input.owner_id ? { ownerId: input.owner_id } : {}),
           getDealSnapshotsAt(bearer, baselineIso),
-          client.listOwners(),
-          client.listPipelineStages(),
+          fetchOwners(bearer),
+          fetchPipelineStages(bearer),
         ]);
 
         // Restrict snapshots to the owner filter if provided — snapshots may

@@ -2,30 +2,18 @@ import { resolveBearerToken, type McpServer } from "../shared";
 import { responseBodyText, sanitizeUpstreamError } from "@/shared/http/response";
 import * as S from "./schema";
 import * as repo from "./repository";
-import { HubSpotClient } from "./hubspot-client";
-import {
-  getHubSpotAccessToken,
-  invalidateHubSpotToken,
-} from "./token-resolver";
 
-// CRM (HubSpot) tools. Two paths:
-//
-//   • Contacts, companies and connection status go through max-agent's scoped
-//     CRM routes (POST /api/v1/crm/{search-contacts,get-contact,upsert-contact,
-//     upsert-company}, GET /api/v1/crm/status). max-agent resolves the
-//     workspace's HubSpot client server-side and enforces the read/write
-//     connection mode itself (403 code "crm_read_only").
-//   • Deals, activities, owners and pipeline stages still call HubSpot's
-//     official MCP DIRECTLY via HubSpotClient, with the token resolved from
-//     GET /api/v1/crm/access-token. ⚠️ max-agent no longer serves that route
-//     (HubSpot credentials are never returned to API callers), and it has no
-//     scoped equivalent for these reads yet, so these tools fail until one
-//     exists.
+// CRM (HubSpot) tools. Every tool calls max-agent's scoped CRM routes
+// (POST /api/v1/crm/{search-contacts,get-contact,upsert-contact,upsert-company,
+// list-deals,get-deal,list-activities}, GET /api/v1/crm/{status,list-owners,
+// list-pipeline-stages}). max-agent resolves the workspace's HubSpot client
+// server-side, never returns the HubSpot credential, and enforces the
+// read/write connection mode itself (403 code "crm_read_only").
 //
 // Error mapping → standard MCP envelope:
-//   not connected (409 / HUBSPOT_NOT_CONNECTED) → friendly "connect HubSpot" message
-//   read-only connection (403 crm_read_only)    → friendly "reconnect with write" message
-//   anything else → { isError: true, content: [{ text: "<detail>" }] }
+//   not connected (409)                      → friendly "connect HubSpot" message
+//   read-only connection (403 crm_read_only) → friendly "reconnect with write" message
+//   anything else → { isError: true, content: [{ text: "API error (<status>): <detail>" }] }
 
 type McpEnvelope = {
   content: Array<{ type: "text"; text: string }>;
@@ -47,26 +35,16 @@ function err(text: string): McpEnvelope {
   return { isError: true, content: [{ type: "text", text }] };
 }
 
-function isAuthError(msg: string): boolean {
-  return /\b401\b|unauthorized|invalid[_ ]?token|token expired/i.test(msg);
-}
-
-/** Map a thrown error from a HubSpot call to the MCP error envelope. */
+/** Map a thrown error (missing bearer, network failure) to the MCP error envelope. */
 function mapError(e: unknown): McpEnvelope {
   const msg = e instanceof Error ? e.message : String(e);
-  if (msg === "HUBSPOT_NOT_CONNECTED") {
-    return err(NOT_CONNECTED_MSG);
-  }
-  if (msg.startsWith("HUBSPOT_TOKEN_FETCH_FAILED")) {
-    return err(msg);
-  }
   const cls = e instanceof Error ? e.name : "Error";
   return err(`${cls}: ${msg}`);
 }
 
 /**
  * Call one of max-agent's scoped CRM routes and translate its CRM-specific
- * failures into the same friendly messages the direct path uses.
+ * failures into friendly messages.
  */
 async function viaMaxAgent(
   bearerOverride: string | undefined,
@@ -84,41 +62,6 @@ async function viaMaxAgent(
   if (res.status === 403 && text.includes("crm_read_only")) return err(WRITES_DISABLED_MSG);
   const detail = text ? sanitizeUpstreamError(text) : res.statusText;
   return err(`API error (${res.status}): ${detail}`);
-}
-
-/**
- * Resolve bearer → HubSpot token → HubSpotClient, run fn, map result/errors.
- * On a HubSpot 401 we invalidate the cached token once and retry so a token
- * that expired mid-cache refetches transparently.
- */
-async function withClient(
-  bearerOverride: string | undefined,
-  fn: (client: HubSpotClient) => Promise<unknown>,
-): Promise<McpEnvelope> {
-  let bearer: string;
-  try {
-    bearer = resolveBearerToken(bearerOverride);
-  } catch (e) {
-    return mapError(e);
-  }
-
-  try {
-    const { access_token, auth_method } = await getHubSpotAccessToken(bearer);
-    try {
-      return ok(await fn(new HubSpotClient(access_token, auth_method)));
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (isAuthError(msg)) {
-        // Token may have just expired — drop it and refetch once.
-        invalidateHubSpotToken(bearer);
-        const fresh = await getHubSpotAccessToken(bearer);
-        return ok(await fn(new HubSpotClient(fresh.access_token, fresh.auth_method)));
-      }
-      throw e;
-    }
-  } catch (e) {
-    return mapError(e);
-  }
 }
 
 export function registerCrmTools(server: McpServer): void {
@@ -198,30 +141,20 @@ export function registerCrmTools(server: McpServer): void {
     },
   );
 
-  // ── the assistant deal / activity / owner / stage reads ────────────────────────
+  // ── deal / activity / owner / stage reads ──────────────────────────────────
 
   server.registerTool(
     "crm_list_deals",
     {
       title: "List CRM deals",
       description:
-        "List deals from HubSpot with optional filters (stage, owner, pipeline, amount range, close-date range, modified-after). Returns id, dealname, amount, ownerId, stage, pipeline, closeDate, lastModified, lastActivityDate, nextStep, associated company/contact ids.",
+        "List deals from HubSpot with optional filters (stage, owner, pipeline, amount range, close-date range, modified-after). Returns {data: deals[]}, each with id, name, amount, ownerId, stage, pipeline, closeDate, lastModified, lastActivityDate, nextStep. Use crm_get_deal for a deal's associated company/contact ids.",
       inputSchema: S.crmListDealsSchema,
     },
-    async (input) =>
-      withClient(input.bearer_token, (c) =>
-        c.listDeals({
-          stageId: input.stageId,
-          ownerId: input.ownerId,
-          pipelineId: input.pipelineId,
-          amountMin: input.amountMin,
-          amountMax: input.amountMax,
-          closeDateAfter: input.closeDateAfter,
-          closeDateBefore: input.closeDateBefore,
-          modifiedAfter: input.modifiedAfter,
-          limit: input.limit,
-        }),
-      ),
+    async (input) => {
+      const { bearer_token, ...body } = input;
+      return viaMaxAgent(bearer_token, (t) => repo.listDeals(t, body));
+    },
   );
 
   server.registerTool(
@@ -229,10 +162,11 @@ export function registerCrmTools(server: McpServer): void {
     {
       title: "Get a CRM deal by id",
       description:
-        "Fetch a single HubSpot deal by id, including its full properties and associated company/contact ids. Returns null if not found.",
+        "Fetch a single HubSpot deal by id, including its properties and associated company/contact ids (associatedCompanyIds, associatedContactIds). Returns {data: deal} or {data: null} if not found.",
       inputSchema: S.crmGetDealSchema,
     },
-    async (input) => withClient(input.bearer_token, (c) => c.getDeal(String(input.id))),
+    async (input) =>
+      viaMaxAgent(input.bearer_token, (t) => repo.getDeal(t, { id: input.id })),
   );
 
   server.registerTool(
@@ -240,20 +174,13 @@ export function registerCrmTools(server: McpServer): void {
     {
       title: "List CRM activities (engagements)",
       description:
-        "List HubSpot engagements (call/email/meeting/note/task) with optional filters (deal, contact, owner, types, since). Per-type queries are merged sorted by timestamp desc. Returns id, type, timestamp, ownerId, dealId, contactId, subject, body.",
+        "List HubSpot engagements (call/email/meeting/note/task) with optional filters (deal, contact, owner, types, since), newest first. Returns {data: activities[]}, each with id, type, timestamp, ownerId, dealId, contactId, subject, body. Without `types`, engagement types the HubSpot connection cannot read are skipped; a type you name that HubSpot denies returns an error.",
       inputSchema: S.crmListActivitiesSchema,
     },
-    async (input) =>
-      withClient(input.bearer_token, (c) =>
-        c.listActivities({
-          dealId: input.dealId,
-          contactId: input.contactId,
-          ownerId: input.ownerId,
-          types: input.types,
-          since: input.since,
-          limit: input.limit,
-        }),
-      ),
+    async (input) => {
+      const { bearer_token, ...body } = input;
+      return viaMaxAgent(bearer_token, (t) => repo.listActivities(t, body));
+    },
   );
 
   server.registerTool(
@@ -261,10 +188,10 @@ export function registerCrmTools(server: McpServer): void {
     {
       title: "List CRM owners",
       description:
-        "List HubSpot owners (sales reps) for the workspace. Returns id, email, firstName, lastName, teams. Use to map deals/assignments to people.",
+        "List HubSpot owners (sales reps) for the workspace. Returns {data: owners[]}, each with id, email, firstName, lastName, teams. Use to map deals/assignments to people.",
       inputSchema: S.crmListOwnersSchema,
     },
-    async (input) => withClient(input.bearer_token, (c) => c.listOwners()),
+    async (input) => viaMaxAgent(input.bearer_token, (t) => repo.listOwners(t)),
   );
 
   server.registerTool(
@@ -272,10 +199,10 @@ export function registerCrmTools(server: McpServer): void {
     {
       title: "List CRM pipeline stages",
       description:
-        "List deal pipeline stages (optionally scoped to one pipeline). Returns id, label, displayOrder, pipelineId, isWonStage, isLostStage.",
+        "List deal pipeline stages (optionally scoped to one pipeline), ordered by pipeline then stage. Returns {data: stages[]}, each with id, label, displayOrder, pipelineId, pipelineLabel, probability, isWonStage, isLostStage.",
       inputSchema: S.crmListPipelineStagesSchema,
     },
     async (input) =>
-      withClient(input.bearer_token, (c) => c.listPipelineStages(input.pipelineId)),
+      viaMaxAgent(input.bearer_token, (t) => repo.listPipelineStages(t, input.pipelineId)),
   );
 }

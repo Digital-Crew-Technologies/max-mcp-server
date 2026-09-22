@@ -295,26 +295,26 @@ Grouped tools. The `tasks` tool exposes actions `list`, `get`, `create_suggestio
 
 ## CRM / HubSpot (16)
 
-Token resolved via `GET /api/v1/crm/access-token` on max-agent, then HubSpot's REST API (`api.hubapi.com`) is called directly. Writes are gated on the connected token's `access_mode`.
+Every tool calls max-agent's scoped CRM routes (`crm:read` / `crm:write`); max-agent holds the HubSpot credential and never returns it. Writes additionally need a HubSpot connection made in read + write mode (max-agent answers `403 crm_read_only` otherwise).
 
 | Tool | Backend | Description |
 |---|---|---|
-| `crm_status` | `probe + GET /api/v1/crm/access-token` | Report whether HubSpot is connected for this workspace. |
-| `crm_search_contacts` | `POST hubapi /crm/v3/objects/contacts/search` | Search the connected CRM (HubSpot) for contacts by free text (name, email, company). |
-| `crm_get_contact` | `POST hubapi /crm/v3/objects/contacts/search` | Fetch a single CRM contact by email (the dedup identity). |
-| `crm_upsert_contact` | `POST/PATCH hubapi /crm/v3/objects/contacts` | Create-or-update a contact in the connected CRM, matched by email — never creates a duplicate. |
-| `crm_upsert_company` | `POST/PATCH hubapi /crm/v3/objects/companies` | Create-or-update a company in the connected CRM, matched by domain — never creates a duplicate. |
-| `crm_list_deals` | `POST hubapi /crm/v3/objects/deals/search` | List deals from HubSpot with optional filters (stage, owner, pipeline, amount range, close-date range, modified-after). |
-| `crm_get_deal` | `GET hubapi /crm/v3/objects/deals/:id` | Fetch a single HubSpot deal by id, including its full properties and associated company/contact ids. |
-| `crm_list_activities` | `POST hubapi /crm/v3/objects/{type}/search` | List HubSpot engagements (call/email/meeting/note/task) with optional filters (deal, contact, owner, types, since). |
-| `crm_list_owners` | `GET hubapi /crm/v3/owners` | List HubSpot owners (sales reps) for the workspace. |
-| `crm_list_pipeline_stages` | `GET hubapi /crm/v3/pipelines/deals` | List deal pipeline stages (optionally scoped to one pipeline). |
-| `crm_pipeline_risk_scan` | `hubapi + workspace profile settings` | Scan open HubSpot deals for risk: days inactive, days-to-close, missing fields (amount/owner/next_step/last_activity), close-date slipping, and high-value-low-activity. |
-| `crm_weekly_brief_compose` | `hubapi + workspace profile settings` | Compose a structured weekly sales brief from last week's activities, current open deals, the pipeline risk scan, and per-rep aggregates. |
-| `crm_detect_forecast_changes` | `hubapi + GET /api/v1/crm/deal-snapshots` | Compare current open HubSpot deals against the workspace's deal snapshot from window_days ago (read from max-agent's crm_deal_snapshots via GET /api/v1/crm/deal-snapshots). |
+| `crm_status` | `GET /api/v1/crm/status` | Report whether HubSpot is connected for this workspace. |
+| `crm_search_contacts` | `POST /api/v1/crm/search-contacts` | Search the connected CRM (HubSpot) for contacts by free text (name, email, company). |
+| `crm_get_contact` | `POST /api/v1/crm/get-contact` | Fetch a single CRM contact by email (the dedup identity). |
+| `crm_upsert_contact` | `POST /api/v1/crm/upsert-contact` | Create-or-update a contact in the connected CRM, matched by email — never creates a duplicate. |
+| `crm_upsert_company` | `POST /api/v1/crm/upsert-company` | Create-or-update a company in the connected CRM, matched by domain — never creates a duplicate. |
+| `crm_list_deals` | `POST /api/v1/crm/list-deals` | List deals from HubSpot with optional filters (stage, owner, pipeline, amount range, close-date range, modified-after). |
+| `crm_get_deal` | `POST /api/v1/crm/get-deal` | Fetch a single HubSpot deal by id, including its properties and associated company/contact ids. |
+| `crm_list_activities` | `POST /api/v1/crm/list-activities` | List HubSpot engagements (call/email/meeting/note/task) with optional filters (deal, contact, owner, types, since). |
+| `crm_list_owners` | `GET /api/v1/crm/list-owners` | List HubSpot owners (sales reps) for the workspace. |
+| `crm_list_pipeline_stages` | `GET /api/v1/crm/list-pipeline-stages` | List deal pipeline stages (optionally scoped to one pipeline). |
+| `crm_pipeline_risk_scan` | `crm/list-deals + list-activities + list-owners + list-pipeline-stages + workspace profile settings` | Scan open HubSpot deals for risk: days inactive, days-to-close, missing fields (amount/owner/next_step/last_activity), close-date slipping, and high-value-low-activity. |
+| `crm_weekly_brief_compose` | `crm/list-deals + list-activities + list-owners + list-pipeline-stages + workspace profile settings` | Compose a structured weekly sales brief from last week's activities, current open deals, the pipeline risk scan, and per-rep aggregates. |
+| `crm_detect_forecast_changes` | `crm/list-deals + list-owners + list-pipeline-stages + GET /api/v1/crm/deal-snapshots` | Compare current open HubSpot deals against the workspace's deal snapshot from window_days ago (read from max-agent's crm_deal_snapshots via GET /api/v1/crm/deal-snapshots). |
 | `crm_score_prospects` | `local scoring vs workspace ICP rules` | Score prospects 0–100 against the workspace ICP rules (agent_settings.icp_rules): country 25, industry 25, employee-in-range 20, any title keyword 30. |
-| `crm_assign_prospects` | `GET hubapi /crm/v3/owners + assignment rules` | Assign prospects to HubSpot owners using agent_settings.assignment_rules (or assignment_rules_override). |
-| `crm_export_import_csv` | `POST hubapi contacts/search (dedup); returns CSV` | Build a HubSpot-import CSV (base64-encoded) from prospects. |
+| `crm_assign_prospects` | `GET /api/v1/crm/list-owners + assignment rules` | Assign prospects to HubSpot owners using agent_settings.assignment_rules (or assignment_rules_override). |
+| `crm_export_import_csv` | `POST /api/v1/crm/get-contact (dedup); returns CSV` | Build a HubSpot-import CSV (base64-encoded) from prospects. |
 
 ---
 

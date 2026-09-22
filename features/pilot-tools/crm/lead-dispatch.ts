@@ -1,20 +1,19 @@
 // Lead Dispatch tools (the assistant Task B2): score → assign → export CSV.
-// Reuses B1's HubSpotClient + token-resolver (via tools.ts withClient) and the
-// the assistant workspace-profile reader.
+// Reads HubSpot owners and contacts through max-agent's scoped CRM routes
+// (reads.ts / repository.ts) and the assistant workspace-profile reader.
 // ⚠️ Server-only.
 
 import { resolveBearerToken, type McpServer } from "../shared";
 import { responseBodyText, sanitizeUpstreamError } from "@/shared/http/response";
 import * as S from "./schema";
 import * as repo from "./repository";
-import { HubSpotClient } from "./hubspot-client";
-import { getHubSpotAccessToken } from "./token-resolver";
+import { fetchOwners } from "./reads";
 import {
   getAgentSettingsConfig,
   type AssignmentRule,
   type IcpRules,
 } from "./agent-settings";
-import type { CrmOwner } from "./hubspot-client.types";
+import type { CrmOwner } from "./types";
 
 type McpEnvelope = {
   content: Array<{ type: "text"; text: string }>;
@@ -293,8 +292,7 @@ export function registerCrmLeadDispatchTools(server: McpServer): void {
       // Resolve owners so we can attach name/email to assignments.
       let owners: CrmOwner[];
       try {
-        const { access_token, auth_method } = await getHubSpotAccessToken(bearer);
-        owners = await new HubSpotClient(access_token, auth_method).listOwners();
+        owners = await fetchOwners(bearer);
       } catch (e) {
         return mapError(e);
       }

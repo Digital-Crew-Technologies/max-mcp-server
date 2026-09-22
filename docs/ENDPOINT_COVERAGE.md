@@ -76,7 +76,7 @@ Paths are relative to `/api/v1`.
 | Tasks (`tasks`) | `get_thread` → GET tasks/{id}/thread |
 | AI (`generate`) | ai-agent/suggest-campaign-ideas |
 | Analytics (`analytics`) | analytics/overview · analytics/conversations · analytics/entity |
-| CRM (`crm`) | `crm_status`, `crm_search_contacts`, `crm_get_contact`, `crm_upsert_contact`, `crm_upsert_company` now call max-agent's scoped CRM routes (GET crm/status, POST crm/search-contacts, …/get-contact, …/upsert-contact, …/upsert-company). Before, they fetched a HubSpot token from `crm/access-token`, a route max-agent no longer serves. `crm_export_import_csv` dedups through crm/get-contact for the same reason. |
+| CRM (`crm`) | Every CRM tool now calls max-agent's scoped CRM routes. Before, they fetched a HubSpot token from `crm/access-token`, a route max-agent no longer serves, and called HubSpot directly. `crm_status` → GET crm/status · `crm_search_contacts`, `crm_get_contact`, `crm_upsert_contact`, `crm_upsert_company` → POST crm/search-contacts, …/get-contact, …/upsert-contact, …/upsert-company · `crm_list_deals`, `crm_get_deal`, `crm_list_activities` → POST crm/list-deals, …/get-deal, …/list-activities · `crm_list_owners`, `crm_list_pipeline_stages` → GET crm/list-owners, …/list-pipeline-stages. The composites read through the same routes: `crm_pipeline_risk_scan` and `crm_weekly_brief_compose` (deals, activities, owners, stages), `crm_detect_forecast_changes` (deals, owners, stages, plus GET crm/deal-snapshots), `crm_assign_prospects` (owners) and `crm_export_import_csv` (dedup through crm/get-contact). The deal, activity, owner and stage routes need max-agent with those routes deployed; older max-agent builds answer them with 404. |
 
 ## Not exposed, by design
 
@@ -113,13 +113,5 @@ Paths are relative to `/api/v1`.
 
 ## Known gaps
 
-- **HubSpot deals, activities, owners and pipeline stages.** `crm_list_deals`,
-  `crm_get_deal`, `crm_list_activities`, `crm_list_owners`,
-  `crm_list_pipeline_stages` and the tools built on them
-  (`crm_pipeline_risk_scan`, `crm_detect_forecast_changes`,
-  `crm_weekly_brief_compose`, and `crm_assign_prospects` for owner names)
-  still read HubSpot directly. They get their token from `crm/access-token`,
-  which max-agent no longer serves, so they fail until max-agent adds scoped
-  routes for those reads.
 - **`connect_calendar`** posts to `calendar/connection`, which is signed-in-admin
   only. It works from the web chat but not with an API key.

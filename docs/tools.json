@@ -488,31 +488,31 @@
   {
     "name": "crm_get_deal",
     "title": "Get a CRM deal by id",
-    "description": "Fetch a single HubSpot deal by id, including its full properties and associated company/contact ids. Returns null if not found.",
+    "description": "Fetch a single HubSpot deal by id, including its properties and associated company/contact ids (associatedCompanyIds, associatedContactIds). Returns {data: deal} or {data: null} if not found.",
     "operations": 1
   },
   {
     "name": "crm_list_activities",
     "title": "List CRM activities (engagements)",
-    "description": "List HubSpot engagements (call/email/meeting/note/task) with optional filters (deal, contact, owner, types, since). Per-type queries are merged sorted by timestamp desc. Returns id, type, timestamp, ownerId, dealId, contactId, subject, body.",
+    "description": "List HubSpot engagements (call/email/meeting/note/task) with optional filters (deal, contact, owner, types, since), newest first. Returns {data: activities[]}, each with id, type, timestamp, ownerId, dealId, contactId, subject, body. Without `types`, engagement types the HubSpot connection cannot read are skipped; a type you name that HubSpot denies returns an error.",
     "operations": 1
   },
   {
     "name": "crm_list_deals",
     "title": "List CRM deals",
-    "description": "List deals from HubSpot with optional filters (stage, owner, pipeline, amount range, close-date range, modified-after). Returns id, dealname, amount, ownerId, stage, pipeline, closeDate, lastModified, lastActivityDate, nextStep, associated company/contact ids.",
+    "description": "List deals from HubSpot with optional filters (stage, owner, pipeline, amount range, close-date range, modified-after). Returns {data: deals[]}, each with id, name, amount, ownerId, stage, pipeline, closeDate, lastModified, lastActivityDate, nextStep. Use crm_get_deal for a deal's associated company/contact ids.",
     "operations": 1
   },
   {
     "name": "crm_list_owners",
     "title": "List CRM owners",
-    "description": "List HubSpot owners (sales reps) for the workspace. Returns id, email, firstName, lastName, teams. Use to map deals/assignments to people.",
+    "description": "List HubSpot owners (sales reps) for the workspace. Returns {data: owners[]}, each with id, email, firstName, lastName, teams. Use to map deals/assignments to people.",
     "operations": 1
   },
   {
     "name": "crm_list_pipeline_stages",
     "title": "List CRM pipeline stages",
-    "description": "List deal pipeline stages (optionally scoped to one pipeline). Returns id, label, displayOrder, pipelineId, isWonStage, isLostStage.",
+    "description": "List deal pipeline stages (optionally scoped to one pipeline), ordered by pipeline then stage. Returns {data: stages[]}, each with id, label, displayOrder, pipelineId, pipelineLabel, probability, isWonStage, isLostStage.",
     "operations": 1
   },
   {

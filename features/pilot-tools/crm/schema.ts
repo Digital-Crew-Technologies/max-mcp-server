@@ -89,7 +89,7 @@ export const crmListDealsSchema = z.object({
   closeDateBefore: z
     .string()
     .optional()
-    .describe("Only deals with closeDate on/before this ISO date."),
+    .describe("Only deals with closeDate on/before this ISO date. A date-only value (YYYY-MM-DD) covers that whole UTC day."),
   modifiedAfter: z
     .string()
     .optional()
@@ -100,7 +100,7 @@ export const crmListDealsSchema = z.object({
     .min(1)
     .max(200)
     .optional()
-    .describe("Max deals to return (default 50)."),
+    .describe("Max deals to return (default 100)."),
 });
 
 export const crmGetDealSchema = z.object({
@@ -108,7 +108,7 @@ export const crmGetDealSchema = z.object({
   id: z
     .string()
     .min(1)
-    .describe("HubSpot deal id to fetch (returns full deal + associations)."),
+    .describe("Numeric HubSpot deal id to fetch (returns the deal + associated company/contact ids)."),
 });
 
 export const crmActivityType = z.enum(["call", "email", "meeting", "note", "task"]);

@@ -2,8 +2,8 @@ import { apiUrl, authHeaders, fetchWithRetry } from "../shared";
 
 // max-agent's scoped CRM operation routes (src/features/crm/handlers/crm.handler.ts).
 // max-agent keeps the HubSpot credential server-side and never returns it, so
-// contact/company reads and upserts go through these routes rather than
-// HubSpot directly. Scopes: crm:read / crm:write.
+// every HubSpot read and write goes through these routes. Scopes: crm:read /
+// crm:write.
 
 function post(token: string, path: string, body: Record<string, unknown>): Promise<Response> {
   return fetchWithRetry(apiUrl(path), {
@@ -31,4 +31,27 @@ export function upsertCompany(token: string, body: Record<string, unknown>): Pro
 
 export function getStatus(token: string): Promise<Response> {
   return fetchWithRetry(apiUrl(`/api/v1/crm/status`), { headers: authHeaders(token) });
+}
+
+export function listDeals(token: string, body: Record<string, unknown>): Promise<Response> {
+  return post(token, `/api/v1/crm/list-deals`, body);
+}
+
+export function getDeal(token: string, body: Record<string, unknown>): Promise<Response> {
+  return post(token, `/api/v1/crm/get-deal`, body);
+}
+
+export function listActivities(token: string, body: Record<string, unknown>): Promise<Response> {
+  return post(token, `/api/v1/crm/list-activities`, body);
+}
+
+export function listOwners(token: string): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/crm/list-owners`), { headers: authHeaders(token) });
+}
+
+export function listPipelineStages(token: string, pipelineId?: string): Promise<Response> {
+  const qs = pipelineId ? `?pipelineId=${encodeURIComponent(pipelineId)}` : "";
+  return fetchWithRetry(apiUrl(`/api/v1/crm/list-pipeline-stages${qs}`), {
+    headers: authHeaders(token),
+  });
 }
