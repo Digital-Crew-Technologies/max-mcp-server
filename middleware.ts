@@ -40,11 +40,11 @@ import {
 import {
   API_KEY_HEADER,
   API_KEY_QUERY_PARAM,
+  checkMaxApiKey,
   isMaxApiKeyAuthConfigured,
   readBearerToken,
   readMaxApiKey,
   readMaxApiKeyFromUrl,
-  verifyMaxApiKey,
 } from "@/shared/auth/max-api-key";
 
 export const config = {
@@ -70,10 +70,14 @@ async function secretMatches(provided: string, expected: string): Promise<boolea
   return constantTimeEqual(p, e);
 }
 
-function deny(message: string, status: number): NextResponse {
+function deny(
+  message: string,
+  status: number,
+  headers?: Record<string, string>,
+): NextResponse {
   return NextResponse.json(
     { jsonrpc: "2.0", error: { code: -32001, message }, id: null },
-    { status },
+    { status, headers },
   );
 }
 
@@ -106,7 +110,18 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
       keyCameFromUrl = !!key;
     }
     if (key) {
-      authorized = await verifyMaxApiKey(key);
+      const verdict = await checkMaxApiKey(key);
+      if (verdict === "unavailable") {
+        // We could not ask max-agent, which says nothing about the key. A 401
+        // here makes MCP clients discard the connector's tools mid-chat; a 503
+        // is retried. See "INVALID AND UNREACHABLE" in max-api-key.ts.
+        return deny(
+          "Max is temporarily unreachable while verifying your API key. Retry in a few seconds.",
+          503,
+          { "Retry-After": "5" },
+        );
+      }
+      authorized = verdict === "valid";
       if (authorized) admittedKey = key;
     }
   }

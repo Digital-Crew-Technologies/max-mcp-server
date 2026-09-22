@@ -35,6 +35,10 @@ export const crmUpsertContactSchema = z.object({
   company: z.string().optional().describe("Company name."),
   jobTitle: z.string().optional().describe("Job title."),
   phone: z.string().optional().describe("Phone number."),
+  properties: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .describe("Extra HubSpot contact properties by internal name, e.g. { lifecyclestage: \"lead\" }."),
 });
 
 export const crmUpsertCompanySchema = z.object({
@@ -44,6 +48,10 @@ export const crmUpsertCompanySchema = z.object({
     .min(1)
     .describe("Company domain (e.g. acme.com) — the dedup key. Existing company is updated, never duplicated."),
   name: z.string().optional().describe("Company name."),
+  properties: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .describe("Extra HubSpot company properties by internal name."),
 });
 
 export const crmStatusSchema = z.object({

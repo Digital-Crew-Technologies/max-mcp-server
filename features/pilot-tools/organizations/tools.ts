@@ -54,4 +54,39 @@ export function registerOrganizationTools(server: McpServer): void {
     ...toolHints.destructive,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.bulkDeleteOrganizations(t, strip(input, "bearer_token"))));
+
+  server.registerTool("get_organization_geo_stats", {
+    title: "Get organization geo stats",
+    description: "Geographic distribution of the workspace's organizations: { total, located, byCountry: [{ country, count }], byCity: [{ city, country, count }] }.",
+    inputSchema: S.getOrganizationGeoSchema,
+    ...toolHints.readOnly,
+  }, async (input) => callApi(input.bearer_token, (t) => repo.getOrganizationGeoStats(t)));
+
+  server.registerTool("get_organization_geo_points", {
+    title: "Get organization map points",
+    description: "The workspace's organizations geocoded from city/country to lat/lng: { points: [{ id, name, city, country, lat, lng, precision }], capped }. Ungeocodable ones are omitted; capped=true means the list was truncated.",
+    inputSchema: S.getOrganizationGeoSchema,
+    ...toolHints.readOnly,
+  }, async (input) => callApi(input.bearer_token, (t) => repo.getOrganizationGeoPoints(t)));
+
+  server.registerTool("get_organization_share_link", {
+    title: "Get organization share link",
+    description: "Read an organization's public share link: { data: { token, enabled, view_count, ... } | null }. Public URL is <app>/share/<token>. Owner or workspace admin only.",
+    inputSchema: S.organizationShareLinkSchema,
+    ...toolHints.readOnly,
+  }, async (input) => callApi(input.bearer_token, (t) => repo.getOrganizationShareLink(t, input.id)));
+
+  server.registerTool("create_organization_share_link", {
+    title: "Create organization share link",
+    description: "PUBLISHES the organization: enables an 'anyone with the link' URL (<app>/share/<token>) viewable without login. Re-enables the same token if one existed. Owner or workspace admin only; confirm with the user first.",
+    inputSchema: S.organizationShareLinkSchema,
+    ...toolHints.idempotent,
+  }, async (input) => callApi(input.bearer_token, (t) => repo.createOrganizationShareLink(t, input.id)));
+
+  server.registerTool("revoke_organization_share_link", {
+    title: "Revoke organization share link",
+    description: "Disable an organization's public share link — anyone holding the URL loses access immediately. Owner or workspace admin only.",
+    inputSchema: S.organizationShareLinkSchema,
+    ...toolHints.destructive,
+  }, async (input) => callApi(input.bearer_token, (t) => repo.revokeOrganizationShareLink(t, input.id)));
 }

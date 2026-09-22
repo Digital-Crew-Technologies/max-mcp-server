@@ -16,4 +16,11 @@ export function registerAiAgentTools(server: McpServer): void {
     inputSchema: S.generateMessagePreviewSchema,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.generateMessagePreview(t, strip(input, "bearer_token"))));
+
+  server.registerTool("suggest_campaign_ideas", {
+    title: "Suggest campaign ideas (AI)",
+    description: "Propose 3-8 distinct outbound campaign ideas for an audience. Charges credits (402 if insufficient); creates nothing. Returns {data: {ideas: [{title, description, instruction, play}]}} — pass an idea's instruction as generate_workflow's prompt.",
+    inputSchema: S.suggestCampaignIdeasSchema,
+  }, async (input) => callApi(input.bearer_token, (t) =>
+    repo.suggestCampaignIdeas(t, strip(input, "bearer_token"))));
 }

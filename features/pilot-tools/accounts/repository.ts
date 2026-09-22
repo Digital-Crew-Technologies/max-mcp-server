@@ -1,4 +1,4 @@
-import { apiUrl, authHeaders, fetchWithRetry } from "../shared";
+import { apiUrl, authHeaders, buildQuery, fetchWithRetry } from "../shared";
 
 export async function listAccounts(token: string): Promise<Response> {
   return fetchWithRetry(apiUrl(`/api/v1/accounts`), { headers: authHeaders(token) });
@@ -41,4 +41,21 @@ export async function hostedAuthLink(token: string, body: Record<string, unknown
     headers: authHeaders(token),
     body: JSON.stringify(body),
   });
+}
+
+// Reconcile runs import + status refresh + dedupe against Unipile under the
+// route's 60s maxDuration (it stops itself at ~50s and reports a partial sync).
+export async function syncAccounts(token: string): Promise<Response> {
+  return fetchWithRetry(
+    apiUrl(`/api/v1/accounts/sync`),
+    { method: "POST", headers: authHeaders(token) },
+    { timeoutMs: 65_000 },
+  );
+}
+
+export async function listAccountShares(token: string, accountId: string): Promise<Response> {
+  return fetchWithRetry(
+    apiUrl(`/api/v1/workspace/account-shares${buildQuery({ account_id: accountId })}`),
+    { headers: authHeaders(token) },
+  );
 }

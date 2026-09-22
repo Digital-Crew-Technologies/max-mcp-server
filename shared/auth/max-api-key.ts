@@ -23,6 +23,17 @@
 // cached briefly so a chatty MCP session costs one round trip, not one per
 // request.
 //
+// "INVALID" AND "UNREACHABLE" ARE DIFFERENT ANSWERS. Only a 401/403 from
+// max-agent means the key is bad. A timeout, network error or 5xx means we
+// could not ask. Both used to come back as 401, and a 401 tells an MCP client
+// (Claude's connectors, ChatGPT) that the credential is dead: it drops the
+// server's tools mid-conversation ("the Max connector disconnected"). A cold
+// start or a slow deploy of max-agent took every open session down with it.
+// Now an unreachable max-agent is reported as such — the middleware answers
+// 503, which clients retry — and a key that verified recently keeps working
+// through the blip. That grace cannot outlive a revocation for long: every
+// tool call forwards the key to max-agent, which authenticates it again.
+//
 // RUNTIME: this module runs inside Next.js middleware on the Edge runtime, so
 // it uses only Web APIs (crypto.subtle, fetch, AbortSignal.timeout).
 
@@ -32,6 +43,11 @@ const VERIFY_TIMEOUT_MS = 5_000;
 
 /** Valid keys are re-checked every 5 min so a revocation takes effect quickly. */
 const TTL_VALID_MS = 5 * 60_000;
+/**
+ * How long a key that max-agent last confirmed keeps being admitted while
+ * max-agent cannot be reached to re-check it.
+ */
+const STALE_GRACE_MS = 60 * 60_000;
 /** Rejections are cached briefly to blunt brute-force probing of the gateway. */
 const TTL_INVALID_MS = 30_000;
 /** Bound the map so a flood of junk keys can't grow it without limit. */
@@ -42,6 +58,8 @@ type CacheEntry = { valid: boolean; expiresAt: number };
 // Keyed by SHA-256 of the token: the cache outlives the request, and raw
 // credentials should not sit in a long-lived module-level map.
 const cache = new Map<string, CacheEntry>();
+/** When max-agent last confirmed each key — the basis for STALE_GRACE_MS. */
+const lastConfirmed = new Map<string, number>();
 
 const encoder = new TextEncoder();
 
@@ -79,9 +97,20 @@ function writeCache(key: string, valid: boolean, now: number): void {
   });
 }
 
+function rememberConfirmed(key: string, now: number): void {
+  lastConfirmed.delete(key);
+  lastConfirmed.set(key, now);
+  while (lastConfirmed.size > MAX_ENTRIES) {
+    const oldest = lastConfirmed.keys().next();
+    if (oldest.done) break;
+    lastConfirmed.delete(oldest.value);
+  }
+}
+
 /** Test seam: drop all memoised verdicts. */
 export function resetMaxApiKeyCache(): void {
   cache.clear();
+  lastConfirmed.clear();
 }
 
 /** Bearer tokens that are shaped like a Max API key (cheap pre-filter). */
@@ -138,18 +167,32 @@ export function isMaxApiKeyAuthConfigured(): boolean {
 }
 
 /**
- * Ask max-agent whether this key is live. Fails CLOSED: a timeout, a network
- * error or a 5xx returns false and is NOT cached, so the gate stays shut while
- * max-agent is down but recovers on the next request rather than 30s later.
+ * - `valid`: max-agent confirmed the key (now, or recently enough to ride out
+ *   an outage — see STALE_GRACE_MS).
+ * - `invalid`: max-agent refused it (401/403). The only verdict that should
+ *   reach a client as 401.
+ * - `unavailable`: max-agent could not be asked (timeout, network error, 5xx)
+ *   and the key has no recent confirmation. Not cached, so the next request
+ *   asks again.
  */
-export async function verifyMaxApiKey(token: string): Promise<boolean> {
+export type MaxApiKeyVerdict = "valid" | "invalid" | "unavailable";
+
+/** Ask max-agent whether this key is live. */
+export async function checkMaxApiKey(token: string): Promise<MaxApiKeyVerdict> {
   const base = process.env.DIGITALCREW_API_BASE_URL?.trim();
-  if (!base) return false;
+  if (!base) return "unavailable";
 
   const cacheKey = await hashToken(token);
   const now = Date.now();
   const cached = readCache(cacheKey, now);
-  if (cached !== undefined) return cached;
+  if (cached !== undefined) return cached ? "valid" : "invalid";
+
+  const unreachable = (): MaxApiKeyVerdict => {
+    const confirmedAt = lastConfirmed.get(cacheKey);
+    return confirmedAt !== undefined && now - confirmedAt <= STALE_GRACE_MS
+      ? "valid"
+      : "unavailable";
+  };
 
   const url = `${base.replace(/\/$/, "")}${VERIFY_PATH}`;
   let res: Response;
@@ -164,23 +207,33 @@ export async function verifyMaxApiKey(token: string): Promise<boolean> {
       "[max-api-key] verification request to max-agent failed:",
       err instanceof Error ? err.message : err,
     );
-    return false;
+    return unreachable();
   }
 
   if (res.ok) {
     writeCache(cacheKey, true, now);
-    return true;
+    rememberConfirmed(cacheKey, now);
+    return "valid";
   }
 
   // 401/403 is a real verdict about the key; anything else is max-agent's
   // problem and must not be memoised as "this key is bad".
   if (res.status === 401 || res.status === 403) {
     writeCache(cacheKey, false, now);
-    return false;
+    lastConfirmed.delete(cacheKey);
+    return "invalid";
   }
 
   console.error(
     `[max-api-key] unexpected ${res.status} from max-agent ${VERIFY_PATH}`,
   );
-  return false;
+  return unreachable();
+}
+
+/**
+ * Boolean form of checkMaxApiKey: true only for `valid`. Fails closed — an
+ * unreachable max-agent with no recent confirmation of this key is `false`.
+ */
+export async function verifyMaxApiKey(token: string): Promise<boolean> {
+  return (await checkMaxApiKey(token)) === "valid";
 }

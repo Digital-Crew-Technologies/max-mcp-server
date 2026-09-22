@@ -1,4 +1,4 @@
-import { callApi, type McpServer } from "../shared";
+import { callApi, strip, toolHints, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
 
@@ -59,6 +59,51 @@ export function registerEmailAnalyticsTools(server: McpServer): void {
     async (input) =>
       callApi(input.bearer_token, (t) =>
         repo.getCampaignEngagementSummary(t, input.campaign_id),
+      ),
+  );
+
+  server.registerTool(
+    "get_analytics_overview",
+    {
+      title: "Get analytics overview",
+      description:
+        "Workspace analytics for a period, optionally filtered by campaign_ids/account_ids: totals and rates per channel (email, LinkedIn, WhatsApp, mail, meetings), by_campaign, by_account, prospect_lists, deals, crew, signals, funnel, previous-period totals (when from is set) and a daily timeseries. Large payload — narrow the period.",
+      inputSchema: S.getAnalyticsOverviewSchema,
+      ...toolHints.readOnly,
+    },
+    async (input) =>
+      callApi(input.bearer_token, (t) =>
+        repo.getAnalyticsOverview(t, strip(input, "bearer_token")),
+      ),
+  );
+
+  server.registerTool(
+    "list_conversation_analytics",
+    {
+      title: "List conversation analytics",
+      description:
+        "Conversation-intelligence rollup of analyzed meetings in a period: {data: {totals (analyzedConversations, averageScore, averageInternalTalkPct, objectionRatePct, highRiskDeals), forecast, benchmarks per rep, trackerTrends, dealRisks, coachingLibrary}}.",
+      inputSchema: S.listConversationAnalyticsSchema,
+      ...toolHints.readOnly,
+    },
+    async (input) =>
+      callApi(input.bearer_token, (t) =>
+        repo.getConversationAnalytics(t, strip(input, "bearer_token")),
+      ),
+  );
+
+  server.registerTool(
+    "get_entity_analytics",
+    {
+      title: "Get entity analytics",
+      description:
+        "360° analytics for one person (prospect) or organization over a period: touch totals per channel, meetings, by_campaign enrollment, linked deals, by_contact (organizations), daily timeseries and comparison totals. 404 if not in this workspace.",
+      inputSchema: S.getEntityAnalyticsSchema,
+      ...toolHints.readOnly,
+    },
+    async (input) =>
+      callApi(input.bearer_token, (t) =>
+        repo.getEntityAnalytics(t, strip(input, "bearer_token")),
       ),
   );
 }

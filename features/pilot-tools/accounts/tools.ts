@@ -53,4 +53,18 @@ export function registerAccountTools(server: McpServer): void {
     inputSchema: S.hostedAuthLinkSchema,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.hostedAuthLink(t, strip(input, "bearer_token"))));
+
+  server.registerTool("sync_accounts", {
+    title: "Sync accounts with Unipile",
+    description: "Reconcile the workspace's connected accounts with Unipile: import accounts missing from Max, refresh statuses, remove duplicates, link done-for-you mailboxes. Safe to re-run; returns counts per pass and a message saying to run again when a large workspace was only partly synced.",
+    inputSchema: S.syncAccountsSchema,
+    ...toolHints.idempotent,
+  }, async (input) => callApi(input.bearer_token, (t) => repo.syncAccounts(t)));
+
+  server.registerTool("list_account_shares", {
+    title: "List account shares",
+    description: "List the other workspaces a connected account is shared with (they see its live conversations). Returns share rows with the campaign/direct conversation flags.",
+    inputSchema: S.listAccountSharesSchema,
+    ...toolHints.readOnly,
+  }, async (input) => callApi(input.bearer_token, (t) => repo.listAccountShares(t, input.account_id)));
 }

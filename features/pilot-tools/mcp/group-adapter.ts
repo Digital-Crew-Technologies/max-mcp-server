@@ -87,11 +87,12 @@ export function registerAsGroup(
   const recorder: McpServer = {
     registerTool(name, config, handler) {
       const c = config as FlatConfig;
+      const inputShape = toShape(c.inputSchema);
       actions.push({
         action: name,
         title: typeof c.title === "string" ? c.title : name,
         description: typeof c.description === "string" ? c.description : "",
-        inputShape: toShape(c.inputSchema),
+        inputShape,
         annotations: c.annotations,
         // The grouped wrapper strips `action` before calling this, so the
         // handler receives exactly the input it received in flat mode.

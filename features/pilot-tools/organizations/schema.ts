@@ -66,3 +66,12 @@ export const bulkDeleteOrganizationsSchema = z.object({
   ids: z.array(z.string().uuid()).min(1).describe("Organization UUIDs to delete"),
   deleteProspects: z.boolean().optional().describe("Also delete linked prospects (default false)"),
 });
+
+export const getOrganizationGeoSchema = z.object({
+  ...withToken,
+});
+
+export const organizationShareLinkSchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Organization UUID"),
+});

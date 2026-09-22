@@ -70,3 +70,10 @@ export const hostedAuthLinkSchema = z.object({
   success_redirect_url: z.string().optional(),
   failure_redirect_url: z.string().optional(),
 });
+
+export const syncAccountsSchema = z.object({ ...withToken });
+
+export const listAccountSharesSchema = z.object({
+  ...withToken,
+  account_id: z.string().uuid().describe("Account UUID"),
+});

@@ -56,3 +56,48 @@ export const sendNewEmailSchema = z.object({
     .optional()
     .describe("Which connected email account to send from; defaults to the first connected one"),
 });
+
+export const listChannelsSchema = z.object({ ...withToken });
+
+export const getChannelSyncRulesSchema = z.object({
+  ...withToken,
+  account_id: z.string().uuid().describe("Account UUID (from list_unibox_channels)"),
+});
+
+const syncRuleSchema = z.object({
+  name: z.string().trim().min(1).max(80).describe("Rule label"),
+  enabled: z.boolean().optional().describe("Default true; disabled rules are ignored"),
+  direction: z.enum(["all", "inbound", "outbound"]).optional().describe("Default 'all'"),
+  sync_from: z.string().datetime({ offset: true }).nullable().optional()
+    .describe("ISO instant; older messages don't match"),
+  max_age_days: z.number().int().min(1).max(3650).nullable().optional()
+    .describe("Only messages newer than N days match"),
+  folders: z.array(z.string().trim().min(1)).max(20).optional()
+    .describe("Only messages in these provider folders/labels match; empty = any folder"),
+  skip_empty: z.boolean().optional().describe("Skip messages with no text (default false)"),
+  include_attachments: z.boolean().optional().describe("Capture attachments of matched messages (default true)"),
+});
+
+export const setChannelSyncRulesSchema = z.object({
+  ...withToken,
+  account_id: z.string().uuid().describe("Account UUID (from list_unibox_channels)"),
+  rules: z.array(syncRuleSchema).max(20)
+    .describe("The complete new rule set (replaces all existing rules). [] = import everything"),
+});
+
+export const suggestChatRepliesSchema = z.object({
+  ...withToken,
+  chat_id: z.string().uuid().describe("Chat UUID"),
+});
+
+export const getMessageSchema = z.object({
+  ...withToken,
+  message_id: z.string().uuid().describe("Message UUID (from list_chat_messages)"),
+});
+
+export const syncUniboxSchema = z.object({
+  ...withToken,
+  account_id: z.string().uuid().optional().describe("Sync only this account; omit for every connected account"),
+});
+
+export const getSyncProgressSchema = z.object({ ...withToken });

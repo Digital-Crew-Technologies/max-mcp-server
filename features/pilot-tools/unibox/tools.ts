@@ -54,4 +54,53 @@ export function registerUniboxTools(server: McpServer): void {
     inputSchema: S.sendNewEmailSchema,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.sendNewEmail(t, strip(input, "bearer_token"))));
+
+  server.registerTool("list_unibox_channels", {
+    title: "List Unibox channels",
+    description: "List the accounts the Unibox imports (own + shared-in email, LinkedIn, WhatsApp) with message/contact stats, the last history-import job and each account's sync rules.",
+    inputSchema: S.listChannelsSchema,
+    ...toolHints.readOnly,
+  }, async (input) => callApi(input.bearer_token, (t) => repo.listChannels(t)));
+
+  server.registerTool("get_channel_sync_rules", {
+    title: "Get channel sync rules",
+    description: "Get one account's Unibox history-import rules. No rules = import everything.",
+    inputSchema: S.getChannelSyncRulesSchema,
+    ...toolHints.readOnly,
+  }, async (input) => callApi(input.bearer_token, (t) => repo.getChannelSyncRules(t, input.account_id)));
+
+  server.registerTool("set_channel_sync_rules", {
+    title: "Replace channel sync rules",
+    description: "Replace an account's Unibox history-import rules with the given full set (max 20). A message is imported when any enabled rule matches; [] imports everything. Returns the saved rules.",
+    inputSchema: S.setChannelSyncRulesSchema,
+    ...toolHints.idempotent,
+  }, async (input) => callApi(input.bearer_token, (t) =>
+    repo.setChannelSyncRules(t, input.account_id, { rules: input.rules })));
+
+  server.registerTool("suggest_chat_replies", {
+    title: "Suggest chat replies",
+    description: "Generate up to 3 ready-to-send reply drafts for a Unibox chat (nothing is sent). Charges 1 automation credit per call (402 when the balance is short). Returns {suggestions: [{label, intent, deal_target, rationale, text}], usedProspectCard}.",
+    inputSchema: S.suggestChatRepliesSchema,
+  }, async (input) => callApi(input.bearer_token, (t) => repo.suggestChatReplies(t, input.chat_id)));
+
+  server.registerTool("get_unibox_message", {
+    title: "Get Unibox message",
+    description: "Get one Unibox message's full body as plain text: {id, chat_id, subject, text}. Private messages return 404.",
+    inputSchema: S.getMessageSchema,
+    ...toolHints.readOnly,
+  }, async (input) => callApi(input.bearer_token, (t) => repo.getMessage(t, input.message_id)));
+
+  server.registerTool("sync_unibox", {
+    title: "Sync Unibox history",
+    description: "Import message history from every connected account (or one account_id) into the Unibox. Long-running (up to ~5 min) and idempotent; returns partial:true when the time budget ran out — call again to continue. Track it with get_unibox_sync_progress.",
+    inputSchema: S.syncUniboxSchema,
+    ...toolHints.idempotent,
+  }, async (input) => callApi(input.bearer_token, (t) => repo.syncUnibox(t, input.account_id)));
+
+  server.registerTool("get_unibox_sync_progress", {
+    title: "Get Unibox sync progress",
+    description: "Live state of the Unibox history import: per-account phase and counters plus a summary. Cheap; poll while sync_unibox runs.",
+    inputSchema: S.getSyncProgressSchema,
+    ...toolHints.readOnly,
+  }, async (input) => callApi(input.bearer_token, (t) => repo.getSyncProgress(t)));
 }

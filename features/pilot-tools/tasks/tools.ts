@@ -216,6 +216,19 @@ const TASK_ACTIONS: TaskAction[] = [
       ),
   },
   {
+    action: "get_thread",
+    capability: CAP_TASKS_READ,
+    title: "Get task conversation",
+    description:
+      "Read the Unibox conversation a task came out of, plus the prospect's contact card. Returns {data: {chatId, channel, person, company, messages[{direction, subject, text, sentAt}], totalMessages} | null, contact}. data is null when no conversation is behind the task. Read-only: nothing is marked read.",
+    inputShape: S.getTaskThreadSchema.shape,
+    annotations: toolHints.readOnly.annotations,
+    handler: (input) =>
+      callApi(input.bearer_token as string | undefined, (t) =>
+        repo.getTaskThread(t, input.id as string),
+      ),
+  },
+  {
     action: "create_suggestion",
     capability: CAP_TASKS_SUGGEST,
     title: "Suggest a task",

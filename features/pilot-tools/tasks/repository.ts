@@ -51,6 +51,20 @@ export async function getTask(token: string, id: string): Promise<Response> {
 }
 
 /**
+ * GET /api/v1/tasks/:id/thread — the Unibox conversation behind a task, plus
+ * the prospect contact card. Read-only (nothing is marked read).
+ *
+ * 200 → { data: ActionThread | null, contact: ActionContact | null }
+ * `data: null` is the normal "no conversation behind this task" answer, not an
+ * error. Private messages are never visible to an API-key caller.
+ */
+export async function getTaskThread(token: string, id: string): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/tasks/${encodeURIComponent(id)}/thread`), {
+    headers: authHeaders(token),
+  });
+}
+
+/**
  * POST /api/v1/tasks — create a task.
  *
  * 201 → { data: TaskDto } | 200 → { data: TaskDto, deduplicated: true }

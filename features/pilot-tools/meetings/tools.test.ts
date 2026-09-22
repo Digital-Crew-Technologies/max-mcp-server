@@ -84,13 +84,30 @@ describe("meetings tool registration", () => {
 });
 
 describe("meetings capability names", () => {
-  it("registers meetings.read for every read tool", () => {
+  it("maps every action to its governing capability", () => {
     expect(MEETINGS_CAPABILITIES).toEqual({
       "meetings.list": "meetings.read",
       "meetings.get": "meetings.read",
       "meetings.get_transcript": "meetings.read",
       "meetings.get_summary": "meetings.read",
       "meetings.list_participants": "meetings.read",
+      "meetings.list_calendar": "meetings.read",
+      "meetings.list_coaching_library": "meetings.read",
+      "meetings.get_conversation_config": "meetings.read",
+      "meetings.get_conversation_analysis": "meetings.read",
+      "meetings.list_feedback": "meetings.read",
+      "meetings.get_live_transcript": "meetings.read",
+      "meetings.list_notes": "meetings.read",
+      "meetings.add_note": "meetings.notes.write",
+      "meetings.delete_note": "meetings.notes.write",
+      "meetings.correct_transcript": "meetings.transcript.correct",
+      "meetings.regenerate_summary": "meetings.summary.regenerate",
+      "meetings.create": "meetings.create",
+      "meetings.disable_share_link": "meetings.share.revoke",
+      "meetings.list_bots": "vexa.bot.read",
+      "meetings.list_bot_meetings": "vexa.bot.read",
+      "meetings.get_bot_transcript": "vexa.bot.read",
+      "meetings.stop_bot": "vexa.bot.stop",
       prospect_list_meetings: "meetings.read",
     });
   });
@@ -489,5 +506,381 @@ describe("meetings.list_participants", () => {
     });
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toContain("404");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Calendar, conversation intelligence, notes, transcript/summary writes,
+// manual create, share-link revoke, and the Vexa bot proxy.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const NOTE_ID = "33333333-3333-3333-3333-333333333333";
+
+/** The RequestInit the tool actually sent upstream. */
+function calledInit(fetchMock: ReturnType<typeof mockFetch>): RequestInit {
+  return fetchMock.mock.calls[0][1] ?? {};
+}
+
+function calledBody(fetchMock: ReturnType<typeof mockFetch>): unknown {
+  const body = calledInit(fetchMock).body;
+  return typeof body === "string" ? JSON.parse(body) : undefined;
+}
+
+function publishedActions(): string[] {
+  const shape = tool("meetings").config.inputSchema as Record<
+    string,
+    { options?: string[]; unwrap?: () => { options: string[] } }
+  >;
+  const action = shape.action;
+  return action.options ?? action.unwrap?.().options ?? [];
+}
+
+describe("meetings: no bot dispatch", () => {
+  it("never exposes an action that sends a bot into a meeting", () => {
+    // POST /vexa/bots needs a signed-in user and is confirm-card gated in
+    // max-agent. Stopping a bot is fine; sending one is not an agent's call.
+    const actions = publishedActions();
+    expect(actions).toContain("stop_bot");
+    for (const a of actions) {
+      expect(a, `${a} looks like a bot dispatch`).not.toMatch(/send|dispatch|join/);
+    }
+  });
+
+  it("no action ever POSTs to /api/v1/vexa/bots", async () => {
+    const actions = publishedActions();
+    const args: Record<string, unknown> = {
+      bearer_token: "t",
+      id: SID,
+      note_id: NOTE_ID,
+      platform: "google_meet",
+      native_meeting_id: "abc-defg-hij",
+      body: "n",
+      expected_version: 1,
+      changes: [{ sequence_number: 1, text: "x" }],
+      title: "t",
+      started_at: "2026-07-01T15:00:00Z",
+      ended_at: "2026-07-01T16:00:00Z",
+    };
+    for (const action of actions) {
+      const fetchMock = mockFetch({ data: {} });
+      await tool("meetings").handler({ action, ...args });
+      for (const [url, init] of fetchMock.mock.calls) {
+        const posted = (init?.method ?? "GET").toUpperCase() === "POST";
+        expect(
+          posted && new URL(url).pathname === "/api/v1/vexa/bots",
+          `${action} dispatched a bot`,
+        ).toBe(false);
+      }
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe("meetings.list_calendar", () => {
+  it("GETs /meeting-hub/calendar with the window + paging query", async () => {
+    const fetchMock = mockFetch({ data: [], nextCursor: null });
+    await tool("meetings").handler({
+      action: "list_calendar",
+      bearer_token: "t",
+      from: "2026-07-01T00:00:00Z",
+      to: "2026-07-08T00:00:00Z",
+      limit: 250,
+      cursor: "c2",
+    });
+    const url = calledUrl(fetchMock);
+    expect(calledInit(fetchMock).method ?? "GET").toBe("GET");
+    expect(url.pathname).toBe("/api/v1/meeting-hub/calendar");
+    expect(url.searchParams.get("from")).toBe("2026-07-01T00:00:00Z");
+    expect(url.searchParams.get("to")).toBe("2026-07-08T00:00:00Z");
+    expect(url.searchParams.get("limit")).toBe("250");
+    expect(url.searchParams.get("cursor")).toBe("c2");
+  });
+
+  it("rejects a limit past the calendar max", async () => {
+    const res = await tool("meetings").handler({
+      action: "list_calendar",
+      bearer_token: "t",
+      limit: 251,
+    });
+    expect(res.isError).toBe(true);
+  });
+});
+
+describe("meetings conversation-intelligence + feedback reads", () => {
+  it.each([
+    ["list_coaching_library", "/api/v1/meeting-hub/coaching-library", {}],
+    ["get_conversation_config", "/api/v1/meeting-hub/conversation-configuration", {}],
+    [
+      "get_conversation_analysis",
+      `/api/v1/meeting-hub/sessions/${SID}/conversation-intelligence`,
+      { id: SID },
+    ],
+    ["list_feedback", `/api/v1/meeting-hub/sessions/${SID}/feedback`, { id: SID }],
+    ["list_notes", `/api/v1/meeting-hub/sessions/${SID}/notes`, { id: SID }],
+    ["list_bots", "/api/v1/vexa/bots/activity", {}],
+    ["list_bot_meetings", "/api/v1/vexa/meetings", {}],
+  ])("%s GETs %s", async (action, path, extra) => {
+    const fetchMock = mockFetch({ data: [] });
+    await tool("meetings").handler({ action, bearer_token: "t", ...extra });
+    expect(calledInit(fetchMock).method ?? "GET").toBe("GET");
+    expect(calledUrl(fetchMock).pathname).toBe(path);
+  });
+});
+
+describe("meetings.get_live_transcript", () => {
+  it("GETs /sessions/:id/live-transcript and windows the segments", async () => {
+    const fetchMock = mockFetch({ data: { live: true, segments: segments(120) } });
+    const res = await tool("meetings").handler({
+      action: "get_live_transcript",
+      bearer_token: "t",
+      id: SID,
+      offset: 100,
+    });
+    expect(calledUrl(fetchMock).pathname).toBe(
+      `/api/v1/meeting-hub/sessions/${SID}/live-transcript`,
+    );
+    expect(calledUrl(fetchMock).searchParams.has("offset")).toBe(false);
+    const body = JSON.parse(res.content[0].text);
+    expect(body.data.live).toBe(true);
+    expect(body.data.segments).toHaveLength(20);
+    expect(body.transcriptWindow.totalSegments).toBe(120);
+    expect(body.transcriptWindow.nextOffset).toBeNull();
+  });
+
+  it("passes a not-live answer through", async () => {
+    mockFetch({ data: { live: false, segments: [] } });
+    const res = await tool("meetings").handler({
+      action: "get_live_transcript",
+      bearer_token: "t",
+      id: SID,
+    });
+    expect(JSON.parse(res.content[0].text).data.live).toBe(false);
+  });
+});
+
+describe("meetings notes", () => {
+  it("add_note POSTs the typed note body", async () => {
+    const fetchMock = mockFetch({ data: { id: NOTE_ID } }, { status: 201 });
+    await tool("meetings").handler({
+      action: "add_note",
+      bearer_token: "t",
+      id: SID,
+      body: "Follow up on pricing",
+      format: "markdown",
+    });
+    expect(calledInit(fetchMock).method).toBe("POST");
+    expect(calledUrl(fetchMock).pathname).toBe(`/api/v1/meeting-hub/sessions/${SID}/notes`);
+    expect(calledBody(fetchMock)).toEqual({ body: "Follow up on pricing", format: "markdown" });
+  });
+
+  it("add_note rejects an empty note at the argument gate", async () => {
+    const fetchMock = mockFetch({});
+    const res = await tool("meetings").handler({
+      action: "add_note",
+      bearer_token: "t",
+      id: SID,
+      body: "",
+    });
+    expect(res.isError).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("delete_note DELETEs /sessions/:id/notes/:noteId", async () => {
+    const fetchMock = mockFetch({ success: true });
+    await tool("meetings").handler({
+      action: "delete_note",
+      bearer_token: "t",
+      id: SID,
+      note_id: NOTE_ID,
+    });
+    expect(calledInit(fetchMock).method).toBe("DELETE");
+    expect(calledUrl(fetchMock).pathname).toBe(
+      `/api/v1/meeting-hub/sessions/${SID}/notes/${NOTE_ID}`,
+    );
+  });
+});
+
+describe("meetings.correct_transcript", () => {
+  it("PATCHes /sessions/:id/segments with a camelCase batch", async () => {
+    const fetchMock = mockFetch(
+      { data: { versionNumber: 3, segments: [] }, segmentCount: 0, summaryRegenerationQueued: true },
+      { status: 201 },
+    );
+    await tool("meetings").handler({
+      action: "correct_transcript",
+      bearer_token: "t",
+      id: SID,
+      expected_version: 2,
+      changes: [
+        { sequence_number: 14, text: "We start the pilot on May 4th." },
+        { sequence_number: 15, text: "Procurement joins next call." },
+      ],
+      change_summary: "Fixed the date",
+    });
+    expect(calledInit(fetchMock).method).toBe("PATCH");
+    expect(calledUrl(fetchMock).pathname).toBe(`/api/v1/meeting-hub/sessions/${SID}/segments`);
+    expect(calledBody(fetchMock)).toEqual({
+      expectedVersion: 2,
+      changes: [
+        { sequenceNumber: 14, text: "We start the pilot on May 4th." },
+        { sequenceNumber: 15, text: "Procurement joins next call." },
+      ],
+      changeSummary: "Fixed the date",
+    });
+  });
+
+  it("omits the echoed segments of the new version but keeps its metadata", async () => {
+    mockFetch(
+      {
+        data: { id: "v3", versionNumber: 3, segments: segments(900) },
+        segmentCount: 900,
+        summaryRegenerationQueued: true,
+      },
+      { status: 201 },
+    );
+    const res = await tool("meetings").handler({
+      action: "correct_transcript",
+      bearer_token: "t",
+      id: SID,
+      expected_version: 2,
+      changes: [{ sequence_number: 1, text: "x" }],
+    });
+    const body = JSON.parse(res.content[0].text);
+    expect(body.data.segments).toEqual([]);
+    expect(body.data.versionNumber).toBe(3);
+    expect(body.summaryRegenerationQueued).toBe(true);
+    expect(body.segmentsOmitted.segmentCount).toBe(900);
+  });
+
+  it("surfaces a 409 version_conflict untouched", async () => {
+    mockFetch(
+      { error: "moved on", code: "version_conflict", currentVersionNumber: 5 },
+      { status: 409 },
+    );
+    const res = await tool("meetings").handler({
+      action: "correct_transcript",
+      bearer_token: "t",
+      id: SID,
+      expected_version: 2,
+      changes: [{ sequence_number: 1, text: "x" }],
+    });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain("409");
+    expect(res.content[0].text).toContain("version_conflict");
+  });
+});
+
+describe("meetings summary / create / share-link writes", () => {
+  it("regenerate_summary POSTs /sessions/:id/summary/regenerate", async () => {
+    const fetchMock = mockFetch({ data: { stage: "generate_summary" } }, { status: 202 });
+    await tool("meetings").handler({ action: "regenerate_summary", bearer_token: "t", id: SID });
+    expect(calledInit(fetchMock).method).toBe("POST");
+    expect(calledUrl(fetchMock).pathname).toBe(
+      `/api/v1/meeting-hub/sessions/${SID}/summary/regenerate`,
+    );
+  });
+
+  it("create POSTs /sessions with the camelCase body the strict schema expects", async () => {
+    const fetchMock = mockFetch({ id: SID }, { status: 201 });
+    await tool("meetings").handler({
+      action: "create",
+      bearer_token: "t",
+      title: "Pricing call",
+      started_at: "2026-07-01T15:00:00Z",
+      ended_at: "2026-07-01T16:00:00Z",
+      meeting_url: "https://meet.google.com/abc-defg-hij",
+    });
+    expect(calledInit(fetchMock).method).toBe("POST");
+    expect(calledUrl(fetchMock).pathname).toBe("/api/v1/meeting-hub/sessions");
+    expect(calledBody(fetchMock)).toEqual({
+      title: "Pricing call",
+      startedAt: "2026-07-01T15:00:00Z",
+      endedAt: "2026-07-01T16:00:00Z",
+      meetingUrl: "https://meet.google.com/abc-defg-hij",
+    });
+  });
+
+  it("create sends no meetingUrl key when none was given", async () => {
+    const fetchMock = mockFetch({ id: SID }, { status: 201 });
+    await tool("meetings").handler({
+      action: "create",
+      bearer_token: "t",
+      title: "Pricing call",
+      started_at: "2026-07-01T15:00:00Z",
+      ended_at: "2026-07-01T16:00:00Z",
+    });
+    expect(calledBody(fetchMock)).not.toHaveProperty("meetingUrl");
+  });
+
+  it("disable_share_link DELETEs /sessions/:id/share-link", async () => {
+    const fetchMock = mockFetch({ success: true });
+    await tool("meetings").handler({ action: "disable_share_link", bearer_token: "t", id: SID });
+    expect(calledInit(fetchMock).method).toBe("DELETE");
+    expect(calledUrl(fetchMock).pathname).toBe(`/api/v1/meeting-hub/sessions/${SID}/share-link`);
+  });
+});
+
+describe("meetings Vexa bot actions", () => {
+  it("get_bot_transcript encodes the path and windows top-level segments", async () => {
+    const vexaSegments = Array.from({ length: 70 }, (_, i) => ({
+      speaker: "A",
+      text: `s${i}`,
+      start: i,
+      end: i + 1,
+    }));
+    const fetchMock = mockFetch({ segments: vexaSegments });
+    const res = await tool("meetings").handler({
+      action: "get_bot_transcript",
+      bearer_token: "t",
+      platform: "teams",
+      native_meeting_id: "19:meeting_abc@thread.v2",
+    });
+    const raw = fetchMock.mock.calls[0][0];
+    expect(raw).toContain(
+      `/api/v1/vexa/transcripts/teams/${encodeURIComponent("19:meeting_abc@thread.v2")}`,
+    );
+    const body = JSON.parse(res.content[0].text);
+    expect(body.segments).toHaveLength(50);
+    expect(body.transcriptWindow.totalSegments).toBe(70);
+    expect(body.transcriptWindow.nextOffset).toBe(50);
+  });
+
+  it("stop_bot DELETEs /vexa/bots/:platform/:nativeMeetingId", async () => {
+    const fetchMock = mockFetch({ stopped: true });
+    await tool("meetings").handler({
+      action: "stop_bot",
+      bearer_token: "t",
+      platform: "google_meet",
+      native_meeting_id: "abc-defg-hij",
+    });
+    expect(calledInit(fetchMock).method).toBe("DELETE");
+    expect(calledUrl(fetchMock).pathname).toBe("/api/v1/vexa/bots/google_meet/abc-defg-hij");
+  });
+
+  it("stop_bot rejects an unknown platform before calling upstream", async () => {
+    const fetchMock = mockFetch({});
+    const res = await tool("meetings").handler({
+      action: "stop_bot",
+      bearer_token: "t",
+      platform: "webex",
+      native_meeting_id: "123",
+    });
+    expect(res.isError).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("surfaces 409 (Vexa not connected) as an error", async () => {
+    mockFetch({ error: "Vexa not connected" }, { status: 409 });
+    const res = await tool("meetings").handler({ action: "list_bots", bearer_token: "t" });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain("Vexa not connected");
+  });
+});
+
+describe("meetings group annotations", () => {
+  it("is not read-only and is flagged destructive now that it can delete/stop", () => {
+    const annotations = tool("meetings").config.annotations as Record<string, boolean>;
+    expect(annotations.readOnlyHint).toBe(false);
+    expect(annotations.destructiveHint).toBe(true);
   });
 });

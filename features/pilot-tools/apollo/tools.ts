@@ -3,10 +3,13 @@ import { callApi, strip, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
 
+// Apollo is the LAST sourcing resort, after GetLeads and Explorium. max-agent's
+// managed chain no longer uses it, and max-agent's own chat drops these tools.
+
 export function registerApolloTools(server: McpServer): void {
   server.registerTool("apollo_create_list", {
     title: "Create Apollo prospect list",
-    description: "Create an Apollo-backed prospect list (async). Starts people search → ingestion. Poll the list status (or use wait_for_prospect_list) for progress. Auto-generates an idempotency_key if not provided so retries are safe.",
+    description: "LAST RESORT: create an Apollo-backed prospect list (async). Use only when getleads_create_list and the Explorium tools cannot serve the request, or the user explicitly asks for Apollo. People search → ingestion. Poll with wait_for_prospect_list.",
     inputSchema: S.apolloCreateListSchema,
   }, async (input) => {
     const body = strip(input, "bearer_token") as Record<string, unknown>;

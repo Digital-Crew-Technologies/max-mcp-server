@@ -7,8 +7,13 @@ import { registerOrganizationTools } from "../organizations/tools";
 import { registerAccountTools } from "../accounts/tools";
 import { registerUniboxTools } from "../unibox/tools";
 import { registerAiAgentTools } from "../ai-agent/tools";
-import { registerApolloTools } from "../apollo/tools";
+import { registerGetleadsTools } from "../getleads/tools";
 import { registerExploriumTools } from "../explorium/tools";
+import { registerApolloTools } from "../apollo/tools";
+import {
+  registerAutoProspectSourcingTools,
+  registerOrganizationSearchTools,
+} from "../sourcing/tools";
 import { registerClaireTools } from "../claire/tools";
 import { registerEnrichmentTools } from "../enrichment/tools";
 import { registerIntentTools } from "../intent/tools";
@@ -29,6 +34,15 @@ import {
   registerLinkedinToolsGrouped,
 } from "../linkedin/tools";
 import { registerDashboardTools } from "../dashboard/tools";
+import { registerIcpTools } from "../icp/tools";
+import { registerDeliverabilityTools } from "../deliverability/tools";
+import { registerSocialTools } from "../social/tools";
+import { registerDealTools } from "../deals/tools";
+import { registerPipelineTools } from "../pipeline/tools";
+import { registerAutomationTools } from "../automations/tools";
+import { registerPipelineWebhookTools } from "../pipeline-webhooks/tools";
+import { registerViewTools } from "../views/tools";
+import { registerWorkspaceAdminTools } from "../workspace-admin/tools";
 import { registerAdminTools } from "../admin/tools";
 import { registerWebhookTools } from "../webhooks/tools";
 
@@ -101,38 +115,86 @@ const GROUPS: GroupDef[] = [
   {
     name: "campaigns",
     blurb:
-      "Outreach campaigns: create, configure and run multi-step sequences; lifecycle (launch/pause/resume/stop/archive/restore); stats and per-campaign memory; reusable sending schedules.",
+      "Outreach campaigns: create, configure, duplicate and run multi-step sequences; lifecycle (launch/pause/resume/stop/archive/restore) and launch preflight; audience (lists and people: add/remove/sync); A/B tests; stats, activity feed, conversations and per-campaign memory; reusable sending schedules; public share links.",
     register: registerCampaignTools,
   },
   {
     name: "prospects",
     blurb:
-      "Individual people in the workspace: list, read, create, update, delete, bulk import/delete, and per-prospect campaign activity.",
+      "Individual people in the workspace: list, read, create, update, delete, bulk import/delete; per-prospect campaigns, activity, qualification, profile hooks, Claire enrichment and intelligence watchers; public share links; and a global workspace search.",
     register: registerProspectTools,
   },
   {
     name: "lists",
     blurb:
-      "Prospect lists: create and manage lists, add/remove members, search, CSV import, and wait for an in-progress list build to finish.",
-    register: registerProspectListTools,
+      "Prospect lists: find new leads into a list (auto_create_prospect_list: GetLeads first, Explorium fallback; or a LinkedIn search), create and manage lists, add/remove members, list member ids and organizations, search, CSV import, public share links, and wait for an in-progress list build to finish.",
+    register: (s) => {
+      registerProspectListTools(s);
+      registerAutoProspectSourcingTools(s);
+    },
   },
   {
     name: "organizations",
     blurb:
-      "Companies in the workspace: list, read, create, update, delete, and bulk import/delete.",
-    register: registerOrganizationTools,
+      "Companies in the workspace: list, read, create, update, delete, bulk import/delete, geographic stats and map points, public share links, and search for new companies (GetLeads first, Explorium fallback).",
+    register: (s) => {
+      registerOrganizationTools(s);
+      registerOrganizationSearchTools(s);
+    },
+  },
+  // ── Sourcing providers, in the order to try them ────────────────────────
+  // GetLeads → Explorium → Apollo. The order is cost-driven (GetLeads is ~100×
+  // cheaper than Explorium) and matches max-agent's managed chain
+  // (AUTO_PROVIDER_ORDER). Keep these three adjacent and in this order: the
+  // catalog order is what the model reads, and it is the tie-breaker when a
+  // client caps the catalog.
+  {
+    name: "getleads",
+    blurb:
+      "GetLeads data supplier — the FIRST choice for sourcing new people (cheapest; billed per contact returned): build a people list from job titles, seniority, countries, industries or company domains, and add more people to it. Fall back to explorium only for filters GetLeads lacks or when it finds nothing.",
+    register: registerGetleadsTools,
+  },
+  {
+    name: "explorium",
+    blurb:
+      "Explorium data supplier — the SECOND choice, after getleads: richer filters (buyer intent, departments, revenue, tech stack, enrichments) at a much higher cost. Build a people list, add more people to it, and build a company list.",
+    register: registerExploriumTools,
+  },
+  {
+    name: "apollo",
+    blurb:
+      "Apollo data supplier — the LAST resort, after getleads and explorium: create a people list and add more people to an existing one.",
+    register: registerApolloTools,
+  },
+  {
+    name: "icp",
+    blurb:
+      "Ideal Customer Profiles: list, read, create, update, archive/delete ICPs; link them to deals, companies and prospects; reverse lookup; and draft one with Max (costs credits).",
+    register: registerIcpTools,
   },
   {
     name: "accounts",
     blurb:
-      "Connected sending accounts (email + LinkedIn via Unipile): list, read, update, disconnect, read and set per-account rate limits, and mint a hosted auth link to connect a new one.",
+      "Connected sending accounts (email + LinkedIn via Unipile): list, read, update, disconnect, read and set per-account rate limits, mint a hosted auth link to connect a new one, run a Unipile account sync, and list which workspaces an account is shared with.",
     register: registerAccountTools,
+  },
+  {
+    name: "deliverability",
+    blurb:
+      "Email deliverability and done-for-you mailboxes: inbox placement checks and warm-up health; email warm-up (list, price, settings, cancel, sync); Mailpool domains and orders (search, price, list, sync). Buying warm-up or mailboxes is only exposed when the deployment sets ENABLE_PURCHASE_TOOLS=true.",
+    register: registerDeliverabilityTools,
   },
   {
     name: "unibox",
     blurb:
-      "Unified inbox: list and read LinkedIn + email conversations, update or archive a chat, read and send messages, and send a new email.",
+      "Unified inbox: list and read LinkedIn + email conversations, update or archive a chat, read and send messages, send a new email; per-account channels and history-import (sync) rules, run and track a history sync, read one full message, and AI reply suggestions (costs 1 credit).",
     register: registerUniboxTools,
+  },
+  {
+    name: "social",
+    blurb:
+      "Act as a specific connected LinkedIn or Instagram account (account_id): invitations (send, list, withdraw, accept/decline), connection status, follow, endorse a skill, InMail and InMail balance, posts (list, read, react, comment, publish, list comments/reactions). Writes are public.",
+    register: registerSocialTools,
   },
   {
     name: "inbox",
@@ -143,19 +205,19 @@ const GROUPS: GroupDef[] = [
   {
     name: "intent",
     blurb:
-      "Buying-intent monitoring: create and manage signal triggers, read fired signals, and review, approve, reject or modify the outreach proposals they generate.",
+      "Buying-intent monitoring: create and manage signal triggers (one at a time or in bulk from a list or companies), attach campaigns to triggers, read fired signals, and review, approve, reject or modify the outreach proposals they generate.",
     register: registerIntentTools,
   },
   {
     name: "enrichment",
     blurb:
-      "Contact and company enrichment: enrich one prospect or organization, run a bulk enrichment, and check job status and remaining credits.",
+      "Contact and company enrichment: Claire research on one prospect/organization or in bulk; paid email/phone/LinkedIn lookup and email verification (async jobs — poll status), a free cost preview, status and remaining quota.",
     register: registerEnrichmentTools,
   },
   {
     name: "calendar",
     blurb:
-      "Meeting booking: connect a calendar, read availability, propose times, book or cancel a meeting, send a booking link, and list upcoming meetings.",
+      "Scheduling: Cal.com booking (connect, availability, propose times, book, booking link, list meetings, confirm/decline/reschedule/cancel/cancel-series, no-show attendance) plus synced Google/Outlook calendars (list/disconnect accounts, sync now, create/update/delete events, team free/busy).",
     register: registerCalendarTools,
   },
   {
@@ -168,6 +230,30 @@ const GROUPS: GroupDef[] = [
       registerCrmComposerTools(s);
       registerCrmForecastTools(s);
     },
+  },
+  {
+    name: "deals",
+    blurb:
+      "Max's native sales pipeline (not HubSpot — that is crm): deals CRUD, move/win/lose, contacts, stage history, board totals; pipelines, stages and stage entry-automation rules; deal attachment metadata; products/services catalog, catalog fields and deal line items; read-only sales-workspace map.",
+    register: registerDealTools,
+  },
+  {
+    name: "pipeline",
+    blurb:
+      "Prospect pipelines: funnels and their columns, on-enter stage rules (enroll/assign/notify/move/create deal/set field), pipeline links and auto-move handoffs, campaign outcome routes, the journey canvas and per-prospect journey, and reviewed Production change sets (draft → ready → publish, rollback).",
+    register: registerPipelineTools,
+  },
+  {
+    name: "automations",
+    blurb:
+      "Automation workflows (trigger → action/filter/delay steps): list, read, create, edit the draft, activate/pause/resume, run once now, and inspect or cancel runs. Activation and runs execute real actions.",
+    register: registerAutomationTools,
+  },
+  {
+    name: "webhooks",
+    blurb:
+      "Inbound lead-capture webhooks: create and configure endpoints that turn posted JSON into prospects, route them to pipeline columns by filter, test payloads, read and replay the delivery log, and rotate credentials.",
+    register: registerPipelineWebhookTools,
   },
   {
     name: "notion",
@@ -187,7 +273,7 @@ const GROUPS: GroupDef[] = [
   {
     name: "analytics",
     blurb:
-      "Reporting: email tracking events, per-prospect engagement timeline, link-click detail, campaign engagement summary, and workspace dashboard KPIs.",
+      "Reporting: email tracking events, per-prospect engagement timeline, link-click detail, campaign engagement summary, workspace overview, conversation intelligence, 360° analytics for one person or organization, and workspace dashboard KPIs.",
     register: (s) => {
       registerEmailAnalyticsTools(s);
       registerDashboardTools(s);
@@ -202,20 +288,20 @@ const GROUPS: GroupDef[] = [
   {
     name: "generate",
     blurb:
-      "AI generation helpers: generate a campaign workflow from a brief, and preview a generated message for a prospect.",
+      "AI generation helpers: generate a campaign workflow from a brief, preview a generated message for a prospect, and suggest campaign ideas for an audience.",
     register: registerAiAgentTools,
   },
   {
-    name: "explorium",
+    name: "views",
     blurb:
-      "Explorium data supplier: build a people list, add more people to an existing list, and build a company list.",
-    register: registerExploriumTools,
+      "Saved list views: named filter/sort/column presets per surface (prospects, organizations, campaigns, accounts, prospect-lists, pipeline, deals) — list, read, create, update, delete.",
+    register: registerViewTools,
   },
   {
-    name: "apollo",
+    name: "workspace",
     blurb:
-      "Apollo data supplier: create a people list and add more people to an existing one.",
-    register: registerApolloTools,
+      "Workspace: WHICH workspace this connection is bound to (a Max API key reaches exactly one — check before writing when the user names a workspace), plus settings and admin reads: custom-field definitions, BYO data suppliers, duplicate detection, agent config, members/roles/crew rates/digital workers, wallet balances and spend, Max chat history, and generating workspace intel (costs credits).",
+    register: registerWorkspaceAdminTools,
   },
 ];
 
