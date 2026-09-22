@@ -422,7 +422,7 @@
   {
     "name": "create_prospect_list_share_link",
     "title": "Create prospect list share link",
-    "description": "PUBLISHES the list publicly: anyone with the link (/share/{token}) can view its prospects (contact details masked). Creates or re-enables the same token. List owner or admin only.",
+    "description": "PUBLISHES the list publicly: anyone with the link (/share/{token}) can view its prospects (contact details masked). Creates or re-enables the same token. List owner or admin only. Also the way to copy a list into ANOTHER Max workspace: the user opens the link while signed into that workspace and clicks Import.",
     "operations": 1
   },
   {
@@ -873,6 +873,12 @@
     "name": "get_contact_enrichment_job",
     "title": "Get contact enrichment job",
     "description": "Status of a contact-enrichment job: {job_id, status (pending|processing|completed|failed), total, enriched_count, error_message}. Poll until completed or failed, then re-read the prospects.",
+    "operations": 1
+  },
+  {
+    "name": "get_current_workspace",
+    "title": "Which workspace this connection uses",
+    "description": "Return the Max workspace this connection reads and writes: {data: {workspace_id, workspace_name, auth_method, scopes}}. A Max API key reaches exactly ONE workspace; no tool can act in another. Check this before writing when the user names a workspace. If it differs: to copy a prospect list there, use create_prospect_list_share_link and have the user open the link while signed into the target workspace and click Import; to work there directly, the user connects that workspace's Max MCP key (Settings → API keys in that workspace).",
     "operations": 1
   },
   {

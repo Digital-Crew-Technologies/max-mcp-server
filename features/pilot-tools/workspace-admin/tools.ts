@@ -9,6 +9,20 @@ import * as S from "./schema";
 // API keys upstream and are intentionally not exposed.
 
 export function registerWorkspaceAdminTools(server: McpServer): void {
+  // First on purpose: "add these to workspace X" is unanswerable until the
+  // model knows which single workspace this connection can reach.
+  server.registerTool(
+    "get_current_workspace",
+    {
+      title: "Which workspace this connection uses",
+      description:
+        "Return the Max workspace this connection reads and writes: {data: {workspace_id, workspace_name, auth_method, scopes}}. A Max API key reaches exactly ONE workspace; no tool can act in another. Check this before writing when the user names a workspace. If it differs: to copy a prospect list there, use create_prospect_list_share_link and have the user open the link while signed into the target workspace and click Import; to work there directly, the user connects that workspace's Max MCP key (Settings → API keys in that workspace).",
+      inputSchema: S.noArgsSchema,
+      ...toolHints.readOnly,
+    },
+    async (input) => callApi(input.bearer_token, (t) => repo.getCurrentWorkspace(t)),
+  );
+
   server.registerTool(
     "list_custom_fields",
     {

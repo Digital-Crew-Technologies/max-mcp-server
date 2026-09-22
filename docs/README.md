@@ -1,6 +1,6 @@
 # `max-mcp-server` Documentation
 
-This server exposes the Digital Crew Max Agent API as a [Model Context Protocol](https://modelcontextprotocol.io) endpoint at `POST /mcp`. It carries **444 callable operations** with all feature flags on (432 with the flag-gated admin tools, webhook simulators and purchase tools off).
+This server exposes the Digital Crew Max Agent API as a [Model Context Protocol](https://modelcontextprotocol.io) endpoint at `POST /mcp`. It carries **445 callable operations** with all feature flags on (433 with the flag-gated admin tools, webhook simulators and purchase tools off).
 
 By default those operations are exposed as **35 grouped tools** — one per domain, each taking an `action` discriminator (`unibox` with `action: "list_chats"`). Grouping is the default because the flat catalog does not fit in the 128-tool cap max-agent applies to the merged MCP catalog: flat mode overflows it and ~30 tools are dropped silently on every turn. See [ADR-006](adr/006-grouped-by-default-and-client-cap.md); `pnpm catalog:measure` prints the sizes and runs the cap check.
 

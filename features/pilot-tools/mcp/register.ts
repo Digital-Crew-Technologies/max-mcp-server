@@ -300,7 +300,7 @@ const GROUPS: GroupDef[] = [
   {
     name: "workspace",
     blurb:
-      "Workspace settings and admin reads: custom-field definitions, BYO data suppliers, duplicate detection, agent config, members/roles/crew rates/digital workers, wallet balances and spend, Max chat history, and generating workspace intel (costs credits).",
+      "Workspace: WHICH workspace this connection is bound to (a Max API key reaches exactly one — check before writing when the user names a workspace), plus settings and admin reads: custom-field definitions, BYO data suppliers, duplicate detection, agent config, members/roles/crew rates/digital workers, wallet balances and spend, Max chat history, and generating workspace intel (costs credits).",
     register: registerWorkspaceAdminTools,
   },
 ];

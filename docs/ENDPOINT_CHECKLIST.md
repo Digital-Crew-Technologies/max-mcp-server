@@ -1,6 +1,6 @@
 # Master Endpoint Checklist
 
-> **⚠️ Historical snapshot (2026-05-27, 64-tool era). Superseded by [`ENDPOINT_COVERAGE.md`](ENDPOINT_COVERAGE.md)**, which lists what is exposed today and every endpoint left out on purpose, with the reason. The server now registers 418 tools carrying 444 operations. For the generated catalog see [`tools.json`](tools.json).
+> **⚠️ Historical snapshot (2026-05-27, 64-tool era). Superseded by [`ENDPOINT_COVERAGE.md`](ENDPOINT_COVERAGE.md)**, which lists what is exposed today and every endpoint left out on purpose, with the reason. The server now registers 419 tools carrying 445 operations. For the generated catalog see [`tools.json`](tools.json).
 
 The complete inventory of max-agent endpoints with current MCP server coverage status at the snapshot date. Used as the source of truth for "what's exposed vs what's still on the API but not exposed."
 

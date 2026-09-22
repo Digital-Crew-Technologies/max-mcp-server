@@ -7,7 +7,7 @@ reach, and which ones are left out on purpose". It replaces
 [`ENDPOINT_CHECKLIST.md`](ENDPOINT_CHECKLIST.md), a snapshot from the 64-tool era.
 The machine-generated list of every tool is [`tools.json`](tools.json).
 
-**Counts:** 418 tools carrying 444 operations with every flag on; 432 operations
+**Counts:** 419 tools carrying 445 operations with every flag on; 433 operations
 with the flags off. By default they are published as 35 grouped tools (see
 [ADR-006](adr/006-grouped-by-default-and-client-cap.md)).
 
@@ -66,7 +66,7 @@ Paths are relative to `/api/v1`.
 | Webhooks (`webhooks`, new) | pipeline/webhooks CRUD, rotate, test, deliveries, replay · pipeline/webhook-routes CRUD + reorder |
 | ICP (`icp`, new) | icp CRUD · links (list, create, delete, reverse lookup) · generate |
 | Saved views (`views`, new) | views CRUD |
-| Workspace (`workspace`, new) | custom-fields (read) · data-suppliers (list, config, disconnect) · data-quality duplicates (list, dismiss, scan) and settings (read) · workspace-agents (read) · workspace-intel/generate · members, roles, crew-rates, digital-workers (read) · billing/workspace-wallet, budgets, consumption, gifts (read) · agent/sessions and their messages |
+| Workspace (`workspace`, new) | `get_current_workspace` → GET api-keys/verify (which workspace this key reaches, with its name) · custom-fields (read) · data-suppliers (list, config, disconnect) · data-quality duplicates (list, dismiss, scan) and settings (read) · workspace-agents (read) · workspace-intel/generate · members, roles, crew-rates, digital-workers (read) · billing/workspace-wallet, budgets, consumption, gifts (read) · agent/sessions and their messages |
 | Accounts (`accounts`) | accounts/sync · workspace/account-shares (read) |
 | Deliverability (`deliverability`, new) | inbox placements · warm-up health · warm-up (list, pricing, update, cancel, sync) · Mailpool domains (list, search), pricing, orders (list, sync). **Behind `ENABLE_PURCHASE_TOOLS=true`:** POST warmup, POST warmup/{id}/resume, POST mailpool/orders |
 | Social (`social`, new) | all 17 operations of `/social/{action}` (LinkedIn/Instagram as a chosen account) |
@@ -110,6 +110,23 @@ Paths are relative to `/api/v1`.
 | agent/chat, agent/chat/stream, bridge/*, hermes/chat, onboarding chat/runs, prospect-lists/talk | Max chat itself: streaming, and calling it from Max's own toolbox would recurse |
 | api-keys/*, notifications/*, workspace membership/invitation/switch/share routes, auth/* | JWT-only |
 | `*/cron/*`, `unipile/webhook/*`, `worker/*`, `internal/*`, `extension/telemetry`, `test/*` | Infrastructure |
+
+## One key, one workspace
+
+A Max API key is bound to a single workspace, and max-agent refuses
+`X-Workspace-Id` from API keys. No tool can therefore act in another
+workspace. `get_current_workspace` tells the model which workspace it is
+connected to, so it can say so instead of guessing. To move a prospect list
+elsewhere, the model creates a share link and the user imports it from that
+link while signed into the target workspace. The import itself stays
+signed-in only (`shared/{token}/import`).
+
+## Gateway availability
+
+When max-agent cannot be reached to verify a key, the gateway answers 503 with
+`Retry-After` instead of 401, and keeps admitting a key it confirmed within the
+last hour. A 401 made MCP clients treat the key as revoked and drop every Max
+tool mid-conversation. See `shared/auth/max-api-key.ts`.
 
 ## Known gaps
 

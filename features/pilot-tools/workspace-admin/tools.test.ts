@@ -59,6 +59,11 @@ afterEach(() => {
 });
 
 describe("workspace admin tool registration", () => {
+  it("leads with get_current_workspace, so the group's action list starts with it", () => {
+    expect(capture()[0].name).toBe("get_current_workspace");
+    expect(String(tool("get_current_workspace").config.description)).toMatch(/exactly ONE workspace/);
+  });
+
   it("exposes no admin-only or credential-handling operation", () => {
     for (const t of capture()) {
       expect(t.name).not.toMatch(/connect_key|merge|create_custom|invite|set_budget|update_workspace_agents/);
@@ -70,6 +75,7 @@ describe("workspace admin tool registration", () => {
 
   it("marks every plain read as read-only", () => {
     const reads = [
+      "get_current_workspace",
       "list_custom_fields",
       "list_data_suppliers",
       "list_duplicate_records",
@@ -94,6 +100,7 @@ describe("workspace admin tool registration", () => {
 
 describe("workspace admin handlers", () => {
   it.each([
+    ["get_current_workspace", "/api/v1/api-keys/verify"],
     ["list_data_suppliers", "/api/v1/data-suppliers"],
     ["get_data_quality_settings", "/api/v1/data-quality/settings"],
     ["get_workspace_agents", "/api/v1/workspace-agents"],

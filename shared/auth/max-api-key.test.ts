@@ -7,6 +7,7 @@ import {
   readMaxApiKey,
   readMaxApiKeyFromUrl,
   isMaxApiKeyAuthConfigured,
+  checkMaxApiKey,
   verifyMaxApiKey,
   resetMaxApiKeyCache,
 } from "@/shared/auth/max-api-key";
@@ -183,5 +184,73 @@ describe("verifyMaxApiKey", () => {
     expect(await verifyMaxApiKey("max_live_good")).toBe(true);
     fetchMock.mockResolvedValueOnce(jsonResponse(401));
     expect(await verifyMaxApiKey("max_live_bad")).toBe(false);
+  });
+});
+
+// A client treats 401 as "this credential is dead" and drops the server's
+// tools. Only max-agent refusing the key may produce that verdict.
+describe("checkMaxApiKey — refused vs. unreachable", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+  const T0 = 1_700_000_000_000;
+  const MIN = 60_000;
+
+  beforeEach(() => {
+    resetMaxApiKeyCache();
+    process.env.DIGITALCREW_API_BASE_URL = BASE;
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(Date, "now").mockReturnValue(T0);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    delete process.env.DIGITALCREW_API_BASE_URL;
+  });
+
+  it("reports an unreachable max-agent as unavailable, not invalid", async () => {
+    fetchMock.mockRejectedValueOnce(new Error("The operation was aborted due to timeout"));
+    expect(await checkMaxApiKey("max_live_abc")).toBe("unavailable");
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(502));
+    expect(await checkMaxApiKey("max_live_abc")).toBe("unavailable");
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(401));
+    expect(await checkMaxApiKey("max_live_abc")).toBe("invalid");
+  });
+
+  it("keeps admitting a recently confirmed key while max-agent is unreachable", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200));
+    expect(await checkMaxApiKey("max_live_abc")).toBe("valid");
+
+    // The 5-minute verdict has expired and max-agent is mid-deploy.
+    vi.mocked(Date.now).mockReturnValue(T0 + 20 * MIN);
+    fetchMock.mockRejectedValue(new Error("ECONNRESET"));
+    expect(await checkMaxApiKey("max_live_abc")).toBe("valid");
+    expect(await verifyMaxApiKey("max_live_abc")).toBe(true);
+  });
+
+  it("stops the grace once it is too old", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200));
+    await checkMaxApiKey("max_live_abc");
+
+    vi.mocked(Date.now).mockReturnValue(T0 + 2 * 60 * MIN);
+    fetchMock.mockRejectedValue(new Error("ECONNRESET"));
+    expect(await checkMaxApiKey("max_live_abc")).toBe("unavailable");
+  });
+
+  it("gives a revoked key no grace", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200));
+    await checkMaxApiKey("max_live_abc");
+
+    vi.mocked(Date.now).mockReturnValue(T0 + 6 * MIN);
+    fetchMock.mockResolvedValueOnce(jsonResponse(401));
+    expect(await checkMaxApiKey("max_live_abc")).toBe("invalid");
+
+    // If max-agent then goes down, the earlier confirmation must not
+    // resurrect the key: it is unverifiable (503), never admitted.
+    vi.mocked(Date.now).mockReturnValue(T0 + 7 * MIN);
+    fetchMock.mockRejectedValueOnce(new Error("ECONNRESET"));
+    expect(await checkMaxApiKey("max_live_abc")).toBe("unavailable");
   });
 });

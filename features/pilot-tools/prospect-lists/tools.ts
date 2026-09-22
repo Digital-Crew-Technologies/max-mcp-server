@@ -158,7 +158,7 @@ export function registerProspectListTools(server: McpServer): void {
 
   server.registerTool("create_prospect_list_share_link", {
     title: "Create prospect list share link",
-    description: "PUBLISHES the list publicly: anyone with the link (/share/{token}) can view its prospects (contact details masked). Creates or re-enables the same token. List owner or admin only.",
+    description: "PUBLISHES the list publicly: anyone with the link (/share/{token}) can view its prospects (contact details masked). Creates or re-enables the same token. List owner or admin only. Also the way to copy a list into ANOTHER Max workspace: the user opens the link while signed into that workspace and clicks Import.",
     inputSchema: S.prospectListIdSchema,
     ...toolHints.idempotent,
   }, async (input) => callApi(input.bearer_token, (t) => repo.createProspectListShareLink(t, input.id)));

@@ -103,6 +103,25 @@ describe("gateway middleware", () => {
       expect(res.status).toBe(401);
     });
 
+    it("answers 503 (retryable), not 401, when max-agent cannot be reached", async () => {
+      // A 401 makes Claude/ChatGPT drop the connector's tools mid-conversation.
+      fetchMock.mockRejectedValue(new Error("The operation was aborted due to timeout"));
+      const res = await middleware(
+        request("/mcp", { Authorization: `Bearer ${KEY}` }),
+      );
+      expect(res.status).toBe(503);
+      expect(res.headers.get("Retry-After")).toBe("5");
+      expect(await messageOf(res)).toMatch(/temporarily unreachable/);
+    });
+
+    it("answers 503 when max-agent's verify route errors", async () => {
+      fetchMock.mockResolvedValue(new Response("{}", { status: 500 }));
+      const res = await middleware(
+        request("/mcp", { "x-api-key": KEY }),
+      );
+      expect(res.status).toBe(503);
+    });
+
     it("does not call max-agent for a bearer that isn't a Max API key", async () => {
       const res = await middleware(
         request("/mcp", { Authorization: "Bearer eyJhbGciOi.J9.sig" }),

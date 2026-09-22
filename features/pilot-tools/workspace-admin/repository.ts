@@ -15,6 +15,16 @@ function get(token: string, path: string): Promise<Response> {
   return fetchWithRetry(apiUrl(path), { headers: authHeaders(token) });
 }
 
+// ── Connection ──────────────────────────────────────────────────────────────
+
+/**
+ * Which workspace the caller's credential is bound to. The same route the
+ * gateway uses to admit the key; it answers only for the credential presented.
+ */
+export async function getCurrentWorkspace(token: string): Promise<Response> {
+  return get(token, `/api/v1/api-keys/verify`);
+}
+
 // ── Custom fields ───────────────────────────────────────────────────────────
 
 export async function listCustomFields(
