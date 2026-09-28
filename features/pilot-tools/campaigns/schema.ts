@@ -389,3 +389,50 @@ export const campaignShareLinkSchema = z.object({
   ...withToken,
   id: campaignId(),
 });
+
+// ── Attachments (files sent with LinkedIn / WhatsApp / email steps) ─────────
+
+export const listCampaignAttachmentsSchema = z.object({
+  ...withToken,
+});
+
+export const uploadCampaignAttachmentSchema = z.object({
+  ...withToken,
+  file_name: z
+    .string()
+    .min(1)
+    .max(255)
+    .describe("Name the recipient sees, with its extension, e.g. 'Reactivation_guide.pdf'"),
+  file_url: z
+    .string()
+    .url()
+    .optional()
+    .describe("Public https URL to download the file from. Give this OR content_base64."),
+  content_base64: z
+    .string()
+    .optional()
+    .describe("The file's bytes, base64-encoded (a data: URL prefix is accepted). Give this OR file_url."),
+  mime: z
+    .string()
+    .max(255)
+    .optional()
+    .describe("MIME type; inferred from file_name when omitted"),
+});
+
+export const deleteCampaignAttachmentSchema = z.object({
+  ...withToken,
+  attachment_id: z.string().uuid().describe("Library attachment UUID"),
+});
+
+export const setCampaignStepAttachmentsSchema = z.object({
+  ...withToken,
+  id: z.string().uuid().describe("Campaign UUID"),
+  node_id: z
+    .string()
+    .min(1)
+    .describe("Workflow node id of a send_email / send_linkedin_message / send_whatsapp_message step (see get_campaign)"),
+  attachment_ids: z
+    .array(z.string().uuid())
+    .max(3)
+    .describe("Library attachment UUIDs to send with the step, in order (max 3, 15 MB total). [] removes the step's files."),
+});

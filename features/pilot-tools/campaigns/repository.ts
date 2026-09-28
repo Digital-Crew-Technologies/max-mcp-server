@@ -293,3 +293,14 @@ export async function revokeCampaignShareLink(token: string, id: string): Promis
     headers: authHeaders(token),
   });
 }
+
+export async function listCampaignAttachments(token: string): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/campaigns/attachments`), { headers: authHeaders(token) });
+}
+
+export async function deleteCampaignAttachment(token: string, attachmentId: string): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/campaigns/attachments/${attachmentId}`), {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}
