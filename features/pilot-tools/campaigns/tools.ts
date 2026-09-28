@@ -1,6 +1,31 @@
-import { callApi, omitKey, strip, toolHints, type McpServer } from "../shared";
+import { callApi, omitKey, resolveBearerToken, strip, toolHints, type McpServer } from "../shared";
+import {
+  AttachmentToolError,
+  decodeBase64,
+  downloadPublicFile,
+  mimeFor,
+  setCampaignStepAttachments,
+  uploadCampaignAttachment,
+} from "./attachments";
 import * as repo from "./repository";
 import * as S from "./schema";
+
+/** Run a multi-call attachment flow and shape its result like callApi does. */
+async function runAttachmentFlow(
+  tokenOverride: string | undefined,
+  fn: (token: string) => Promise<unknown>,
+): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {
+  try {
+    const result = await fn(resolveBearerToken(tokenOverride));
+    return { content: [{ type: "text", text: JSON.stringify({ data: result }) }] };
+  } catch (e) {
+    const msg =
+      e instanceof AttachmentToolError
+        ? e.message
+        : `Error: ${e instanceof Error ? e.message : String(e)}`;
+    return { content: [{ type: "text", text: msg }], isError: true };
+  }
+}
 
 export function registerCampaignTools(server: McpServer): void {
   server.registerTool("list_campaigns", {
@@ -270,6 +295,56 @@ export function registerCampaignTools(server: McpServer): void {
     inputSchema: S.bulkGetCampaignNodeRunCountsSchema,
     ...toolHints.readOnly,
   }, async (input) => callApi(input.bearer_token, (t) => repo.bulkGetCampaignNodeRunCounts(t, input.ids)));
+
+  // ── Attachments (files sent with a step's message) ─────────────────────────
+
+  server.registerTool("list_campaign_attachments", {
+    title: "List campaign attachments",
+    description: "The workspace's campaign attachment library: files (PDF, PNG, JPEG, GIF, WebP, MP4) that LinkedIn message, WhatsApp message and email steps can send with their message. Returns {data: [{id, file_name, mime_type, size_bytes, created_at}]}.",
+    inputSchema: S.listCampaignAttachmentsSchema,
+    ...toolHints.readOnly,
+  }, async (input) => callApi(input.bearer_token, (t) => repo.listCampaignAttachments(t)));
+
+  server.registerTool("upload_campaign_attachment", {
+    title: "Upload a campaign attachment",
+    description: "Add a file (a PDF guide, one-pager, screenshot or short video) to the workspace's campaign attachment library so campaign steps can send it. Give file_name plus EITHER file_url (public https) OR content_base64. Accepted: PDF, PNG, JPEG, GIF, WebP, MP4, max 15 MB. Returns {data: {id, file_name, mime_type, size_bytes}} — then call set_campaign_step_attachments with that id.",
+    inputSchema: S.uploadCampaignAttachmentSchema,
+  }, async (input) => runAttachmentFlow(input.bearer_token, async (t) => {
+    const hasUrl = typeof input.file_url === "string" && input.file_url !== "";
+    const hasContent = typeof input.content_base64 === "string" && input.content_base64 !== "";
+    if (hasUrl === hasContent) {
+      throw new AttachmentToolError("Give exactly one of file_url or content_base64");
+    }
+    if (hasUrl) {
+      const { bytes, contentType } = await downloadPublicFile(input.file_url);
+      return uploadCampaignAttachment(t, {
+        fileName: input.file_name,
+        mime: mimeFor(input.file_name, input.mime ?? contentType),
+        bytes,
+      });
+    }
+    return uploadCampaignAttachment(t, {
+      fileName: input.file_name,
+      mime: mimeFor(input.file_name, input.mime),
+      bytes: decodeBase64(input.content_base64),
+    });
+  }));
+
+  server.registerTool("set_campaign_step_attachments", {
+    title: "Set a campaign step's attachments",
+    description: "Choose which library files one step sends with its message (send_email, send_linkedin_message or send_whatsapp_message; not InMail or connection requests). Replaces the step's list; [] removes them. Max 3 files, 15 MB total. The campaign must be draft or stopped. Get node ids from get_campaign and file ids from list_campaign_attachments / upload_campaign_attachment. Returns {data: {campaign_id, node_id, attachments}}.",
+    inputSchema: S.setCampaignStepAttachmentsSchema,
+    ...toolHints.idempotent,
+  }, async (input) => runAttachmentFlow(input.bearer_token, (t) =>
+    setCampaignStepAttachments(t, input.id, input.node_id, input.attachment_ids)));
+
+  server.registerTool("delete_campaign_attachment", {
+    title: "Delete a campaign attachment",
+    description: "Remove a file from the campaign attachment library. Refused (409) while any campaign step — or a prospect already enrolled in one — still sends it; detach it with set_campaign_step_attachments first.",
+    inputSchema: S.deleteCampaignAttachmentSchema,
+    ...toolHints.destructive,
+  }, async (input) => callApi(input.bearer_token, (t) =>
+    repo.deleteCampaignAttachment(t, input.attachment_id)));
 
   // ── Public share link ──────────────────────────────────────────────────────
 

@@ -576,6 +576,12 @@
     "operations": 1
   },
   {
+    "name": "delete_campaign_attachment",
+    "title": "Delete a campaign attachment",
+    "description": "Remove a file from the campaign attachment library. Refused (409) while any campaign step — or a prospect already enrolled in one — still sends it; detach it with set_campaign_step_attachments first.",
+    "operations": 1
+  },
+  {
     "name": "delete_deal",
     "title": "Delete deal",
     "description": "Permanently delete a deal, its line items and attached files. Irreversible. Fails (500) if documents are linked to it. Returns {success: true}.",
@@ -1281,6 +1287,12 @@
     "name": "list_agent_sessions",
     "title": "List Max chat threads",
     "description": "List the caller's own Max chat threads (API key: its owner's), most recent first, for one surface (default max_chat). Returns {data: AgentSession[]}.",
+    "operations": 1
+  },
+  {
+    "name": "list_campaign_attachments",
+    "title": "List campaign attachments",
+    "description": "The workspace's campaign attachment library: files (PDF, PNG, JPEG, GIF, WebP, MP4) that LinkedIn message, WhatsApp message and email steps can send with their message. Returns {data: [{id, file_name, mime_type, size_bytes, created_at}]}.",
     "operations": 1
   },
   {
@@ -2130,6 +2142,12 @@
     "operations": 1
   },
   {
+    "name": "set_campaign_step_attachments",
+    "title": "Set a campaign step's attachments",
+    "description": "Choose which library files one step sends with its message (send_email, send_linkedin_message or send_whatsapp_message; not InMail or connection requests). Replaces the step's list; [] removes them. Max 3 files, 15 MB total. The campaign must be draft or stopped. Get node ids from get_campaign and file ids from list_campaign_attachments / upload_campaign_attachment. Returns {data: {campaign_id, node_id, attachments}}.",
+    "operations": 1
+  },
+  {
     "name": "set_channel_sync_rules",
     "title": "Replace channel sync rules",
     "description": "Replace an account's Unibox history-import rules with the given full set (max 20). A message is imported when any enabled rule matches; [] imports everything. Returns the saved rules.",
@@ -2493,6 +2511,12 @@
     "name": "update_workspace_profile",
     "title": "Update workspace profile",
     "description": "Create or update workspace profile settings for the authenticated workspace via DigitalCrew API (PUT upsert). Uses the MCP connection Authorization: Bearer token when set.",
+    "operations": 1
+  },
+  {
+    "name": "upload_campaign_attachment",
+    "title": "Upload a campaign attachment",
+    "description": "Add a file (a PDF guide, one-pager, screenshot or short video) to the workspace's campaign attachment library so campaign steps can send it. Give file_name plus EITHER file_url (public https) OR content_base64. Accepted: PDF, PNG, JPEG, GIF, WebP, MP4, max 15 MB. Returns {data: {id, file_name, mime_type, size_bytes}} — then call set_campaign_step_attachments with that id.",
     "operations": 1
   },
   {
