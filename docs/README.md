@@ -2,7 +2,7 @@
 
 This server exposes the Digital Crew Max Agent API as a [Model Context Protocol](https://modelcontextprotocol.io) endpoint at `POST /mcp`. It carries **445 callable operations** with all feature flags on (433 with the flag-gated admin tools, webhook simulators and purchase tools off).
 
-By default those operations are exposed as **35 grouped tools** — one per domain, each taking an `action` discriminator (`unibox` with `action: "list_chats"`). Grouping is the default because the flat catalog does not fit in the 128-tool cap max-agent applies to the merged MCP catalog: flat mode overflows it and ~30 tools are dropped silently on every turn. See [ADR-006](adr/006-grouped-by-default-and-client-cap.md); `pnpm catalog:measure` prints the sizes and runs the cap check.
+By default those operations are exposed as **36 grouped tools** — one per domain, each taking an `action` discriminator (`unibox` with `action: "list_chats"`). Grouping is the default because the flat catalog does not fit in the 128-tool cap max-agent applies to the merged MCP catalog: flat mode overflows it and ~30 tools are dropped silently on every turn. See [ADR-006](adr/006-grouped-by-default-and-client-cap.md); `pnpm catalog:measure` prints the sizes and runs the cap check.
 
 The generated operation inventory lives in [`tools.json`](tools.json) — one row per callable operation, generated in flat mode regardless of the deployed default — and is kept in sync with the code by `npm run docs:check` in CI.
 
@@ -61,7 +61,8 @@ features/pilot-tools/
 ├── {campaigns,prospects,prospect-lists,organizations,sourcing,
 │   getleads,explorium,apollo,icp,accounts,deliverability,unibox,
 │   social,ai-agent,dashboard,claire,enrichment,intent,inbox,
-│   calendar,meetings,tasks,email-analytics,crm,deals,pipeline,
+│   calendar,meeting-links,meetings,tasks,email-analytics,crm,
+│   deals,pipeline,
 │   automations,pipeline-webhooks,notion,agent-drafts,linkedin,
 │   views,workspace-admin,webhooks}/
 │   ├── repository.ts         # API call functions
