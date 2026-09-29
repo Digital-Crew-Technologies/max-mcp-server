@@ -24,6 +24,16 @@ const advanced = z
   })
   .describe("Native supplier filters (advanced; prefer the named fields)");
 
+// The company search reads more from advanced.getleads: max-agent treats
+// GetLeads' own company-profile filters as targeting, and a search carrying any
+// GetLeads-only filter never runs on Explorium unless pinned.
+const orgAdvanced = z
+  .object({
+    getleads: z.record(z.string(), z.unknown()).optional().describe("GetLeads company filters by API name. company_description, specialties, company_headline, naics_codes, sic_codes, crunchbase_categories, office_countries/cities/states and company_linkedin_urls also target on their own; funding, growth and hiring signals (e.g. total_funding_min) only narrow"),
+    explorium: z.record(z.string(), z.unknown()).optional().describe("Explorium filters by API name"),
+  })
+  .describe("Native supplier filters (advanced; prefer the named fields)");
+
 const size = z
   .object({
     min: z.number().int().min(0).optional().describe("Minimum headcount"),
@@ -76,14 +86,14 @@ const peopleCriteria = z
 
 const organizationCriteria = z
   .object({
-    companyNames: z.array(z.string()).optional().describe("Company names"),
+    companyNames: z.array(z.string()).optional().describe("Company names; GetLeads matches up to 20, one request each"),
     industries: z.array(z.string()).optional().describe("LinkedIn industry taxonomy names"),
-    locations: z.array(z.string()).optional().describe("Where the company is headquartered, e.g. [\"France\"] (GetLeads widens \"Paris, France\" to France)"),
+    locations: z.array(z.string()).optional().describe("Where the company is, e.g. [\"France\", \"Austin, TX\"]: on GetLeads a country matches the headquarters, a city or state one of its offices"),
     companySize: size.optional(),
     companyRevenue: z.array(z.string()).optional().describe("Annual revenue ranges, e.g. [\"1M-5M\"] (GetLeads searches the wider bands they overlap)"),
     companyAge: z.array(z.string()).optional().describe("Years since founding, e.g. [\"3-6\", \"20+\"] (GetLeads searches the founding years they cover)"),
     numberOfLocations: z.array(z.string()).optional().describe("Location-count buckets, e.g. [\"2-5\"] (Explorium only)"),
-    domains: z.array(z.string()).optional().describe("Company domains to target (GetLeads only: keeps an unpinned search off Explorium)"),
+    domains: z.array(z.string()).optional().describe("Company domains or LinkedIn company pages to target (GetLeads only: keeps an unpinned search off Explorium)"),
     excludeDomains: z.array(z.string()).optional().describe("Company domains to exclude (GetLeads only: keeps an unpinned search off Explorium)"),
     websiteKeywords: z.array(z.string()).optional().describe("Website keywords (Explorium only)"),
     technologies: z.array(z.string()).optional().describe("Technologies in the company's stack, e.g. [\"Salesforce\"]"),
@@ -92,9 +102,9 @@ const organizationCriteria = z
     enrichments: z.record(z.string(), z.boolean()).optional().describe("Explorium enrichment toggles"),
     limit: z.number().int().min(1).max(10000).optional().describe("Max companies for a saved list (default 100)"),
     excludeExistingOrganizations: z.boolean().optional().describe("Skip companies already in the workspace (default true)"),
-    advanced: advanced.optional(),
+    advanced: orgAdvanced.optional(),
   })
-  .describe("Company-search criteria. Needs at least one of companyNames, industries, locations, domains, technologies or websiteKeywords");
+  .describe("Company-search criteria. Needs at least one of companyNames, industries, locations, domains, technologies, websiteKeywords, or a GetLeads targeting filter in advanced.getleads");
 
 export const autoCreateProspectListSchema = z.object({
   ...withToken,

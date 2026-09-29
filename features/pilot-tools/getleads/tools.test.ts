@@ -230,12 +230,21 @@ describe("GetLeads filters max-agent validates (contacts/search API names)", () 
     const fetchMock = mockFetch({ data: [], provider: "getleads", attempts: [] });
     const tool = capture(registerOrganizationSearchTools).get("preview_organization_search")!;
     const criteria = {
+      companyNames: ["Acme", "Globex"],
       industries: ["Software Development"],
-      locations: ["France"],
+      locations: ["France", "Austin, TX"],
+      domains: ["https://www.linkedin.com/company/acme/"],
       companyRevenue: ["1M-5M"],
       companyAge: ["3-6", "20+"],
       technologies: ["Salesforce"],
-      advanced: { getleads: { office_countries: ["Spain"] } },
+      advanced: {
+        getleads: {
+          office_countries: ["Spain"],
+          company_description: "payments infrastructure",
+          naics_codes: ["522320"],
+          total_funding_min: 5_000_000,
+        },
+      },
     };
 
     await tool.handler(parsed(tool, { bearer_token: "tok", criteria }));

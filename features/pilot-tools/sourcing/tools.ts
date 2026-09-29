@@ -31,14 +31,14 @@ export function registerAutoProspectSourcingTools(server: McpServer): void {
 export function registerOrganizationSearchTools(server: McpServer): void {
   server.registerTool("preview_organization_search", {
     title: "Preview company search (GetLeads → Explorium)",
-    description: "Run a small, unsaved company search (1–25 rows) to check targeting before building a list, in the order the list would run: GetLeads first (industries, HQ country, size, domains, revenue, technologies, company age), Explorium for buyer intent, website keywords or number of locations. Billed like any provider call. Returns {data: companies[], provider, attempts, dropped_filters}.",
+    description: "Run a small, unsaved company search (1–25 rows) to check targeting before building a list, in the order the list would run: GetLeads first (company names, industries, HQ country or office locations, size, domains or LinkedIn company pages, revenue, technologies, company age), Explorium for buyer intent, website keywords or number of locations. Billed like any provider call. Returns {data: companies[], provider, attempts, dropped_filters}.",
     inputSchema: S.previewOrganizationSearchSchema,
   }, async (input) => callApi(input.bearer_token, (t) =>
     repo.previewOrganizationSearch(t, strip(input, "bearer_token"))));
 
   server.registerTool("auto_create_organization_list", {
     title: "Build company list (GetLeads → Explorium)",
-    description: "Create a saved company (organization) list from unified criteria (async). GetLeads first (industries, HQ country, size, domains, revenue, technologies, company age); buyer intent, website keywords or number of locations send it to Explorium, and a search with company domains never runs on Explorium unless pinned. Apollo is never used. Charges credits. Returns a pending list; poll with wait_for_prospect_list.",
+    description: "Create a saved company (organization) list from unified criteria (async). GetLeads first (company names, industries, HQ country or office locations, size, domains or LinkedIn company pages, revenue, technologies, company age); buyer intent, website keywords or number of locations send it to Explorium, and a search with company domains or GetLeads-only filters never runs on Explorium unless pinned. Apollo is never used. Charges credits. Returns a pending list; poll with wait_for_prospect_list.",
     inputSchema: S.autoCreateOrganizationListSchema,
   }, async (input) => {
     const body = strip(input, "bearer_token");

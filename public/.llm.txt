@@ -586,11 +586,17 @@ POST   /api/v1/organizations/search
   Scope: organizations:read
   Body: { criteria: UnifiedOrgSearchCriteria, provider?: "getleads"|"explorium", limit? }
   UnifiedOrgSearchCriteria (camelCase, all optional; ≥1 targeting field):
-    companyNames?, industries?, locations? (HQ countries), companySize?: {min,max},
-    companyRevenue?, companyAge? (e.g. ["3-6","20+"]), technologies?, domains?,
-    excludeDomains?, numberOfLocations?, websiteKeywords?, intent?, intentTopics?,
-    enrichments?, limit?, excludeExistingOrganizations?,
-    advanced?: { getleads?: {...}, explorium?: {...} }
+    companyNames? (GetLeads: up to 20, one request each), industries?,
+    locations? (GetLeads: countries → HQ, cities/states → offices),
+    companySize?: {min,max}, companyRevenue?, companyAge? (e.g. ["3-6","20+"]),
+    technologies?, domains? (or LinkedIn company pages), excludeDomains?,
+    numberOfLocations?, websiteKeywords?, intent?, intentTopics?, enrichments?,
+    limit?, excludeExistingOrganizations?,
+    advanced?: { getleads?: {...API names}, explorium?: {...} }
+      // GetLeads company-profile filters (company_description, specialties,
+      // naics_codes, sic_codes, crunchbase_categories, office_*,
+      // company_linkedin_urls) target on their own; any GetLeads-only filter
+      // keeps an unpinned search off Explorium.
   Response: { data: Company[], provider, via?, attempts, dropped_filters }
 
 POST   /api/v1/organizations/search/create-list
