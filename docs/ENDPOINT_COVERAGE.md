@@ -35,13 +35,16 @@ description says so:
 
 1. **`auto_create_prospect_list`** (in `lists`), plus **`preview_organization_search`**
    and **`auto_create_organization_list`** (in `organizations`). max-agent runs
-   GetLeads first and falls back to Explorium on its own. Apollo is never part
-   of this chain.
+   the chain on its own: GetLeads first, Explorium for buyer intent, website
+   keywords, extra enrichments or (companies) number of locations, and GetLeads
+   again without those only if Explorium can't run. Apollo is never part of
+   this chain.
 2. **`getleads`**: the first choice when a provider is pinned. It is about 100×
    cheaper than Explorium and billed only per contact returned.
-3. **`explorium`**: the second choice. Use it for buyer intent, departments,
-   revenue, website keywords, tech stack or enrichments, or when GetLeads finds
-   nothing.
+3. **`explorium`**: the second choice. Use it for buyer intent, website
+   keywords or enrichments (and number of locations for companies), or when
+   GetLeads finds nothing. GetLeads filters on departments, revenue,
+   technologies, company HQ country and company age itself.
 4. **`apollo`**: the last resort. max-agent's own chat drops these tools.
 
 The three provider groups are registered next to each other in that order.

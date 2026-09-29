@@ -4,8 +4,9 @@ import * as repo from "./repository";
 import * as S from "./schema";
 
 // GetLeads is the FIRST sourcing choice: ~100× cheaper than Explorium and billed
-// only for contacts actually returned. Explorium is the fallback for filters
-// GetLeads cannot express; Apollo is the last resort. register.ts orders the
+// only for contacts actually returned. Explorium is the fallback for what only it
+// filters on (buyer intent, website keywords, enrichments); Apollo is the last
+// resort. register.ts orders the
 // sourcing groups the same way (getleads → explorium → apollo).
 
 // Pack the typed filter fields into the getleads_search_criteria contract
@@ -27,7 +28,7 @@ function buildCriteria(input: Record<string, unknown>): Record<string, unknown> 
 export function registerGetleadsTools(server: McpServer): void {
   server.registerTool("getleads_create_list", {
     title: "Create GetLeads prospect list",
-    description: "FIRST CHOICE for sourcing new people: create a GetLeads-backed prospect list (async). Needs at least one targeting filter (job_titles, seniority, countries, industries or domains). Returns a pending list; poll it with wait_for_prospect_list. Charges credits per contact returned. Use Explorium only for buyer intent, departments, revenue or keywords, or when GetLeads returns nothing.",
+    description: "FIRST CHOICE for sourcing new people: create a GetLeads-backed prospect list (async). Needs at least one targeting filter (job_titles, seniority, job_functions, a location, industries, domains, company_linkedin_urls, technologies or headquarters/office countries); revenue, size, founding year, funding and growth only narrow. max-agent checks the filters with GetLeads' free count first. Returns a pending list; poll it with wait_for_prospect_list. Charges credits per contact returned. Use Explorium only for buyer intent, website keywords or enrichments, or when GetLeads returns nothing.",
     inputSchema: S.getleadsCreateListSchema,
   }, async (input) => {
     const body: Record<string, unknown> = {

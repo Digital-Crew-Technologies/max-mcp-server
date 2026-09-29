@@ -92,13 +92,13 @@
   {
     "name": "auto_create_organization_list",
     "title": "Build company list (GetLeads → Explorium)",
-    "description": "Create a saved company (organization) list from unified criteria (async). GetLeads first, Explorium as the fallback; Apollo is never used. Charges credits. Returns a pending list; poll with wait_for_prospect_list.",
+    "description": "Create a saved company (organization) list from unified criteria (async). GetLeads first (industries, HQ country, size, domains, revenue, technologies, company age); buyer intent, website keywords or number of locations send it to Explorium, and a search with company domains never runs on Explorium unless pinned. Apollo is never used. Charges credits. Returns a pending list; poll with wait_for_prospect_list.",
     "operations": 1
   },
   {
     "name": "auto_create_prospect_list",
     "title": "Find leads (GetLeads → Explorium)",
-    "description": "Default way to source new people: create a prospect list from unified criteria (async). Runs GetLeads first and falls back to Explorium only when GetLeads can't express the filters (intent, departments, revenue, keywords) or finds nothing; Apollo is never used. Charges credits. Returns a pending list; poll with wait_for_prospect_list.",
+    "description": "Default way to source new people: create a prospect list from unified criteria (async). Starts on the member's own connected LinkedIn account when there is one (no credits), then GetLeads, which filters on titles, seniority, departments, locations, industries, size, revenue, technologies and company HQ country. Buyer intent, website keywords or extra enrichments send it to Explorium; Apollo is never used. Charges credits. Returns a pending list; poll with wait_for_prospect_list.",
     "operations": 1
   },
   {
@@ -740,13 +740,13 @@
   {
     "name": "explorium_create_company_list",
     "title": "Create Explorium company list",
-    "description": "Create an Explorium-backed company (organization) list (async). Prefer auto_create_organization_list, which tries GetLeads first; use this to pin Explorium for revenue, age, tech-stack or intent filters. Business search → enrichment → ingestion. Returns a pending list; poll with wait_for_prospect_list.",
+    "description": "Create an Explorium-backed company (organization) list (async). Prefer auto_create_organization_list, which runs GetLeads first (revenue, company age and technologies included) and routes intent, website keywords and number of locations to Explorium itself; use this to pin Explorium. Business search → enrichment → ingestion. Returns a pending list; poll with wait_for_prospect_list.",
     "operations": 1
   },
   {
     "name": "explorium_create_list",
     "title": "Create Explorium prospect list",
-    "description": "SECOND CHOICE after getleads_create_list: create an Explorium-backed prospect (people) list (async). Use when GetLeads can't express the filters (buyer intent, departments, revenue, website keywords, enrichments) or returned nothing. People search → enrichment → ingestion; ~100× GetLeads' cost. Returns a pending list; poll with wait_for_prospect_list.",
+    "description": "SECOND CHOICE after getleads_create_list: create an Explorium-backed prospect (people) list (async). Use for what only Explorium filters on (buyer intent, website keywords, enrichments) or when GetLeads returned nothing; GetLeads handles departments and revenue itself. People search → enrichment → ingestion; ~100× GetLeads' cost. Returns a pending list; poll with wait_for_prospect_list.",
     "operations": 1
   },
   {
@@ -1148,7 +1148,7 @@
   {
     "name": "getleads_create_list",
     "title": "Create GetLeads prospect list",
-    "description": "FIRST CHOICE for sourcing new people: create a GetLeads-backed prospect list (async). Needs at least one targeting filter (job_titles, seniority, countries, industries or domains). Returns a pending list; poll it with wait_for_prospect_list. Charges credits per contact returned. Use Explorium only for buyer intent, departments, revenue or keywords, or when GetLeads returns nothing.",
+    "description": "FIRST CHOICE for sourcing new people: create a GetLeads-backed prospect list (async). Needs at least one targeting filter (job_titles, seniority, job_functions, a location, industries, domains, company_linkedin_urls, technologies or headquarters/office countries); revenue, size, founding year, funding and growth only narrow. max-agent checks the filters with GetLeads' free count first. Returns a pending list; poll it with wait_for_prospect_list. Charges credits per contact returned. Use Explorium only for buyer intent, website keywords or enrichments, or when GetLeads returns nothing.",
     "operations": 1
   },
   {
@@ -1994,7 +1994,7 @@
   {
     "name": "preview_organization_search",
     "title": "Preview company search (GetLeads → Explorium)",
-    "description": "Run a small, unsaved company search (1–25 rows) to check targeting before building a list. Tries GetLeads first, then Explorium. Billed like any provider call. Returns {data: companies[], provider, attempts, dropped_filters}.",
+    "description": "Run a small, unsaved company search (1–25 rows) to check targeting before building a list, in the order the list would run: GetLeads first (industries, HQ country, size, domains, revenue, technologies, company age), Explorium for buyer intent, website keywords or number of locations. Billed like any provider call. Returns {data: companies[], provider, attempts, dropped_filters}.",
     "operations": 1
   },
   {

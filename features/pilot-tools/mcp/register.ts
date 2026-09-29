@@ -137,7 +137,7 @@ const GROUPS: GroupDef[] = [
   {
     name: "organizations",
     blurb:
-      "Companies in the workspace: list, read, create, update, delete, bulk import/delete, geographic stats and map points, public share links, and search for new companies (GetLeads first, Explorium fallback).",
+      "Companies in the workspace: list, read, create, update, delete, bulk import/delete, geographic stats and map points, public share links, and search for new companies (GetLeads first; Explorium for buyer intent, website keywords or number of locations).",
     register: (s) => {
       registerOrganizationTools(s);
       registerOrganizationSearchTools(s);
@@ -152,13 +152,13 @@ const GROUPS: GroupDef[] = [
   {
     name: "getleads",
     blurb:
-      "GetLeads data supplier — the FIRST choice for sourcing new people (cheapest; billed per contact returned): build a people list from job titles, seniority, countries, industries or company domains, and add more people to it. Fall back to explorium only for filters GetLeads lacks or when it finds nothing.",
+      "GetLeads data supplier — the FIRST choice for sourcing new people (cheapest; billed per contact returned): build a people list from job titles, seniority, departments, locations, industries, company domains, technologies, company HQ country, revenue or founding year, and add more people to it. Fall back to explorium only for buyer intent, website keywords or enrichments, or when it finds nothing.",
     register: registerGetleadsTools,
   },
   {
     name: "explorium",
     blurb:
-      "Explorium data supplier — the SECOND choice, after getleads: richer filters (buyer intent, departments, revenue, tech stack, enrichments) at a much higher cost. Build a people list, add more people to it, and build a company list.",
+      "Explorium data supplier — the SECOND choice, after getleads: buyer intent, website keywords and enrichments (and number of locations for companies) at a much higher cost. Build a people list, add more people to it, and build a company list.",
     register: registerExploriumTools,
   },
   {

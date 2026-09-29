@@ -153,6 +153,134 @@ describe("managed sourcing tools (GetLeads → Explorium)", () => {
   });
 });
 
+// The MCP SDK hands a handler the schema's PARSED input, and a zod object drops
+// keys it doesn't declare — so a filter missing from the schema never reaches
+// max-agent. These run the real schema first, as the SDK does.
+type Parser = { parse: (v: unknown) => Record<string, unknown> };
+const parsed = (tool: { config: Record<string, unknown> }, input: Record<string, unknown>) =>
+  (tool.config.inputSchema as Parser).parse(input);
+
+describe("GetLeads filters max-agent validates (contacts/search API names)", () => {
+  it("passes every newer GetLeads filter through to getleads_search_criteria", async () => {
+    const fetchMock = mockFetch();
+    const tool = capture(registerGetleadsTools).get("getleads_create_list")!;
+    const filters = {
+      job_functions: ["Sales"],
+      cities: ["Paris"],
+      states: ["Texas"],
+      continents: ["Europe"],
+      regions: ["EMEA"],
+      company_linkedin_urls: ["https://www.linkedin.com/company/acme/"],
+      technologies: ["Salesforce"],
+      headquarters_countries: ["France"],
+      office_countries: ["Spain"],
+      exclude_job_titles: ["Intern"],
+      exclude_industries: ["Retail"],
+      exclude_countries: ["Italy"],
+      exclude_headquarters_countries: ["China"],
+      revenue: ["1M-5M"],
+      founded_year_min: 2015,
+      founded_year_max: 2022,
+      total_funding_min: 1_000_000,
+      total_funding_max: 50_000_000,
+      employee_growth_rate_min: -5,
+      employee_growth_rate_max: 40,
+      job_start_date_min: "2026-01-01",
+      seniority: ["Other"],
+    };
+
+    await tool.handler(parsed(tool, { bearer_token: "tok", list_name: "x", ...filters }));
+
+    expect(call(fetchMock).body.getleads_search_criteria).toEqual(filters);
+  });
+
+  it("refuses a start date that isn't YYYY-MM-DD and a region GetLeads doesn't have", () => {
+    const tool = capture(registerGetleadsTools).get("getleads_create_list")!;
+    const schema = tool.config.inputSchema as { safeParse: (v: unknown) => { success: boolean } };
+    expect(schema.safeParse({ list_name: "x", job_start_date_min: "last month" }).success).toBe(false);
+    expect(schema.safeParse({ list_name: "x", regions: ["Nordics"] }).success).toBe(false);
+  });
+
+  it("keeps the GetLeads-only people fields and advanced on the managed chain", async () => {
+    const fetchMock = mockFetch();
+    const tool = capture(registerAutoProspectSourcingTools).get("auto_create_prospect_list")!;
+    const criteria = {
+      jobDepartments: ["Sales"],
+      companyRevenue: ["10M-25M"],
+      technologies: ["HubSpot"],
+      companyHqCountries: ["Germany"],
+      excludeJobTitles: ["Intern"],
+      excludeIndustries: ["Retail"],
+      foundedYearMin: 2010,
+      foundedYearMax: 2020,
+      totalFundingMin: 1_000_000,
+      totalFundingMax: 20_000_000,
+      employeeGrowthMin: 5,
+      employeeGrowthMax: 50,
+      jobStartedWithinMonths: 6,
+      advanced: { getleads: { sales_open_roles_min: 2 } },
+    };
+
+    await tool.handler(parsed(tool, { bearer_token: "tok", list_name: "x", criteria }));
+
+    expect(call(fetchMock).body.criteria).toEqual(criteria);
+  });
+
+  it("keeps company age, technologies and advanced on the company search", async () => {
+    const fetchMock = mockFetch({ data: [], provider: "getleads", attempts: [] });
+    const tool = capture(registerOrganizationSearchTools).get("preview_organization_search")!;
+    const criteria = {
+      industries: ["Software Development"],
+      locations: ["France"],
+      companyRevenue: ["1M-5M"],
+      companyAge: ["3-6", "20+"],
+      technologies: ["Salesforce"],
+      advanced: { getleads: { office_countries: ["Spain"] } },
+    };
+
+    await tool.handler(parsed(tool, { bearer_token: "tok", criteria }));
+
+    expect(call(fetchMock).body.criteria).toEqual(criteria);
+  });
+
+  it("no longer tells the model revenue, departments, technologies or company age are Explorium-only", () => {
+    const tools = new Map([
+      ...capture(registerGetleadsTools),
+      ...capture(registerAutoProspectSourcingTools),
+      ...capture(registerOrganizationSearchTools),
+    ]);
+    const text = [...tools.values()]
+      .flatMap((t) => [String(t.config.description), ...describedFields(t.config.inputSchema)])
+      .join("\n");
+    for (const stale of [
+      "Revenue buckets (Explorium only)",
+      "Revenue buckets, e.g. [\"10M-25M\"] (Explorium only)",
+      "Departments (Explorium only)",
+      "Tech-stack technologies (Explorium only)",
+      "Company-age buckets, e.g. [\"3-10\"] (Explorium only)",
+      "intent, departments, revenue",
+      "Cities/regions are dropped",
+    ]) {
+      expect(text).not.toContain(stale);
+    }
+    // What still is Explorium-only says so.
+    expect(text).toContain("Website keywords (Explorium only)");
+    expect(text).toContain("Location-count buckets, e.g. [\"2-5\"] (Explorium only)");
+  });
+});
+
+/** Every `.describe()` text in a zod (v3) schema tree. */
+function describedFields(schema: unknown, out: string[] = []): string[] {
+  const def = (schema as { _def?: Record<string, unknown> } | undefined)?._def;
+  if (!def) return out;
+  if (typeof def.description === "string") out.push(def.description);
+  const shape = typeof def.shape === "function" ? (def.shape as () => Record<string, unknown>)() : {};
+  for (const child of [def.innerType, def.type, def.schema, def.valueType, ...Object.values(shape)]) {
+    describedFields(child, out);
+  }
+  return out;
+}
+
 describe("sourcing order in the grouped catalog", () => {
   it("registers getleads, then explorium, then apollo — adjacent and in that order", () => {
     const prev = process.env.GROUPED_TOOLS;
