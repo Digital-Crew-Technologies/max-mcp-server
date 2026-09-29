@@ -550,8 +550,14 @@ POST   /api/v1/ai-agent/generate-message-preview
 =============================================================================
 ### SOURCING (AUTO: GETLEADS → EXPLORIUM)
 The default way to find new leads. Max runs the providers itself, cheapest
-first: GetLeads (~100× cheaper), then Explorium when GetLeads cannot express the
-filters or finds nothing. Apollo is never part of this chain.
+first. People: the member's own connected LinkedIn account (no credits), then
+GetLeads (~100× cheaper than Explorium), then Explorium. Companies: GetLeads,
+then Explorium. GetLeads filters on departments, revenue, technologies, company
+HQ country and founding year (company age) itself; buyer intent, website
+keywords, extra enrichments and (companies) number of locations send a search
+to Explorium, and GetLeads retries without them only if Explorium can't run. A
+company search with domains never runs on Explorium unless pinned. Apollo is
+never part of this chain.
 =============================================================================
 
 POST   /api/v1/prospect-lists/auto/create-list
@@ -563,7 +569,12 @@ POST   /api/v1/prospect-lists/auto/create-list
       companyDomains?, excludeCompanyDomains?, keywords?, jobDepartments?,
       companyRevenue?, intent?, intentTopics?, enrichments?, limit? (default 100),
       requireEmail?, requirePhone?, verifiedEmailsOnly?, excludeExistingOrganizations?,
-      excludeExistingProspects?, excludeLinkedInConnections?, maxPerCompany?
+      excludeExistingProspects?, excludeLinkedInConnections?, maxPerCompany?,
+      // GetLeads only (moved under advanced.getleads by Max):
+      technologies?, companyHqCountries?, excludeJobTitles?, excludeIndustries?,
+      foundedYearMin?, foundedYearMax?, totalFundingMin?, totalFundingMax?,
+      employeeGrowthMin?, employeeGrowthMax?, jobStartedWithinMonths? (1-120),
+      advanced?: { getleads?: {...API names}, explorium?: {...} }
     },
     provider?: "getleads" | "explorium",   // pin one; omit for the chain
     icp_id?: uuid, idempotency_key?: string
@@ -571,9 +582,22 @@ POST   /api/v1/prospect-lists/auto/create-list
   Response: { data: ProspectList } (status: "pending", search_source: "auto")
 
 POST   /api/v1/organizations/search
-  Bounded, unsaved company search preview (1–25 rows). Scope: organizations:read
+  Bounded, unsaved company search preview (1–25 rows), in the order a list runs.
+  Scope: organizations:read
   Body: { criteria: UnifiedOrgSearchCriteria, provider?: "getleads"|"explorium", limit? }
-  Response: { data: Company[], provider, attempts, dropped_filters }
+  UnifiedOrgSearchCriteria (camelCase, all optional; ≥1 targeting field):
+    companyNames? (GetLeads: up to 20, one request each), industries?,
+    locations? (GetLeads: countries → HQ, cities/states → offices),
+    companySize?: {min,max}, companyRevenue?, companyAge? (e.g. ["3-6","20+"]),
+    technologies?, domains? (or LinkedIn company pages), excludeDomains?,
+    numberOfLocations?, websiteKeywords?, intent?, intentTopics?, enrichments?,
+    limit?, excludeExistingOrganizations?,
+    advanced?: { getleads?: {...API names}, explorium?: {...} }
+      // GetLeads company-profile filters (company_description, specialties,
+      // naics_codes, sic_codes, crunchbase_categories, office_*,
+      // company_linkedin_urls) target on their own; any GetLeads-only filter
+      // keeps an unpinned search off Explorium.
+  Response: { data: Company[], provider, via?, attempts, dropped_filters }
 
 POST   /api/v1/organizations/search/create-list
   Saved company list from unified criteria (async). Scope: prospect-lists:write
@@ -590,11 +614,21 @@ POST   /api/v1/getleads/people/create-list
   Create GetLeads-backed prospect list (async). Scope: prospect-lists:write
   Body: {
     list_name: string,
-    getleads_search_criteria: object,  // ≥1 of job_titles, seniority, countries,
-                                       // industries, domains; plus exclude_domains,
-                                       // company_size_min/max, verified_only,
-                                       // require_email, require_phone,
+    getleads_search_criteria: object,  // GetLeads contacts/search filter names.
+                                       // ≥1 targeting filter: job_titles, seniority,
+                                       // job_functions, countries, cities, states,
+                                       // continents, regions, industries, domains,
+                                       // company_linkedin_urls, technologies,
+                                       // headquarters_countries, office_countries.
+                                       // Qualifiers: revenue, company_size_min/max,
+                                       // founded_year_min/max, total_funding_*,
+                                       // employee_growth_rate_*, job_start_date_min,
+                                       // exclude_* (domains, job_titles, industries,
+                                       // countries, headquarters_countries),
+                                       // verified_only, require_email, require_phone,
                                        // max_per_company, searchLimit, ...
+                                       // Each value is validated and GetLeads' free
+                                       // count runs before the first paid page.
     data_supplier?: "personal",        // run on the workspace's own GetLeads key
     icp_id?: uuid,
     idempotency_key?: string
@@ -612,9 +646,10 @@ POST   /api/v1/getleads/people/add-more
 =============================================================================
 ### EXPLORIUM
 Prospect-search → contact enrichment → prospect-list ingestion (async).
-SECOND choice after GetLeads: use it for filters GetLeads cannot express (buyer
-intent, departments, revenue, website keywords, tech stack, enrichments) or when
-GetLeads returns nothing. Scope: prospect-lists:write
+SECOND choice after GetLeads: use it for what only Explorium filters on (buyer
+intent, website keywords, enrichments; number of locations for companies) or
+when GetLeads returns nothing. GetLeads filters on departments, revenue,
+technologies and company age itself. Scope: prospect-lists:write
 =============================================================================
 
 POST   /api/v1/explorium/people/create-list
