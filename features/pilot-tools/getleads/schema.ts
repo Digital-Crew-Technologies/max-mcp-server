@@ -51,7 +51,7 @@ export const getleadsCreateListSchema = z.object({
   employee_growth_rate_max: z.number().optional().describe("Maximum headcount growth rate"),
   job_start_date_min: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Only people who started their current role on or after this date (YYYY-MM-DD)"),
   verified_only: z.boolean().optional().describe("Only contacts with a VALID (verified) email"),
-  email_status: z.array(z.string()).optional().describe("Explicit GetLeads email statuses, e.g. [\"VALID\"]; ignored when verified_only is true"),
+  email_status: z.array(z.string()).optional().describe("Explicit GetLeads email statuses; GetLeads currently accepts only [\"VALID\"] (other values are dropped). Ignored when verified_only is true"),
   require_email: z.boolean().optional().describe("Only contacts with an email on record"),
   require_phone: z.boolean().optional().describe("Only contacts with a phone number on record"),
   max_per_company: z.number().int().min(1).max(50).optional().describe("Cap contacts kept per company (1–50)"),
