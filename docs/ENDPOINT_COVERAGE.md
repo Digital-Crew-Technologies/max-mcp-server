@@ -1,14 +1,14 @@
 # Endpoint coverage: max-agent API → MCP tools
 
-Last verified against max-agent `main` on 2026-09-22.
+Last verified against max-agent `main` on 2026-09-29.
 
 This is the current answer to "which max-agent endpoints can an MCP client
 reach, and which ones are left out on purpose". It replaces
 [`ENDPOINT_CHECKLIST.md`](ENDPOINT_CHECKLIST.md), a snapshot from the 64-tool era.
 The machine-generated list of every tool is [`tools.json`](tools.json).
 
-**Counts:** 419 tools carrying 445 operations with every flag on; 433 operations
-with the flags off. By default they are published as 35 grouped tools (see
+**Counts:** 430 tools carrying 456 operations with every flag on; 444 operations
+with the flags off. By default they are published as 36 grouped tools (see
 [ADR-006](adr/006-grouped-by-default-and-client-cap.md)).
 
 ## What "available" means
@@ -59,6 +59,7 @@ Paths are relative to `/api/v1`.
 | Prospect lists (`lists`) | {id}/organizations · {id}/prospects/ids · share link · linkedin/create-list |
 | Organizations (`organizations`) | geo-stats · geo-points · share link |
 | Calendar (`calendar`) | meetings/{id}/confirm, /decline, /reschedule, /attendance, /cancel-series · team-availability · calendar-sync accounts (list, disconnect), events (create, update, delete), sync-now |
+| Meeting links (`meetinglinks`, new) | Max's own booking pages: meeting-links (GET list, POST create) · meeting-links/{id} (GET, PATCH, DELETE) · meeting-links/{id}/submissions (the leads a page captured) · meeting-links/slug-suggestion. `create_meeting_link` never retries (a retry could publish a second page). Every page returned carries `booking_url`. |
 | Meeting hub (`meetings`) | calendar · coaching-library (read) · conversation-configuration (read) · conversation-intelligence (read) · feedback (read) · live-transcript · notes (list, add text, delete) · segments (batch correct) · summary/regenerate · POST sessions (manual meeting) · share link (revoke only) · Vexa bots (activity, meetings, transcripts, stop) |
 | Deals (`deals`, new) | deals CRUD, board-totals, move/win/lose, stage-events, deal prospects · deal pipelines, stages, reorder, stage rules · attachment metadata (list, delete) · sales-workspace · sales-catalog items, fields, deal line items |
 | Pipeline (`pipeline`, new) | pipelines, stages (+ reorder), stage rules (+ assignment preview), links, placements, campaign routes, canvas, journey, canvas drafts (CRUD, diff, validate, rebase, publish, publications, rollback) |
@@ -94,6 +95,7 @@ Paths are relative to `/api/v1`.
 | webhooks/outbound/* | `requireWorkspaceAdmin` without `allowApiKey`, so every API key gets 403 (the `webhooks:*` scopes do not help) |
 | webhooks/ingest/*, webhooks/automations/*, automations/{id}/webhook-token/rotate | Inbound receivers, or return a plaintext credential |
 | calendar event-types, schedules, team, team-event-types | Signed-in admin only |
+| booking/{slug}, /lead, /answers, /slots, /book | A booking page's public visitor flow: no key, per-network rate limits, and later steps authorized by the visitor's own token. An agent never fills a page in on a lead's behalf |
 | calendar/overlay, integrations/google-calendar/connect, integrations/microsoft-calendar/connect | JWT-only / browser OAuth |
 | custom-fields writes, data-quality settings PUT, workspace members/roles/digital-workers writes, crew-rates PUT | Signed-in admin only |
 | data-quality/merge, workspace-agents writes, workspace-agents/me, workspace-intel GET | JWT-only, or `can_edit=false` for API keys |

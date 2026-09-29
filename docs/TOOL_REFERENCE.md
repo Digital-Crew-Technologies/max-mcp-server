@@ -1,6 +1,6 @@
 # MCP Tool Reference
 
-Catalog of the operations exposed by `max-mcp-server` up to the 163-operation release. The server now carries **445** operations with all feature flags on (`ENABLE_ADMIN_TOOLS`, `ENABLE_WEBHOOK_SIMULATORS`, `ENABLE_PURCHASE_TOOLS`) and 433 without them. The domains and tools added since are listed, with their endpoints, in [`ENDPOINT_COVERAGE.md`](./ENDPOINT_COVERAGE.md); every tool is in [`tools.json`](./tools.json).
+Catalog of the operations exposed by `max-mcp-server` up to the 163-operation release. The server now carries **456** operations with all feature flags on (`ENABLE_ADMIN_TOOLS`, `ENABLE_WEBHOOK_SIMULATORS`, `ENABLE_PURCHASE_TOOLS`) and 444 without them. The domains and tools added since are listed, with their endpoints, in [`ENDPOINT_COVERAGE.md`](./ENDPOINT_COVERAGE.md); every tool is in [`tools.json`](./tools.json).
 
 Each entry below is named by its **flat** name. Under the default grouped configuration an operation is reached as an `action` on its domain tool — `list_chats` is `unibox` with `action: "list_chats"` — except LinkedIn, whose actions keep short names (`linkedin` with `action: "get_profile"`). Set `GROUPED_TOOLS=false` to register these as flat tools instead, at the cost of overflowing the client's catalog cap. See [ADR-006](./adr/006-grouped-by-default-and-client-cap.md). The machine-generated source of truth is [`docs/tools.json`](./tools.json) (regenerate with `npm run docs:tools`; CI enforces sync via `npm run docs:check`). Each entry below includes the underlying HTTP endpoint and a one-line description; legacy domains also list the required scope.
 
@@ -257,6 +257,22 @@ Proxy to the Claire research hub via max-agent. These max-agent routes are sessi
 | `send_booking_link` | `POST /api/v1/calendar/booking-link` | Compose the rep's public Cal.com booking link so it can be shared with a prospect. |
 | `get_upcoming_meetings` | `GET /api/v1/calendar/meetings` | List upcoming non-cancelled meetings ordered by start time ascending. |
 | `cancel_meeting` | `POST /api/v1/calendar/meetings/:id/cancel` | Cancel a recorded meeting by its meetings.id UUID. |
+
+---
+
+## Meeting links (7)
+
+Max's own booking pages (Meetings › Meeting links, public at `<app>/book/<slug>`), grouped as `meetinglinks`. Scopes `prospects:read` / `prospects:write`: a page captures leads into the CRM. Every page returned carries `booking_url`.
+
+| Tool | Backend | Description |
+|---|---|---|
+| `list_meeting_links` | `GET /api/v1/meeting-links` | The workspace's booking pages with hosts, per-status lead counts and `booking_url`. |
+| `get_meeting_link` | `GET /api/v1/meeting-links/:id` | One page, with `team`: the members who can host it and their calendars. |
+| `create_meeting_link` | `POST /api/v1/meeting-links` | Publish a page; only `title` and `time_zone` are required. Never retried. |
+| `update_meeting_link` | `PATCH /api/v1/meeting-links/:id` | Change any subset of settings; `weekly_hours`, `fields` and `hosts` replace the stored value. |
+| `delete_meeting_link` | `DELETE /api/v1/meeting-links/:id` | Delete a page and its submissions; the CRM people stay. |
+| `list_meeting_link_submissions` | `GET /api/v1/meeting-links/:id/submissions` | The leads a page captured, booked or not, with answers and the lead's time zone. |
+| `suggest_meeting_link_slug` | `GET /api/v1/meeting-links/slug-suggestion?title=` | A free address drawn from a title. |
 
 ---
 

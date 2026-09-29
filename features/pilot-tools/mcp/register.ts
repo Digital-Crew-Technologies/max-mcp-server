@@ -20,6 +20,7 @@ import { registerIntentTools } from "../intent/tools";
 import { registerInboxTools } from "../inbox/tools";
 import { registerCrmTools } from "../crm/tools";
 import { registerCalendarTools } from "../calendar/tools";
+import { registerMeetingLinkTools } from "../meeting-links/tools";
 import { registerMeetingTools } from "../meetings/tools";
 import { registerTaskTools } from "../tasks/tools";
 import { registerEmailAnalyticsTools } from "../email-analytics/tools";
@@ -217,8 +218,14 @@ const GROUPS: GroupDef[] = [
   {
     name: "calendar",
     blurb:
-      "Scheduling: Cal.com booking (connect, availability, propose times, book, booking link, list meetings, confirm/decline/reschedule/cancel/cancel-series, no-show attendance) plus synced Google/Outlook calendars (list/disconnect accounts, sync now, create/update/delete events, team free/busy).",
+      "Scheduling: Cal.com booking (connect, availability, propose times, book, booking link, list meetings, confirm/decline/reschedule/cancel/cancel-series, no-show attendance) plus synced Google/Outlook calendars (list/disconnect accounts, sync now, create/update/delete events, team free/busy). Max's own booking pages are meetinglinks.",
     register: registerCalendarTools,
+  },
+  {
+    name: "meetinglinks",
+    blurb:
+      "Max's own booking pages — meeting links, also called booking links or the scheduler, public at <app>/book/<slug>; no Cal.com needed (that is calendar): list, read, create, update, unpublish and delete pages (weekly hours in the host's time zone, duration, notice, qualifying questions, hosts booked together or dispatched by round robin / least busy / AI), and list the leads each page captured with their time zone. Every page carries booking_url to share.",
+    register: registerMeetingLinkTools,
   },
   {
     name: "crm",
