@@ -16,6 +16,7 @@ import {
 } from "../sourcing/tools";
 import { registerClaireTools } from "../claire/tools";
 import { registerEnrichmentTools } from "../enrichment/tools";
+import { registerFullenrichTools } from "../fullenrich/tools";
 import { registerIntentTools } from "../intent/tools";
 import { registerInboxTools } from "../inbox/tools";
 import { registerCrmTools } from "../crm/tools";
@@ -274,7 +275,7 @@ const GROUPS: GroupDef[] = [
   {
     name: "claire",
     blurb:
-      "Claire market research: web search, deep research, market watch, competitor finding, prospect extraction from a URL, and single-person enrichment. Several of these cost credits per call.",
+      "Claire market research: web search, deep research, market watch, competitor finding, prospect extraction from a URL. Several of these cost credits per call. Person data enrichment uses the separate individual fullenrich_* tools.",
     register: registerClaireTools,
   },
   {
@@ -344,6 +345,10 @@ export function registerPilotMcpTools(server: McpServer): void {
   // flat back-compat name to preserve.
   registerMeetingTools(server);
   registerTaskTools(server);
+
+  // Category lookups intentionally remain individual in every mode. Provider
+  // credentials live in Max's backend; these tools only proxy caller auth.
+  registerFullenrichTools(server);
 
   if (process.env.ENABLE_ADMIN_TOOLS === "true") {
     if (mode === "flat") registerAdminTools(server);

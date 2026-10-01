@@ -270,12 +270,6 @@
     "operations": 1
   },
   {
-    "name": "claire_enrich_person",
-    "title": "Enrich a person (BILLED per lookup)",
-    "description": "Resolve one person to their current title, seniority, employer (with headcount), location, dated career history and education — and optionally their work email and phone. COSTS CREDITS ON EVERY CALL, including when nothing is found: narrowing `sections` changes what comes back, not what it costs, so do not call this to browse or to check whether someone exists. Identify them with a LinkedIn URL, a work email, or a name PLUS a company or domain; a bare name is refused, because it matches the wrong person and is billed anyway. Add 'contact' to `sections` only when you intend to reach out — it runs a paid email/phone waterfall on top of the profile. Known gaps: `skills` is usually empty and there is no buyer-intent data, so do not retry hoping to fill them.",
-    "operations": 1
-  },
-  {
     "name": "claire_extract_prospects_from_url",
     "title": "Extract prospects from a URL via Claire",
     "description": "Fetch a public URL (conference attendee list, team / about page, press release, panel announcement, etc.) and extract structured prospects (people / contacts) from it via Claire. Returns { prospects:[{ name, title, company, linkedin_url?, email?, ... }], source_url, extracted_count, claire_request_id? }. Use when the user pastes a URL and asks to 'find leads here' / 'build a list from this page'. Pair with create_prospect or import_prospect_list_csv to persist the result.",
@@ -747,6 +741,60 @@
     "name": "explorium_create_list",
     "title": "Create Explorium prospect list",
     "description": "SECOND CHOICE after getleads_create_list: create an Explorium-backed prospect (people) list (async). Use for what only Explorium filters on (buyer intent, website keywords, enrichments) or when GetLeads returned nothing; GetLeads handles departments and revenue itself. People search → enrichment → ingestion; ~100× GetLeads' cost. Returns a pending list; poll with wait_for_prospect_list.",
+    "operations": 1
+  },
+  {
+    "name": "fullenrich_career",
+    "title": "Find career with FullEnrich",
+    "description": "Current/past employers, titles, seniority, job functions, role descriptions and employment dates. PAID LOOKUP: can charge workspace/provider credits, including email identity resolution; requesting another category can create another paid job. Coverage varies; unavailable fields may be empty. Returns a Max job (202 pending or 200 completed) with status, phase, categories, matched, result and credit totals. Poll fullenrich_get_job until completed or failed; do not repeat this paid tool to poll. Supply request_id to recover an identical request. Max stores the result in the job; this tool does not automatically update a saved prospect.",
+    "operations": 1
+  },
+  {
+    "name": "fullenrich_company",
+    "title": "Find company with FullEnrich",
+    "description": "Company name, ID, website/domain, description, logo, industry, specialties, type, founding year, employee count/range, LinkedIn details, followers, headquarters and offices. PAID LOOKUP: can charge workspace/provider credits, including email identity resolution; requesting another category can create another paid job. Coverage varies; unavailable fields may be empty. Returns a Max job (202 pending or 200 completed) with status, phase, categories, matched, result and credit totals. Poll fullenrich_get_job until completed or failed; do not repeat this paid tool to poll. Supply request_id to recover an identical request. Max stores the result in the job; this tool does not automatically update a saved prospect.",
+    "operations": 1
+  },
+  {
+    "name": "fullenrich_education_skills",
+    "title": "Find education and skills with FullEnrich",
+    "description": "Schools, degrees, education dates, declared skills, languages and proficiency. PAID LOOKUP: can charge workspace/provider credits, including email identity resolution; requesting another category can create another paid job. Coverage varies; unavailable fields may be empty. Returns a Max job (202 pending or 200 completed) with status, phase, categories, matched, result and credit totals. Poll fullenrich_get_job until completed or failed; do not repeat this paid tool to poll. Supply request_id to recover an identical request. Max stores the result in the job; this tool does not automatically update a saved prospect.",
+    "operations": 1
+  },
+  {
+    "name": "fullenrich_emails",
+    "title": "Find emails with FullEnrich",
+    "description": "Work and personal email candidates, verification status and recommended best email. PAID LOOKUP: can charge workspace/provider credits, including email identity resolution; requesting another category can create another paid job. Coverage varies; unavailable fields may be empty. Returns a Max job (202 pending or 200 completed) with status, phase, categories, matched, result and credit totals. Poll fullenrich_get_job until completed or failed; do not repeat this paid tool to poll. Supply request_id to recover an identical request. Max stores the result in the job; this tool does not automatically update a saved prospect.",
+    "operations": 1
+  },
+  {
+    "name": "fullenrich_get_job",
+    "title": "Get FullEnrich category lookup job",
+    "description": "Poll a Max FullEnrich job by job_id. Returns status, phase, categories, matched, result, provider_credits, credits_charged and error_message. Read-only: polls the existing provider job without creating a new paid enrichment. Pending identity resolution may advance the previously requested paid lookup. Jobs are isolated to the authenticated workspace. Continue polling until completed or failed; never resubmit a category tool just to check status.",
+    "operations": 1
+  },
+  {
+    "name": "fullenrich_identity",
+    "title": "Find identity with FullEnrich",
+    "description": "Full name, first/last name, professional headline and profile description. PAID LOOKUP: can charge workspace/provider credits, including email identity resolution; requesting another category can create another paid job. Coverage varies; unavailable fields may be empty. Returns a Max job (202 pending or 200 completed) with status, phase, categories, matched, result and credit totals. Poll fullenrich_get_job until completed or failed; do not repeat this paid tool to poll. Supply request_id to recover an identical request. Max stores the result in the job; this tool does not automatically update a saved prospect.",
+    "operations": 1
+  },
+  {
+    "name": "fullenrich_linkedin",
+    "title": "Find LinkedIn profile with FullEnrich",
+    "description": "LinkedIn profile URL, ID, handle and connection count. PAID LOOKUP: can charge workspace/provider credits, including email identity resolution; requesting another category can create another paid job. Coverage varies; unavailable fields may be empty. Returns a Max job (202 pending or 200 completed) with status, phase, categories, matched, result and credit totals. Poll fullenrich_get_job until completed or failed; do not repeat this paid tool to poll. Supply request_id to recover an identical request. Max stores the result in the job; this tool does not automatically update a saved prospect.",
+    "operations": 1
+  },
+  {
+    "name": "fullenrich_location",
+    "title": "Find location with FullEnrich",
+    "description": "City, state/region, country and country code. PAID LOOKUP: can charge workspace/provider credits, including email identity resolution; requesting another category can create another paid job. Coverage varies; unavailable fields may be empty. Returns a Max job (202 pending or 200 completed) with status, phase, categories, matched, result and credit totals. Poll fullenrich_get_job until completed or failed; do not repeat this paid tool to poll. Supply request_id to recover an identical request. Max stores the result in the job; this tool does not automatically update a saved prospect.",
+    "operations": 1
+  },
+  {
+    "name": "fullenrich_phones",
+    "title": "Find phones with FullEnrich",
+    "description": "Phone numbers, country/region, line type and active status; ownership confidence and pickup likelihood where available. PAID LOOKUP: can charge workspace/provider credits, including email identity resolution; requesting another category can create another paid job. Coverage varies; unavailable fields may be empty. Returns a Max job (202 pending or 200 completed) with status, phase, categories, matched, result and credit totals. Poll fullenrich_get_job until completed or failed; do not repeat this paid tool to poll. Supply request_id to recover an identical request. Max stores the result in the job; this tool does not automatically update a saved prospect.",
     "operations": 1
   },
   {
