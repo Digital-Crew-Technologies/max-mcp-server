@@ -722,7 +722,7 @@
   {
     "name": "enrich_prospect_with_claire",
     "title": "Enrich prospect with Claire",
-    "description": "Resolve one prospect through Claire and fill missing/wrong fields (conflicts saved as alternates). CHARGES CREDITS on every lookup, even a miss; a complete record returns skipped:true free. 402 = insufficient credits. Synchronous, up to ~2 min.",
+    "description": "Enrich a saved prospect using Max-owned FullEnrich jobs. Optional categories select exactly which data is saved or kept as alternates; valid primary values and unchecked data are preserved. Omit categories for automatic gap selection (complete records skip free). PAID LOOKUP: provider work may charge credits even without a match; 402 means insufficient credits. Returns pending and enrichmentId while running. Poll fullenrich_get_job with job_id=enrichmentId every 30 seconds until completed or failed; never repeat this paid tool to poll. Same categories resume an active job; different categories return 409. Identity discovery may still be needed to locate the person. Requires People write and full field access.",
     "operations": 1
   },
   {

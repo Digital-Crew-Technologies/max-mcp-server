@@ -97,6 +97,16 @@ export const prospectIdSchema = z.object({
   id: prospectId,
 });
 
+/** Same selected-category contract as Max's saved-person button. */
+export const claireEnrichProspectSchema = z.object({
+  ...withToken,
+  id: prospectId,
+  categories: z.array(z.enum(["emails", "phones", "identity", "linkedin", "career", "education-skills", "location", "company"]))
+    .min(1).max(8).refine(values => new Set(values).size === values.length, "Choose each category once")
+    .optional().describe("Unique categories to enrich and save. Omit for automatic missing/invalid-field selection."),
+}).strict();
+export type ClaireEnrichProspectBody = Omit<z.infer<typeof claireEnrichProspectSchema>, "bearer_token" | "id">;
+
 const hookSourceEnum = z
   .enum(["all", "linkedin", "twitter", "instagram", "facebook", "tiktok", "youtube"])
   .describe("Platform to poll (scrapecreators hooks; default all)");

@@ -123,9 +123,16 @@ export function registerProspectTools(server: McpServer): void {
 
   server.registerTool("enrich_prospect_with_claire", {
     title: "Enrich prospect with Claire",
-    description: "Resolve one prospect through Claire and fill missing/wrong fields (conflicts saved as alternates). CHARGES CREDITS on every lookup, even a miss; a complete record returns skipped:true free. 402 = insufficient credits. Synchronous, up to ~2 min.",
-    inputSchema: S.prospectIdSchema,
-  }, async (input) => callApi(input.bearer_token, (t) => repo.claireEnrichProspect(t, input.id)));
+    description: "Enrich a saved prospect using Max-owned FullEnrich jobs. Optional categories select exactly which data is saved or kept as alternates; valid primary values and unchecked data are preserved. Omit categories for automatic gap selection (complete records skip free). PAID LOOKUP: provider work may charge credits even without a match; 402 means insufficient credits. Returns pending and enrichmentId while running. Poll fullenrich_get_job with job_id=enrichmentId every 30 seconds until completed or failed; never repeat this paid tool to poll. Same categories resume an active job; different categories return 409. Identity discovery may still be needed to locate the person. Requires People write and full field access.",
+    inputSchema: S.claireEnrichProspectSchema,
+    _strictInputSchema: S.claireEnrichProspectSchema,
+    annotations: {readOnlyHint: false, idempotentHint: false, destructiveHint: false},
+  }, async (input) => {
+    const parsed = S.claireEnrichProspectSchema.safeParse(input);
+    if (!parsed.success) return {content: [{type: "text" as const, text: `Invalid arguments: ${parsed.error.issues.map(issue => `${issue.path.join(".") || "(root)"}: ${issue.message}`).join("; ")}`}], isError: true};
+    const {bearer_token, id, ...body} = parsed.data;
+    return callApi(bearer_token, token => repo.claireEnrichProspect(token, id, body));
+  });
 
   server.registerTool("create_prospect_intelligence_watchers", {
     title: "Create prospect research watchers",

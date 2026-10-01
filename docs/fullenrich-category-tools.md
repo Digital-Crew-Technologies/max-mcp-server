@@ -65,3 +65,31 @@ safe retry policy. The server does not read or expose a FullEnrich API key.
 Deploy the Max backend endpoints before publishing this MCP tool catalog.
 Account-level coverage and actual paid provider behavior require authenticated
 production verification; unit tests mock Max HTTP responses and spend nothing.
+
+## Enrich a saved person with Claire
+
+`enrich_prospect_with_claire` keeps the People button's label while calling
+Max-owned FullEnrich jobs through `POST /api/v1/prospects/:id/claire-enrich`.
+Pass the saved person's `id` and optional `categories`, for example
+`["emails","phones"]`. Supported categories are the eight listed above.
+Selections must be nonempty, unique and supported, and are validated before
+HTTP. Only the category selection goes into the body; workspace IDs and
+provider credentials are never forwarded. The caller
+needs People write and full People field access. Max derives the workspace
+from that caller's authentication.
+
+Only selected data is saved to CRM fields, alternates and the CRM provider-data
+envelope. Existing valid values and unchecked categories are preserved.
+Omitting categories keeps automatic gap selection, including a free skip for
+complete records. Explicit selection can request an already populated category.
+Identity discovery can still be needed for a contact lookup.
+
+The response is passed through unchanged. While `data.pending` is true, use
+`data.enrichmentId` as `job_id` for `fullenrich_get_job`, checking every 30
+seconds until completed or failed. Saved-person job reads include `person_result`
+with findings and saved fields. Do not repeat the paid start tool to poll.
+The same category set resumes an active saved-person job; a different set
+returns 409 without submitting another lookup. Paid POSTs remain non-retrying.
+
+Deploy the Max selection backend (max-agent PR #1095) before this MCP adapter.
+The adapter uses caller authentication only; the FullEnrich key stays in Max.
