@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { z } from "zod";
 import type { McpServer } from "@/features/pilot-tools/shared";
+import { registerAsGroup } from "@/features/pilot-tools/mcp/group-adapter";
 import { registerProspectTools } from "@/features/pilot-tools/prospects/tools";
 
 type Captured = {
@@ -12,14 +13,15 @@ type Captured = {
   }>;
 };
 
-function capture(): Captured[] {
+function capture(grouped = false): Captured[] {
   const tools: Captured[] = [];
   const server: McpServer = {
     registerTool(name, config, handler) {
       tools.push({ name, config, handler });
     },
   };
-  registerProspectTools(server);
+  if (grouped) registerAsGroup(server, "prospects", "People tools", registerProspectTools);
+  else registerProspectTools(server);
   return tools;
 }
 
@@ -161,6 +163,47 @@ describe("prospect tool handlers", () => {
     expect(res.content[0].text).toContain("402");
     expect(f).toHaveBeenCalledTimes(1);
     expect(calledUrl(f).pathname).toBe(`/api/v1/prospects/${PID}/claire-enrich`);
+  });
+
+  it("forwards exactly selected saved-person categories and keeps auth out of the body", async () => {
+    const pending = {data: {pending: true, enrichmentId: HOOK, requestedCategories: ["phones"]}};
+    const f = mockFetch(pending);
+    const res = await tool("enrich_prospect_with_claire").handler({bearer_token: "caller-token", id: PID, categories: ["phones"]});
+    expect(JSON.parse(res.content[0].text)).toEqual(pending);
+    expect(calledBody(f)).toEqual({categories: ["phones"]});
+    expect(f.mock.calls[0][1]?.headers).toEqual({Authorization: "Bearer caller-token", "Content-Type": "application/json"});
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+  it("omits category selection for legacy automatic-gap clients", async () => {
+    const f = mockFetch({data: {skipped: true}});
+    await tool("enrich_prospect_with_claire").handler({bearer_token: "tok", id: PID});
+    expect(calledBody(f)).toEqual({});
+  });
+  it.each([{categories: []}, {categories: ["phones", "phones"]}, {categories: ["unknown"]}, {categories: ["phones"], workspace_id: PID}, {categories: ["phones"], FULLENRICH_API_KEY: "must-not-forward"}])("rejects invalid selection before HTTP: %j", async extra => {
+    const f = mockFetch({});
+    const res = await tool("enrich_prospect_with_claire").handler({bearer_token: "tok", id: PID, ...extra});
+    expect(res.isError).toBe(true); expect(f).not.toHaveBeenCalled();
+    expect(res.content[0].text).not.toContain("must-not-forward");
+  });
+  it.each([409, 429, 503, 504])("never retries a selected paid POST on status %s", async status => {
+    const f = mockFetch({error: "lookup error"}, {status});
+    const res = await tool("enrich_prospect_with_claire").handler({bearer_token: "tok", id: PID, categories: ["phones"]});
+    expect(res.isError).toBe(true); expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it("forwards selected categories through the default grouped prospects action", async () => {
+    const f = mockFetch({data: {pending: true, enrichmentId: HOOK}});
+    const grouped = capture(true).find(entry => entry.name === "prospects")!;
+    const res = await grouped.handler({action: "enrich_prospect_with_claire", bearer_token: "tok", id: PID, categories: ["identity", "career"]});
+    expect(res.isError).toBeUndefined();
+    expect(calledBody(f)).toEqual({categories: ["identity", "career"]});
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+  it.each([{categories: []}, {categories: ["phones", "phones"]}, {categories: ["unsupported"]}])("validates grouped category selection before HTTP: %j", async ({categories}) => {
+    const f = mockFetch({});
+    const grouped = capture(true).find(entry => entry.name === "prospects")!;
+    const res = await grouped.handler({action: "enrich_prospect_with_claire", bearer_token: "tok", id: PID, categories});
+    expect(res.isError).toBe(true); expect(f).not.toHaveBeenCalled();
   });
 
   it("revoke_prospect_share_link → DELETE /prospects/:id/share-link", async () => {

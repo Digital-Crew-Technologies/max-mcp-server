@@ -1,3 +1,4 @@
+import type { ClaireEnrichProspectBody } from "./schema";
 import { apiUrl, authHeaders, buildQuery, fetchWithRetry } from "../shared";
 
 export async function listProspects(
@@ -123,10 +124,10 @@ export async function runProspectProfileHook(token: string, id: string, hookId: 
   );
 }
 
-export async function claireEnrichProspect(token: string, id: string): Promise<Response> {
+export async function claireEnrichProspect(token: string, id: string, body: ClaireEnrichProspectBody = {}): Promise<Response> {
   return fetchWithRetry(
     apiUrl(`${prospectPath(id)}/claire-enrich`),
-    { method: "POST", headers: authHeaders(token) },
+    { method: "POST", headers: authHeaders(token), body: JSON.stringify(body) },
     LONG_RUN,
   );
 }
