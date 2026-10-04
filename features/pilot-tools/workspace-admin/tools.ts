@@ -152,7 +152,7 @@ export function registerWorkspaceAdminTools(server: McpServer): void {
     {
       title: "List workspace members",
       description:
-        "List human members and pending invites. Returns {data: [{id, user_id, name, email, role, custom_role, status, access_mode, is_admin, permissions, invited_at, joined_at}]}.",
+        "List human members and pending invites (who is online now: list_sales_os_crew). Returns {data: [{id, user_id, name, email, role, custom_role, status, access_mode, is_admin, permissions, invited_at, joined_at}]}.",
       inputSchema: S.noArgsSchema,
       ...toolHints.readOnly,
     },
@@ -188,7 +188,7 @@ export function registerWorkspaceAdminTools(server: McpServer): void {
     {
       title: "List digital workers",
       description:
-        "List the workspace's digital workers (AI crew members) with status, role, access mode and permissions. Returns {data: DigitalWorker[]}.",
+        "List the workspace's digital workers (AI crew members) with status, role, access mode and permissions (what they are doing now: list_sales_os_crew). Returns {data: DigitalWorker[]}.",
       inputSchema: S.noArgsSchema,
       ...toolHints.readOnly,
     },

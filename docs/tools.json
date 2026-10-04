@@ -24,6 +24,12 @@
     "operations": 1
   },
   {
+    "name": "add_sales_os_desktop_item",
+    "title": "Add Sales OS desktop item",
+    "description": "Add a sticky note (text), a shortcut to a Max page (href, e.g. /campaigns/42) or a folder (name) to the member's own Sales OS desktop or into a folder; the same shortcut already there returns its id with created: false. Needs a personal API key with sales_os:write (the shared \"Max MCP\" key gets 403 PERSONAL_KEY_REQUIRED) or Max's in-app chat. 404 FOLDER_NOT_FOUND, 413 DESKTOP_FULL, 409 REVISION_CONFLICT (desktop kept changing; try again later). Never retried. Returns {data: {id, created, revision}}.",
+    "operations": 1
+  },
+  {
     "name": "agent_draft_create",
     "title": "Create an agent action draft",
     "description": "Stage an action (e.g. send a nudge, upsert a CRM contact, export a CSV) as a PENDING draft in the workspace for the human to approve. The draft is persisted in max-agent's agent_action_drafts table; nothing runs until the human approves. Returns { draft_id, state:'pending', review_url }. AFTER CREATING, POST THE RETURNED review_url (or a link to the agent drafts view in the workspace UI) TO THE USER'S CHAT CHANNEL SO THEY CAN APPROVE. Use this whenever an agent wants to take a write action on the user's behalf but the user hasn't pre-authorized the specific instance.",
@@ -1454,7 +1460,7 @@
   {
     "name": "list_digital_workers",
     "title": "List digital workers",
-    "description": "List the workspace's digital workers (AI crew members) with status, role, access mode and permissions. Returns {data: DigitalWorker[]}.",
+    "description": "List the workspace's digital workers (AI crew members) with status, role, access mode and permissions (what they are doing now: list_sales_os_crew). Returns {data: DigitalWorker[]}.",
     "operations": 1
   },
   {
@@ -1596,6 +1602,18 @@
     "operations": 1
   },
   {
+    "name": "list_sales_os_crew",
+    "title": "List Sales OS crew",
+    "description": "Who on the team is active now vs inactive — people, Max, digital workers and connected agents — with status (people: online/idle/away/offline/hidden; AI: working/active/ready/paused/error/offline), activity and lastSeenAt, active first. Scope workspace:read. Returns {data: {members: [{key, kind, id, name, role, ai, status, active, activity, lastSeenAt}], counts, live, generatedAt}}.",
+    "operations": 1
+  },
+  {
+    "name": "list_sales_os_desktop_items",
+    "title": "List Sales OS desktop items",
+    "description": "List the member's own Sales OS desktop — its top-level items and widgets — or one folder's direct children: folders (childCount), shortcuts to Max pages (kind, href), sticky notes (text, ≤500-char preview), files and shared folders; trashed items are left out. Needs a personal API key with sales_os:read (the shared \"Max MCP\" key gets 403 PERSONAL_KEY_REQUIRED) or Max's in-app chat. 404 FOLDER_NOT_FOUND. Returns {data: {revision, folderId, items: [{id, type, name, parentId, …}], widgets?}}.",
+    "operations": 1
+  },
+  {
     "name": "list_saved_views",
     "title": "List saved views",
     "description": "List one surface's saved views in tab order (workspace-shared plus your private ones). Returns {data: SavedView[]} with name, visibility, is_default, position, config.",
@@ -1652,7 +1670,7 @@
   {
     "name": "list_workspace_members",
     "title": "List workspace members",
-    "description": "List human members and pending invites. Returns {data: [{id, user_id, name, email, role, custom_role, status, access_mode, is_admin, permissions, invited_at, joined_at}]}.",
+    "description": "List human members and pending invites (who is online now: list_sales_os_crew). Returns {data: [{id, user_id, name, email, role, custom_role, status, access_mode, is_admin, permissions, invited_at, joined_at}]}.",
     "operations": 1
   },
   {
@@ -2175,6 +2193,12 @@
     "name": "run_prospect_profile_hook",
     "title": "Run prospect profile hook now",
     "description": "Run a profile hook immediately (synchronous, up to ~5 min). May charge credits for the provider work. Returns {status, activitiesWritten, summary}.",
+    "operations": 1
+  },
+  {
+    "name": "sales_os_crew_check_in",
+    "title": "Check in to the Sales OS crew",
+    "description": "Tell the team what this AI agent is doing so it shows as active in the Crew widget: call at the start of a work session and whenever the activity changes (state busy while working), and with state offline when done. Repeats within 10 s are coalesced (throttled: true); over 30 calls/min → 429 RATE_LIMITED. worker_id: 404 WORKER_NOT_FOUND, 409 WORKER_PAUSED. API-key connections only (a signed-in session gets 400). Scope workspace:write. Never retried. Returns {data: {recorded, member?}}.",
     "operations": 1
   },
   {

@@ -45,6 +45,7 @@ import { registerAutomationTools } from "../automations/tools";
 import { registerPipelineWebhookTools } from "../pipeline-webhooks/tools";
 import { registerViewTools } from "../views/tools";
 import { registerWorkspaceAdminTools } from "../workspace-admin/tools";
+import { registerSalesOsTools } from "../sales-os/tools";
 import { registerAdminTools } from "../admin/tools";
 import { registerWebhookTools } from "../webhooks/tools";
 
@@ -310,6 +311,12 @@ const GROUPS: GroupDef[] = [
     blurb:
       "Workspace: WHICH workspace this connection is bound to (a Max API key reaches exactly one — check before writing when the user names a workspace), plus settings and admin reads: custom-field definitions, BYO data suppliers, duplicate detection, agent config, members/roles/crew rates/digital workers, wallet balances and spend, Max chat history, and generating workspace intel (costs credits).",
     register: registerWorkspaceAdminTools,
+  },
+  {
+    name: "salesos",
+    blurb:
+      "Sales OS team and desktop: who on the crew (people, Max, digital workers, connected agents) is active now vs inactive, checking this agent in so the team sees what it is doing, and listing or adding notes, shortcuts and folders on the member's own desktop.",
+    register: registerSalesOsTools,
   },
 ];
 

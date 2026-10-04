@@ -13,6 +13,7 @@ The generated operation inventory lives in [`tools.json`](tools.json) — one ro
 | [`tools.json`](tools.json) | Generated tool inventory — the source of truth (`npm run docs:tools`) |
 | [`TOOL_REFERENCE.md`](TOOL_REFERENCE.md) | Catalog of every MCP tool — endpoint, scope, description |
 | [`ENDPOINT_COVERAGE.md`](ENDPOINT_COVERAGE.md) | Which max-agent endpoints are exposed, which are left out on purpose and why, the sourcing order, and known gaps |
+| [`sales-os-tools.md`](sales-os-tools.md) | Sales OS crew and desktop tools: contract, scopes, personal-key requirement, deployment order |
 | [`ENDPOINT_CHECKLIST.md`](ENDPOINT_CHECKLIST.md) | Master inventory of max-agent endpoints with MCP coverage + verification status (snapshot from the 64-tool era) |
 | [`TESTING.md`](TESTING.md) | How to verify each endpoint works; coverage matrix |
 | [`TOOL_AUDIT.md`](TOOL_AUDIT.md) | Auto-generated per-tool test report (snapshot; regenerate with `node scripts/audit-endpoints.mjs`) |
@@ -64,7 +65,7 @@ features/pilot-tools/
 │   calendar,meeting-links,meetings,tasks,email-analytics,crm,
 │   deals,pipeline,
 │   automations,pipeline-webhooks,notion,agent-drafts,linkedin,
-│   views,workspace-admin,webhooks}/
+│   views,workspace-admin,sales-os,webhooks}/
 │   ├── repository.ts         # API call functions
 │   ├── schema.ts             # Zod input schemas
 │   └── tools.ts              # register*Tools(server)

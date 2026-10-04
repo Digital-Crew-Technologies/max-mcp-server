@@ -70,6 +70,7 @@ Paths are relative to `/api/v1`.
 | Webhooks (`webhooks`, new) | pipeline/webhooks CRUD, rotate, test, deliveries, replay · pipeline/webhook-routes CRUD + reorder |
 | ICP (`icp`, new) | icp CRUD · links (list, create, delete, reverse lookup) · generate |
 | Saved views (`views`, new) | views CRUD |
+| Sales OS (`salesos`, new) | sales-os/crew (GET roster) · sales-os/crew/check-in (POST, always `client: "mcp"`, never retried) · sales-os/items (GET listing, POST add, never retried). The items routes need a personal API key with `sales_os:*`; the shared "Max MCP" key gets 403. See [`sales-os-tools.md`](sales-os-tools.md). |
 | Workspace (`workspace`, new) | `get_current_workspace` → GET api-keys/verify (which workspace this key reaches, with its name) · custom-fields (read) · data-suppliers (list, config, disconnect) · data-quality duplicates (list, dismiss, scan) and settings (read) · workspace-agents (read) · workspace-intel/generate · members, roles, crew-rates, digital-workers (read) · billing/workspace-wallet, budgets, consumption, gifts (read) · agent/sessions and their messages |
 | Accounts (`accounts`) | accounts/sync · workspace/account-shares (read) |
 | Deliverability (`deliverability`, new) | inbox placements · warm-up health · warm-up (list, pricing, update, cancel, sync) · Mailpool domains (list, search), pricing, orders (list, sync). **Behind `ENABLE_PURCHASE_TOOLS=true`:** POST warmup, POST warmup/{id}/resume, POST mailpool/orders |
@@ -112,6 +113,8 @@ Paths are relative to `/api/v1`.
 | icp/import, icp/import/upload-url | File flow (uploaded PDF) |
 | documents/*, sales-agents/*, sign/*, shared/* | JWT-only or public token routes |
 | pipeline/transfer-destinations | Browser session only |
+| sales-os (GET/PUT whole desktop) | Personal keys can call it, but a read is up to 256 KiB and a save replaces the whole document; sales-os/items is the compact, one-item-at-a-time way in |
+| sales-os/presence, sales-os/presence/token, sales-os/files*, sales-os/shared-folders* | Browser session only; the token is a Realtime credential and the file routes move bytes |
 | agent/chat, agent/chat/stream, bridge/*, hermes/chat, onboarding chat/runs, prospect-lists/talk | Max chat itself: streaming, and calling it from Max's own toolbox would recurse |
 | api-keys/*, notifications/*, workspace membership/invitation/switch/share routes, auth/* | JWT-only |
 | `*/cron/*`, `unipile/webhook/*`, `worker/*`, `internal/*`, `extension/telemetry`, `test/*` | Infrastructure |
