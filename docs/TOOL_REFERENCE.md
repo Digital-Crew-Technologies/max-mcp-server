@@ -298,6 +298,19 @@ Grouped tools. The `tasks` tool exposes actions `list`, `get`, `create_suggestio
 
 ---
 
+## Sales OS (4)
+
+Crew status and the member's own desktop, grouped as `salesos`. The crew tools use `workspace:read` / `workspace:write` and work with any workspace key, including the shared "Max MCP" key. The desktop tools use `sales_os:read` / `sales_os:write` and need a personal API key (the shared key gets 403 `PERSONAL_KEY_REQUIRED`) or a member's session. Contract: [`sales-os-tools.md`](./sales-os-tools.md).
+
+| Tool | Backend | Description |
+|---|---|---|
+| `list_sales_os_crew` | `GET /api/v1/sales-os/crew` | Who on the team (people, Max, digital workers, connected agents) is active now vs inactive, with status, activity and last seen. |
+| `sales_os_crew_check_in` | `POST /api/v1/sales-os/crew/check-in` | Put this agent on the roster with what it is doing; `state: "offline"` removes it. Always sends `client: "mcp"`. Never retried. |
+| `list_sales_os_desktop_items` | `GET /api/v1/sales-os/items` | The desktop's top-level items and widgets, or one folder's children. |
+| `add_sales_os_desktop_item` | `POST /api/v1/sales-os/items` | Add a sticky note, a shortcut to a Max route or a folder. Never retried. |
+
+---
+
 ## Email analytics (4)
 
 | Tool | Backend | Description |
