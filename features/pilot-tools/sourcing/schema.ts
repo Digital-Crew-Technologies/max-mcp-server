@@ -73,7 +73,7 @@ const peopleCriteria = z
     employeeGrowthMax: z.number().optional().describe("Maximum headcount growth rate (GetLeads only)"),
     jobStartedWithinMonths: z.number().int().min(1).max(120).optional().describe("Only people who started their current role within this many months (GetLeads only)"),
     advanced: advanced.optional(),
-    limit: z.number().int().min(1).max(50000).optional().describe("Max people to fetch (default 100)"),
+    limit: z.number().int().min(1).max(50000).optional().describe("Max people to fetch. Omit when the user named no number: GetLeads then pulls 1000, LinkedIn or Explorium 100"),
     requireEmail: z.boolean().optional().describe("Only people with an email"),
     requirePhone: z.boolean().optional().describe("Only people with a phone number"),
     verifiedEmailsOnly: z.boolean().optional().describe("Only verified emails (default true)"),

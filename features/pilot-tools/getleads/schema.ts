@@ -16,7 +16,7 @@ import { withToken } from "../shared";
 export const getleadsCreateListSchema = z.object({
   ...withToken,
   list_name: z.string().min(1).describe("Name for the new prospect list"),
-  max_results: z.number().int().min(1).max(50000).optional().describe("Max contacts to fetch (default 100). Billed per contact actually returned."),
+  max_results: z.number().int().min(1).max(50000).optional().describe("Max contacts to fetch (default 1000). Billed per contact actually returned."),
 
   // Targeting — at least one is required (max-agent rejects qualifier-only searches).
   job_titles: z.array(z.string()).optional().describe("Job titles to match, e.g. [\"Head of Sales\", \"VP Marketing\"]. GetLeads ANDs titles with seniority — prefer one or the other"),
