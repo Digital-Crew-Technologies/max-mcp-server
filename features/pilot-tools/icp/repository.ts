@@ -129,3 +129,15 @@ export async function generateIcp(
     GENERATE_CONFIG,
   );
 }
+
+export async function searchFromIcp(
+  token: string,
+  id: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  return fetchWithRetry(apiUrl(`${BASE}/${encodeURIComponent(id)}/search`), {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+}
