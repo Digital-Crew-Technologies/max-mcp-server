@@ -1,10 +1,13 @@
+import { randomUUID } from "node:crypto";
 import { callApi, strip, toolHints, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
 
 // Ideal Customer Profiles (max-agent /api/v1/icp/*). An ICP has a searchable
 // `criteria` half and a qualitative `profile` half, and can be linked to the
-// deals / organizations / prospects it describes.
+// deals / organizations / prospects it describes. search_from_icp runs the
+// criteria half as a people search (the same map the People search bar uses),
+// so "draft an ICP → save it → find these people" is three calls.
 
 export function registerIcpTools(server: McpServer): void {
   server.registerTool(
@@ -128,10 +131,27 @@ export function registerIcpTools(server: McpServer): void {
     {
       title: "Generate ICP draft",
       description:
-        "Draft an ICP with Max from a free-text brief (or refine icp_id). CHARGES workspace credits; slow (up to ~90s). Returns an UNSAVED {data: {draft, model, truncated}} — save it with create_icp/update_icp and source='max'.",
+        "Draft an ICP with Max from a free-text brief (or refine icp_id). CHARGES workspace credits; slow (up to ~90s). Returns an UNSAVED {data: {draft, model, truncated}} — save it with create_icp/update_icp and source='max', then run it with search_from_icp.",
       inputSchema: S.generateIcpSchema,
     },
     async (input) =>
       callApi(input.bearer_token, (t) => repo.generateIcp(t, strip(input, "bearer_token"))),
+  );
+
+  server.registerTool(
+    "search_from_icp",
+    {
+      title: "Search from ICP",
+      description:
+        "Find people matching a saved ICP: runs its criteria as a prospect search (async), the same as picking the ICP in the People search bar. Auto chain (the member's LinkedIn → GetLeads → Explorium) unless provider pins one. CHARGES credits. The list is tagged with the ICP. 422 code ICP_NO_TARGETING when the ICP has no search filters (fill them with generate_icp + update_icp first), 409 ICP_ARCHIVED, 402 INSUFFICIENT_CREDITS. Returns {data: ProspectList (pending), icp_id, criteria, dropped_filters, notes}; poll with wait_for_prospect_list.",
+      inputSchema: S.searchFromIcpSchema,
+    },
+    async (input) => {
+      const body = strip(input, "bearer_token", "icp_id");
+      // A retried request replays the same list instead of starting (and
+      // billing) a second search.
+      body.idempotency_key = input.idempotency_key ?? randomUUID();
+      return callApi(input.bearer_token, (t) => repo.searchFromIcp(t, input.icp_id, body));
+    },
   );
 }

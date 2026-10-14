@@ -172,7 +172,7 @@ const GROUPS: GroupDef[] = [
   {
     name: "icp",
     blurb:
-      "Ideal Customer Profiles: list, read, create, update, archive/delete ICPs; link them to deals, companies and prospects; reverse lookup; and draft one with Max (costs credits).",
+      "Ideal Customer Profiles: list, read, create, update, archive/delete ICPs; link them to deals, companies and prospects; reverse lookup; draft one with Max (costs credits); and run one as a people search (costs credits).",
     register: registerIcpTools,
   },
   {

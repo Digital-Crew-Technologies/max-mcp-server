@@ -72,6 +72,7 @@ describe("icp tool registration", () => {
         "list_icp_links",
         "list_icps",
         "list_icps_for_record",
+        "search_from_icp",
         "unlink_icp",
         "update_icp",
       ].sort(),
@@ -163,6 +164,40 @@ describe("icp handlers", () => {
     expect(f).toHaveBeenCalledTimes(1);
     expect(url(f).pathname).toBe("/api/v1/icp/generate");
     expect(body(f)).toEqual({ instructions: "Belgian construction SMEs" });
+  });
+
+  it("search_from_icp POSTs /icp/:id/search with an idempotency key", async () => {
+    const f = mockFetch({ data: { id: "list-1" }, icp_id: ICP }, { status: 201 });
+    const res = await tool("search_from_icp").handler({
+      bearer_token: "t",
+      icp_id: ICP,
+      limit: 250,
+      provider: "getleads",
+    });
+    expect(res.isError).toBeUndefined();
+    expect(method(f)).toBe("POST");
+    expect(url(f).pathname).toBe(`/api/v1/icp/${ICP}/search`);
+    const sent = body(f);
+    expect(sent).toMatchObject({ limit: 250, provider: "getleads" });
+    expect(sent).not.toHaveProperty("icp_id");
+    expect(sent).not.toHaveProperty("bearer_token");
+    expect(typeof sent.idempotency_key).toBe("string");
+  });
+
+  it("search_from_icp keeps a caller's idempotency key", async () => {
+    const f = mockFetch({ data: { id: "list-1" } }, { status: 200 });
+    await tool("search_from_icp").handler({
+      bearer_token: "t",
+      icp_id: ICP,
+      idempotency_key: "run-1",
+    });
+    expect(body(f)).toEqual({ idempotency_key: "run-1" });
+  });
+
+  it("search_from_icp surfaces an ICP without filters as an error", async () => {
+    mockFetch({ error: "no filters", code: "ICP_NO_TARGETING" }, { status: 422 });
+    const res = await tool("search_from_icp").handler({ bearer_token: "t", icp_id: ICP });
+    expect(res.isError).toBe(true);
   });
 });
 
