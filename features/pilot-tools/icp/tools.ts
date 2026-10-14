@@ -12,12 +12,16 @@ export function registerIcpTools(server: McpServer): void {
     {
       title: "List ICPs",
       description:
-        "List the workspace's Ideal Customer Profiles (default first). Filter by status (default active) or name search. Returns {data: Icp[]} with criteria, profile and stats (linked deals/organizations/prospects, searches run).",
+        "List the workspace's Ideal Customer Profiles (default first). Filter by status (default active) or name search. Returns {data: IcpSummary[]}: the criteria that are set, has_targeting (false = written in words: derive filters from description and persona_roles), a capped description, persona_roles and stats. Use get_icp for one full profile, or view=full for full records.",
       inputSchema: S.listIcpsSchema,
       ...toolHints.readOnly,
     },
+    // Summaries by default: full records ran past Max's tool-result cap and
+    // were cut mid-record, criteria and all.
     async (input) =>
-      callApi(input.bearer_token, (t) => repo.listIcps(t, strip(input, "bearer_token"))),
+      callApi(input.bearer_token, (t) =>
+        repo.listIcps(t, { ...strip(input, "bearer_token"), view: input.view ?? "summary" }),
+      ),
   );
 
   server.registerTool(

@@ -94,6 +94,16 @@ describe("icp handlers", () => {
     expect(url(f).searchParams.has("bearer_token")).toBe(false);
   });
 
+  it("list_icps asks for summaries unless full records are requested", async () => {
+    const byDefault = mockFetch({ data: [] });
+    await tool("list_icps").handler({ bearer_token: "t" });
+    expect(url(byDefault).searchParams.get("view")).toBe("summary");
+
+    const full = mockFetch({ data: [] });
+    await tool("list_icps").handler({ bearer_token: "t", view: "full" });
+    expect(url(full).searchParams.get("view")).toBe("full");
+  });
+
   it("create_icp POSTs the body without the bearer", async () => {
     const f = mockFetch({ data: { id: ICP } }, { status: 201 });
     const res = await tool("create_icp").handler({
