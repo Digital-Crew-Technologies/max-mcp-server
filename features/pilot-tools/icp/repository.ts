@@ -94,6 +94,31 @@ export async function listIcpLinksForRecord(
   });
 }
 
+export async function getDefaultIcp(token: string): Promise<Response> {
+  return fetchWithRetry(apiUrl(`${BASE}/default`), { headers: authHeaders(token) });
+}
+
+// ensure and fill may run the same billed model call as generate, and SAVE
+// what it drafts — same long timeout, same no-retry rule.
+export async function ensureDefaultIcp(
+  token: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  return fetchWithRetry(
+    apiUrl(`${BASE}/default`),
+    { method: "POST", headers: authHeaders(token), body: JSON.stringify(body) },
+    GENERATE_CONFIG,
+  );
+}
+
+export async function fillIcp(token: string, id: string): Promise<Response> {
+  return fetchWithRetry(
+    apiUrl(`${BASE}/${encodeURIComponent(id)}/fill`),
+    { method: "POST", headers: authHeaders(token), body: "{}" },
+    GENERATE_CONFIG,
+  );
+}
+
 export async function generateIcp(
   token: string,
   body: Record<string, unknown>,

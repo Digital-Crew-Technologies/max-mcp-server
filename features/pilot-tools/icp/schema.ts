@@ -164,3 +164,15 @@ export const generateIcpSchema = z.object({
     .optional()
     .describe("Existing ICP to refine instead of writing a new one."),
 });
+
+export const getDefaultIcpSchema = z.object({ ...withToken });
+
+export const ensureDefaultIcpSchema = z.object({
+  ...withToken,
+  fill: z
+    .boolean()
+    .optional()
+    .describe("Also fill the default's targeting with Max when it has none (default true)."),
+});
+
+export const fillIcpSchema = z.object({ ...withToken, icp_id: icpId });
