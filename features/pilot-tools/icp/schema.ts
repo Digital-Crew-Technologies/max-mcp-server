@@ -170,3 +170,33 @@ export const generateIcpSchema = z.object({
     .optional()
     .describe("Existing ICP to refine instead of writing a new one."),
 });
+
+export const searchFromIcpSchema = z.object({
+  ...withToken,
+  icp_id: icpId,
+  list_name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe("Name of the prospect list to create. Defaults to the ICP's name."),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(50_000)
+    .optional()
+    .describe("Max people to find (default 100)."),
+  provider: z
+    .enum(["getleads", "explorium"])
+    .optional()
+    .describe("Pin the run to one managed supplier. Omit for the auto chain (LinkedIn → GetLeads → Explorium)."),
+  idempotency_key: z
+    .string()
+    .trim()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe("Idempotency key for safe retries (auto-generated if omitted)."),
+});

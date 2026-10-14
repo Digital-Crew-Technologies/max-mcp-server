@@ -806,7 +806,7 @@
   {
     "name": "generate_icp",
     "title": "Generate ICP draft",
-    "description": "Draft an ICP with Max from a free-text brief (or refine icp_id). CHARGES workspace credits; slow (up to ~90s). Returns an UNSAVED {data: {draft, model, truncated}} — save it with create_icp/update_icp and source='max'.",
+    "description": "Draft an ICP with Max from a free-text brief (or refine icp_id). CHARGES workspace credits; slow (up to ~90s). Returns an UNSAVED {data: {draft, model, truncated}} — save it with create_icp/update_icp and source='max', then run it with search_from_icp.",
     "operations": 1
   },
   {
@@ -2205,6 +2205,12 @@
     "name": "scan_duplicate_records",
     "title": "Scan for duplicate records",
     "description": "Rescan all workspace prospects and organizations for duplicates now (can be slow). Returns {data: {prospects_scanned, organizations_scanned, new_candidates}}; read pairs with list_duplicate_records.",
+    "operations": 1
+  },
+  {
+    "name": "search_from_icp",
+    "title": "Search from ICP",
+    "description": "Find people matching a saved ICP: runs its criteria as a prospect search (async), the same as picking the ICP in the People search bar. Auto chain (the member's LinkedIn → GetLeads → Explorium) unless provider pins one. CHARGES credits. The list is tagged with the ICP. 422 code ICP_NO_TARGETING when the ICP has no search filters (fill them with generate_icp + update_icp first), 409 ICP_ARCHIVED, 402 INSUFFICIENT_CREDITS. Returns {data: ProspectList (pending), icp_id, criteria, dropped_filters, notes}; poll with wait_for_prospect_list.",
     "operations": 1
   },
   {
