@@ -567,7 +567,8 @@ POST   /api/v1/prospect-lists/auto/create-list
     criteria: {                        // camelCase, all optional; ≥1 targeting field
       jobTitles?, seniorities?, personLocations?, industries?, companySize?: {min,max},
       companyDomains?, excludeCompanyDomains?, keywords?, jobDepartments?,
-      companyRevenue?, intent?, intentTopics?, enrichments?, limit? (default 100),
+      companyRevenue?, intent?, intentTopics?, enrichments?,
+      limit? (omitted: 1000 on GetLeads, 100 on LinkedIn or Explorium),
       requireEmail?, requirePhone?, verifiedEmailsOnly?, excludeExistingOrganizations?,
       excludeExistingProspects?, excludeLinkedInConnections?, maxPerCompany?,
       // GetLeads only (moved under advanced.getleads by Max):
