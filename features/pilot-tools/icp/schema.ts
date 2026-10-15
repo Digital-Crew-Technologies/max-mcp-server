@@ -98,6 +98,12 @@ export const listIcpsSchema = z.object({
     .optional()
     .describe("Filter by status (default active)."),
   search: z.string().trim().max(200).optional().describe("Case-insensitive name match."),
+  view: z
+    .enum(["summary", "full"])
+    .optional()
+    .describe(
+      "summary (default): set criteria only, has_targeting, description capped at 600 chars, persona_roles, no profile half — every ICP fits whole. full: complete records.",
+    ),
 });
 
 export const getIcpSchema = z.object({ ...withToken, icp_id: icpId });
