@@ -135,9 +135,11 @@ export async function searchFromIcp(
   id: string,
   body: Record<string, unknown>,
 ): Promise<Response> {
-  return fetchWithRetry(apiUrl(`${BASE}/${encodeURIComponent(id)}/search`), {
-    method: "POST",
-    headers: authHeaders(token),
-    body: JSON.stringify(body),
-  });
+  // An ICP with no targeting is filled by Max first (a billed model call of
+  // up to a minute): long timeout, and no retry that could bill the fill twice.
+  return fetchWithRetry(
+    apiUrl(`${BASE}/${encodeURIComponent(id)}/search`),
+    { method: "POST", headers: authHeaders(token), body: JSON.stringify(body) },
+    GENERATE_CONFIG,
+  );
 }
