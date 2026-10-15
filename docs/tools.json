@@ -2228,7 +2228,7 @@
   {
     "name": "search_from_icp",
     "title": "Search from ICP",
-    "description": "Find people matching a saved ICP: runs its criteria as a prospect search (async), the same as picking the ICP in the People search bar. Auto chain (the member's LinkedIn → GetLeads → Explorium) unless provider pins one. CHARGES credits. The list is tagged with the ICP. 422 code ICP_NO_TARGETING when the ICP has no search filters (fill them with fill_icp first), 409 ICP_ARCHIVED, 402 INSUFFICIENT_CREDITS. Returns {data: ProspectList (pending), icp_id, criteria, dropped_filters, notes}; poll with wait_for_prospect_list.",
+    "description": "Find people matching a saved ICP: runs its criteria as a prospect search (async), the same as picking the ICP in the People search bar. Auto chain (the member's LinkedIn → GetLeads → Explorium) unless provider pins one. CHARGES credits. The list is tagged with the ICP. An ICP with no search filters is filled by Max and saved first (more credits, up to ~90s; needs icp:write) unless fill=false. 422 ICP_NO_TARGETING when it still has none (or fill=false), 409 ICP_ARCHIVED, 402 INSUFFICIENT_CREDITS. Not retried. Returns {data: ProspectList (pending), icp_id, filled, criteria, dropped_filters, notes}; poll with wait_for_prospect_list.",
     "operations": 1
   },
   {

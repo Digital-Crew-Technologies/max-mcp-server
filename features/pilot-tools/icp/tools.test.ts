@@ -212,6 +212,14 @@ describe("icp handlers", () => {
     const res = await tool("search_from_icp").handler({ bearer_token: "t", icp_id: ICP });
     expect(res.isError).toBe(true);
   });
+
+  it("search_from_icp passes fill through and never retries (a fill is billed)", async () => {
+    const f = mockFetch({ error: "upstream" }, { status: 503 });
+    const res = await tool("search_from_icp").handler({ bearer_token: "t", icp_id: ICP, fill: false });
+    expect(res.isError).toBe(true);
+    expect(f).toHaveBeenCalledTimes(1);
+    expect(body(f)).toMatchObject({ fill: false });
+  });
 });
 
 describe("default ICP and fill", () => {

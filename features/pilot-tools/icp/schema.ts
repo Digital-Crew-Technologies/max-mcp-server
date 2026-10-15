@@ -210,4 +210,8 @@ export const searchFromIcpSchema = z.object({
     .max(200)
     .optional()
     .describe("Idempotency key for safe retries (auto-generated if omitted)."),
+  fill: z
+    .boolean()
+    .optional()
+    .describe("An ICP with no targeting is filled by Max and saved before the search (default true; credits). false refuses it with 422 ICP_NO_TARGETING."),
 });
