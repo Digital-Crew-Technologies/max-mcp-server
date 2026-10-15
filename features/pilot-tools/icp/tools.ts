@@ -15,7 +15,7 @@ export function registerIcpTools(server: McpServer): void {
     {
       title: "List ICPs",
       description:
-        "List the workspace's Ideal Customer Profiles (default first). Filter by status (default active) or name search. Returns {data: IcpSummary[]}: the criteria that are set, has_targeting (false = written in words: derive filters from description and persona_roles), a capped description, persona_roles and stats. Use get_icp for one full profile, or view=full for full records.",
+        "List the workspace's Ideal Customer Profiles (default first). Filter by status (default active) or name search. Returns {data: IcpSummary[]}: the criteria that are set, has_targeting (false = no search filters yet: search_from_icp refuses it until generate_icp + update_icp fill them), a capped description, persona_roles and stats. Use get_icp for one full profile, or view=full for full records.",
       inputSchema: S.listIcpsSchema,
       ...toolHints.readOnly,
     },
