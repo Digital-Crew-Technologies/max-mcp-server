@@ -66,7 +66,10 @@ describe("icp tool registration", () => {
       [
         "create_icp",
         "delete_icp",
+        "ensure_default_icp",
+        "fill_icp",
         "generate_icp",
+        "get_default_icp",
         "get_icp",
         "link_icp",
         "list_icp_links",
@@ -77,7 +80,7 @@ describe("icp tool registration", () => {
         "update_icp",
       ].sort(),
     );
-    for (const name of ["list_icps", "get_icp", "list_icp_links", "list_icps_for_record"]) {
+    for (const name of ["list_icps", "get_icp", "get_default_icp", "list_icp_links", "list_icps_for_record"]) {
       expect(tool(name).config.annotations).toEqual({ readOnlyHint: true });
     }
     expect(tool("delete_icp").config.annotations).toEqual({ destructiveHint: true });
@@ -208,6 +211,33 @@ describe("icp handlers", () => {
     mockFetch({ error: "no filters", code: "ICP_NO_TARGETING" }, { status: 422 });
     const res = await tool("search_from_icp").handler({ bearer_token: "t", icp_id: ICP });
     expect(res.isError).toBe(true);
+  });
+});
+
+describe("default ICP and fill", () => {
+  it("get_default_icp GETs /icp/default", async () => {
+    const f = mockFetch({ data: null });
+    await tool("get_default_icp").handler({ bearer_token: "t" });
+    expect(method(f)).toBe("GET");
+    expect(url(f).pathname).toBe("/api/v1/icp/default");
+  });
+
+  it("ensure_default_icp POSTs once, without the bearer, and does not retry", async () => {
+    const f = mockFetch({ error: "upstream" }, { status: 504 });
+    const res = await tool("ensure_default_icp").handler({ bearer_token: "t", fill: false });
+    expect(res.isError).toBe(true);
+    expect(f).toHaveBeenCalledTimes(1);
+    expect(method(f)).toBe("POST");
+    expect(url(f).pathname).toBe("/api/v1/icp/default");
+    expect(body(f)).toEqual({ fill: false });
+  });
+
+  it("fill_icp POSTs to /icp/:id/fill once", async () => {
+    const f = mockFetch({ error: "upstream" }, { status: 503 });
+    await tool("fill_icp").handler({ bearer_token: "t", icp_id: ICP });
+    expect(f).toHaveBeenCalledTimes(1);
+    expect(method(f)).toBe("POST");
+    expect(url(f).pathname).toBe(`/api/v1/icp/${ICP}/fill`);
   });
 });
 

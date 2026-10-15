@@ -68,7 +68,7 @@ Paths are relative to `/api/v1`.
 | Pipeline (`pipeline`, new) | pipelines, stages (+ reorder), stage rules (+ assignment preview), links, placements, campaign routes, canvas, journey, canvas drafts (CRUD, diff, validate, rebase, publish, publications, rollback) |
 | Automations (`automations`, new) | list/get/create/update/delete · draft save/discard · activate/deactivate/resume · run · runs (list, get, cancel) · versions. A webhook token returned on activation is redacted. |
 | Webhooks (`webhooks`, new) | pipeline/webhooks CRUD, rotate, test, deliveries, replay · pipeline/webhook-routes CRUD + reorder |
-| ICP (`icp`, new) | icp CRUD · links (list, create, delete, reverse lookup) · generate |
+| ICP (`icp`, new) | icp CRUD · default (read, ensure — Max drafts one when there is none) · fill targeting with Max · links (list, create, delete, reverse lookup) · generate |
 | Saved views (`views`, new) | views CRUD |
 | Sales OS (`salesos`, new) | sales-os/crew (GET roster) · sales-os/crew/check-in (POST, always `client: "mcp"`, never retried) · sales-os/items (GET listing, POST add, never retried). The items routes need a personal API key with `sales_os:*`; the shared "Max MCP" key gets 403. See [`sales-os-tools.md`](sales-os-tools.md). |
 | Workspace (`workspace`, new) | `get_current_workspace` → GET api-keys/verify (which workspace this key reaches, with its name) · custom-fields (read) · data-suppliers (list, config, disconnect) · data-quality duplicates (list, dismiss, scan) and settings (read) · workspace-agents (read) · workspace-intel/generate · members, roles, crew-rates, digital-workers (read) · billing/workspace-wallet, budgets, consumption, gifts (read) · agent/sessions and their messages |

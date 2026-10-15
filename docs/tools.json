@@ -732,6 +732,12 @@
     "operations": 1
   },
   {
+    "name": "ensure_default_icp",
+    "title": "Ensure default ICP",
+    "description": "Make sure the workspace has a default ICP that says who to look for: returns the current default, else promotes the most recent active ICP, else has Max draft one from the company profile and SAVES it (source 'max'). Unless fill=false, an ICP with no targeting is then filled by Max and saved. CHARGES credits only when Max writes; slow (up to ~90s) then. Returns {data: Icp, created, filled}; pass data.id as icp_id to auto_create_prospect_list.",
+    "operations": 1
+  },
+  {
     "name": "explorium_add_more",
     "title": "Add more leads from Explorium",
     "description": "Append more leads to an existing Explorium list (async). Re-runs the saved search for additional results. Poll the list (or use wait_for_prospect_list) for progress.",
@@ -747,6 +753,12 @@
     "name": "explorium_create_list",
     "title": "Create Explorium prospect list",
     "description": "SECOND CHOICE after getleads_create_list: create an Explorium-backed prospect (people) list (async). Use for what only Explorium filters on (buyer intent, website keywords, enrichments) or when GetLeads returned nothing; GetLeads handles departments and revenue itself. People search → enrichment → ingestion; ~100× GetLeads' cost. Returns a pending list; poll with wait_for_prospect_list.",
+    "operations": 1
+  },
+  {
+    "name": "fill_icp",
+    "title": "Fill ICP targeting with Max",
+    "description": "Fill an ICP's empty targeting (criteria) with Max, from its name, description and the company profile, and SAVE it; its qualitative profile is written only if empty. An ICP that already has targeting is returned unchanged and uncharged. CHARGES credits when Max writes; slow (up to ~90s). Returns {data: Icp, filled}; 422 when Max can't work out a target.",
     "operations": 1
   },
   {
@@ -975,6 +987,12 @@
     "name": "get_deal_board_totals",
     "title": "Get deal board totals",
     "description": "Per-stage totals for one deal pipeline, optionally filtered by status/owner_id/organization_id/search. Returns {data: {<stage_id>: {count, sums: [{currency, amount, weighted}]}}}; weighted = amount × probability.",
+    "operations": 1
+  },
+  {
+    "name": "get_default_icp",
+    "title": "Get default ICP",
+    "description": "Read the workspace's default ICP — the one searches run from when nothing names another. Never writes. Returns {data: Icp | null}; null means none yet (ensure_default_icp drafts one).",
     "operations": 1
   },
   {
@@ -2210,7 +2228,7 @@
   {
     "name": "search_from_icp",
     "title": "Search from ICP",
-    "description": "Find people matching a saved ICP: runs its criteria as a prospect search (async), the same as picking the ICP in the People search bar. Auto chain (the member's LinkedIn → GetLeads → Explorium) unless provider pins one. CHARGES credits. The list is tagged with the ICP. 422 code ICP_NO_TARGETING when the ICP has no search filters (fill them with generate_icp + update_icp first), 409 ICP_ARCHIVED, 402 INSUFFICIENT_CREDITS. Returns {data: ProspectList (pending), icp_id, criteria, dropped_filters, notes}; poll with wait_for_prospect_list.",
+    "description": "Find people matching a saved ICP: runs its criteria as a prospect search (async), the same as picking the ICP in the People search bar. Auto chain (the member's LinkedIn → GetLeads → Explorium) unless provider pins one. CHARGES credits. The list is tagged with the ICP. 422 code ICP_NO_TARGETING when the ICP has no search filters (fill them with fill_icp first), 409 ICP_ARCHIVED, 402 INSUFFICIENT_CREDITS. Returns {data: ProspectList (pending), icp_id, criteria, dropped_filters, notes}; poll with wait_for_prospect_list.",
     "operations": 1
   },
   {

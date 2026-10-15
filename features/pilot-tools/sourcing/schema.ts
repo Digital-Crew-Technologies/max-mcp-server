@@ -82,7 +82,7 @@ const peopleCriteria = z
     excludeLinkedInConnections: z.boolean().optional().describe("Skip existing LinkedIn connections (default false)"),
     maxPerCompany: z.number().int().min(1).max(50).optional().describe("Cap people kept per company"),
   })
-  .describe("People-search criteria. Needs at least one of jobTitles, seniorities, jobDepartments, personLocations, industries, companyDomains, technologies or companyHqCountries");
+  .describe("People-search criteria. Needs at least one of jobTitles, seniorities, jobDepartments, personLocations, industries, companyDomains, technologies or companyHqCountries — or, on auto_create_prospect_list, an icp_id whose targeting then runs");
 
 const organizationCriteria = z
   .object({
@@ -111,7 +111,13 @@ export const autoCreateProspectListSchema = z.object({
   list_name: z.string().min(1).describe("Name for the new prospect list"),
   criteria: peopleCriteria,
   provider: managedProvider,
-  icp_id: z.string().uuid().optional().describe("ICP the criteria came from (provenance only)"),
+  icp_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe(
+      "ICP to search from (get_default_icp / ensure_default_icp / list_icps). With criteria that target no one it runs the ICP's targeting (Max fills an empty ICP first — credits); with targeting of its own the criteria run as given and icp_id is provenance only",
+    ),
   idempotency_key: z.string().optional().describe("Idempotency key for safe retries (auto-generated if omitted)"),
 });
 
