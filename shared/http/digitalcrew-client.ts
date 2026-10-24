@@ -1,10 +1,13 @@
 import { getAuthorizationBearerFromMcpRequest } from "@/shared/auth/request-context";
+import { assertAllowedHost } from "@/shared/env/app-env";
 
 export function getDigitalCrewBaseUrl(): string {
   const base = process.env.DIGITALCREW_API_BASE_URL?.trim();
   if (!base) {
     throw new Error("DIGITALCREW_API_BASE_URL is not set");
   }
+  // Outside production, a production Max URL is refused (APP_ENV, STG-02.3i).
+  assertAllowedHost(base);
   return base.replace(/\/$/, "");
 }
 

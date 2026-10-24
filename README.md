@@ -487,6 +487,7 @@ Set these environment variables (e.g. in `.env.local` for local dev, or in your 
 
 | Variable | Required | Description |
 |----------|----------|-------------|
+| `APP_ENV` | No | `production` (default) \| `preprod` \| `staging`. Outside `production`, the server refuses to start if any variable points to a production host (`*.digitalcrew.tech`), and every outgoing call to such a host is refused |
 | `DIGITALCREW_API_BASE_URL` | Yes | Base URL of the Digital Crew API (no trailing slash) |
 | `MCP_GATEWAY_SECRET` | Yes (prod) | Shared secret; first-party callers send `X-MCP-Gateway-Key` on `/mcp` and `/chat`. External MCP clients use a workspace Max API key instead — `Authorization: Bearer max_live_…`, `x-api-key: max_live_…` or `/mcp?key=max_live_…` — on `/mcp` only |
 | `MCP_ADMIN_GATEWAY_KEY` | No | Separate key required for admin tools when `ENABLE_ADMIN_TOOLS=true` |
