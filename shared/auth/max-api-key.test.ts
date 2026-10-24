@@ -138,6 +138,20 @@ describe("verifyMaxApiKey", () => {
     }
   });
 
+  it("refuses redirects outside production and follows them in production", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200));
+    process.env.APP_ENV = "staging";
+    try {
+      await verifyMaxApiKey("max_live_abc");
+      expect(fetchMock.mock.calls[0][1].redirect).toBe("error");
+    } finally {
+      delete process.env.APP_ENV;
+    }
+    resetMaxApiKeyCache();
+    await verifyMaxApiKey("max_live_abc");
+    expect(fetchMock.mock.calls[1][1].redirect).toBe("follow");
+  });
+
   it("accepts a key max-agent confirms, forwarding it as Bearer", async () => {
     fetchMock.mockResolvedValue(jsonResponse(200));
     expect(await verifyMaxApiKey("max_live_abc")).toBe(true);

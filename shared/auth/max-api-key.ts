@@ -37,7 +37,7 @@
 // RUNTIME: this module runs inside Next.js middleware on the Edge runtime, so
 // it uses only Web APIs (crypto.subtle, fetch, AbortSignal.timeout).
 
-import { assertAllowedHost } from "@/shared/env/app-env";
+import { appEnv, assertAllowedHost } from "@/shared/env/app-env";
 
 const KEY_PREFIX = "max_live_";
 const VERIFY_PATH = "/api/v1/api-keys/verify";
@@ -199,7 +199,8 @@ export async function checkMaxApiKey(token: string): Promise<MaxApiKeyVerdict> {
   const url = `${base.replace(/\/$/, "")}${VERIFY_PATH}`;
   // Outside production, a production Max URL is refused (APP_ENV, STG-02.3i).
   // Middleware runs on the Edge runtime, so check here too, not only in the
-  // global fetch guard.
+  // global fetch guard. A redirect could still lead to production, so outside
+  // production this call refuses redirects instead of following them.
   assertAllowedHost(url);
   let res: Response;
   try {
@@ -207,6 +208,7 @@ export async function checkMaxApiKey(token: string): Promise<MaxApiKeyVerdict> {
       method: "GET",
       headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
       signal: AbortSignal.timeout(VERIFY_TIMEOUT_MS),
+      redirect: appEnv() === "production" ? "follow" : "error",
     });
   } catch (err) {
     console.error(

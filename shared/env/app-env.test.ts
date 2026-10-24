@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { expect, test } from "vitest";
 import {
   appEnv,
   assertAllowedHost,
@@ -111,5 +111,64 @@ test("the Max base URL is refused outside production", async () => {
       if (value === undefined) delete process.env[name];
       else process.env[name] = value;
     }
+  }
+});
+
+test("the fetch guard checks every redirect hop", async () => {
+  const original = globalThis.fetch;
+  const calls: { url: string; method: string; redirect?: RequestRedirect; body: string | null; authorization: string | null }[] = [];
+  const redirects: Record<string, [number, string]> = {
+    "https://a.example/to-prod": [302, "https://max.digitalcrew.tech/steal"],
+    "https://a.example/relative-to-prod": [301, "//www.digitalcrew.tech/"],
+    "https://a.example/post": [303, "https://b.example/done"],
+    "https://a.example/keep-post": [307, "https://a.example/kept"],
+    "https://a.example/cross-origin": [302, "https://b.example/next"],
+    "https://a.example/loop": [302, "https://a.example/loop"],
+  };
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init: RequestInit = {}) => {
+    const url = String(input instanceof Request ? input.url : input);
+    const headers = new Headers(init.headers ?? (input instanceof Request ? input.headers : undefined));
+    const body =
+      init.body === undefined || init.body === null
+        ? null
+        : typeof init.body === "string"
+          ? init.body
+          : new TextDecoder().decode(init.body as ArrayBuffer);
+    calls.push({ url, method: init.method ?? "GET", redirect: init.redirect, body, authorization: headers.get("authorization") });
+    const hop = redirects[url];
+    if (hop && init.redirect === "manual") return new Response(null, { status: hop[0], headers: { location: hop[1] } });
+    return new Response("ok");
+  }) as typeof fetch;
+  try {
+    installProductionHostGuard({ APP_ENV: "staging" });
+
+    await expect(globalThis.fetch("https://a.example/to-prod")).rejects.toBeInstanceOf(ProductionHostError);
+    await expect(globalThis.fetch("https://a.example/relative-to-prod")).rejects.toBeInstanceOf(ProductionHostError);
+    expect(calls.map((c) => c.url), "production is never called").toEqual(["https://a.example/to-prod", "https://a.example/relative-to-prod"]);
+
+    calls.length = 0;
+    const res = await globalThis.fetch("https://a.example/post", { method: "POST", body: "x", headers: { "content-type": "text/plain" } });
+    expect(await res.text()).toBe("ok");
+    expect(calls.map((c) => [c.url, c.method, c.body])).toEqual([
+      ["https://a.example/post", "POST", "x"],
+      ["https://b.example/done", "GET", null],
+    ]);
+
+    calls.length = 0;
+    await globalThis.fetch(new Request("https://a.example/keep-post", { method: "POST", body: "y" }));
+    expect(calls.map((c) => [c.url, c.method, c.body]).at(-1), "307 keeps the method and body").toEqual(["https://a.example/kept", "POST", "y"]);
+
+    calls.length = 0;
+    await globalThis.fetch("https://a.example/cross-origin", { headers: { authorization: "Bearer t" } });
+    expect(calls.map((c) => c.authorization), "a cross-origin hop drops credentials").toEqual(["Bearer t", null]);
+
+    await expect(globalThis.fetch("https://a.example/loop")).rejects.toThrow(/more than 20 redirects/);
+
+    calls.length = 0;
+    const manual = await globalThis.fetch("https://a.example/to-prod", { redirect: "manual" });
+    expect(manual.status, "redirect: 'manual' is passed through").toBe(302);
+    expect(calls).toHaveLength(1);
+  } finally {
+    globalThis.fetch = original;
   }
 });
