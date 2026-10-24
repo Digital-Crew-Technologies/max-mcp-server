@@ -5,13 +5,23 @@ name: CI
 # (preview on PR, production on merge to main). This workflow only GATES.
 on:
   push:
-    branches: [main]   # re-check main after every merge
+    branches: [main, develop]   # re-check main and develop after every merge
+    # Saves minutes on develop. GitHub cannot scope paths-ignore to one
+    # branch, so a docs-only push to main skips CI too; its pull request ran it.
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
   pull_request:        # gate every PR before merge
 
-# A newer push to the same ref cancels the older, in-flight run.
+# Elsewhere a newer push to the same ref cancels the older, in-flight run.
+# On main nothing is ever cancelled and each run gets its own group: GitHub
+# keeps only one pending run per group, so a shared group would still drop runs.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.ref }}${{ github.ref_name == 'main' && format('-{0}', github.run_id) || '' }}
+  cancel-in-progress: ${{ github.ref_name != 'main' }}
+
+permissions:
+  contents: read
 
 jobs:
   ci:
