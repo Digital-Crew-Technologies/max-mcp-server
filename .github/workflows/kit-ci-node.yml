@@ -1,0 +1,457 @@
+# MANAGED by digitalcrew-agent-kit: do not edit by hand.
+# Inline copy of .github/workflows/ci-node.yml at kit tag v0.1.0
+# (commit 6a6f0d65494cb683c7a5fdfc4e7d809e0b508b7f), byte for byte below this header.
+# max-mcp-server is public and cannot call the private kit (KIT-02.6), so the
+# kit workflow is copied here and called by local path. Update it only by
+# copying a newer kit tag. src/platform is not part of this copy (D7).
+#
+name: CI (Node)
+
+# Shared CI for Node repositories. A worker calls it by exact tag:
+#
+#   jobs:
+#     ci:
+#       uses: Digital-Crew-Technologies/digitalcrew-agent-kit/.github/workflows/ci-node.yml@v0.1.0
+#
+# The check to require is "ci / ci-gate": it aggregates every job below,
+# including codeowners-check (GitHub must report no CODEOWNERS error).
+#
+# What the caller repository must provide:
+# - a lockfile matching `package-manager` (package-lock.json or pnpm-lock.yaml)
+#   in `working-directory`;
+# - the file named by `node-version-file`, relative to the repository root
+#   (setup-node reads it);
+# - for pnpm, a `packageManager` field in package.json (pnpm/action-setup reads it);
+# - an ESLint config, a tsconfig.json, vitest and @vitest/coverage-v8 as dev
+#   dependencies, and a `build` script when `run-build` is true.
+#
+# Credentials model (docs/credentials-model.md): no secret is read, no job
+# declares an environment, and the only checkout is the caller's code.
+# Third-party actions are pinned by full commit SHA.
+
+on:
+  workflow_call:
+    inputs:
+      package-manager:
+        description: "npm or pnpm"
+        type: string
+        default: npm
+      node-version-file:
+        description: "File setup-node reads the Node version from (.nvmrc, .node-version, package.json)"
+        type: string
+        default: .nvmrc
+      run-build:
+        description: "Run the build job"
+        type: boolean
+        default: true
+      test-shards:
+        description: "Number of vitest shards (1 = no sharding)"
+        type: number
+        default: 1
+      max-warnings:
+        description: "ESLint --max-warnings (-1 = no limit)"
+        type: number
+        default: 0
+      working-directory:
+        description: "Directory of the Node project, relative to the repository root"
+        type: string
+        default: "."
+
+permissions:
+  contents: read
+
+# Pull requests and develop keep only the latest run; main never cancels a run.
+concurrency:
+  group: ci-node-${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' }}
+
+env:
+  PACKAGE_MANAGER: ${{ inputs.package-manager }}
+
+jobs:
+  lint:
+    name: lint
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        if: inputs.package-manager == 'pnpm'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: ${{ inputs.working-directory }}/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: ${{ inputs.node-version-file }}
+          cache: ${{ inputs.package-manager }}
+          cache-dependency-path: ${{ inputs.working-directory }}/${{ inputs.package-manager == 'pnpm' && 'pnpm-lock.yaml' || 'package-lock.json' }}
+
+      - name: Install dependencies
+        run: |
+          case "$PACKAGE_MANAGER" in
+            npm) npm ci ;;
+            pnpm) pnpm install --frozen-lockfile ;;
+            *) echo "::error::package-manager must be npm or pnpm, got '$PACKAGE_MANAGER'"; exit 1 ;;
+          esac
+
+      - name: ESLint
+        env:
+          MAX_WARNINGS: ${{ inputs.max-warnings }}
+        run: |
+          if [ "$PACKAGE_MANAGER" = pnpm ]; then
+            pnpm exec eslint . --max-warnings="$MAX_WARNINGS"
+          else
+            npx --no-install eslint . --max-warnings="$MAX_WARNINGS"
+          fi
+
+  typecheck:
+    name: typecheck
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        if: inputs.package-manager == 'pnpm'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: ${{ inputs.working-directory }}/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: ${{ inputs.node-version-file }}
+          cache: ${{ inputs.package-manager }}
+          cache-dependency-path: ${{ inputs.working-directory }}/${{ inputs.package-manager == 'pnpm' && 'pnpm-lock.yaml' || 'package-lock.json' }}
+
+      - name: Install dependencies
+        run: |
+          case "$PACKAGE_MANAGER" in
+            npm) npm ci ;;
+            pnpm) pnpm install --frozen-lockfile ;;
+            *) echo "::error::package-manager must be npm or pnpm, got '$PACKAGE_MANAGER'"; exit 1 ;;
+          esac
+
+      - name: tsc --noEmit
+        run: |
+          if [ "$PACKAGE_MANAGER" = pnpm ]; then
+            pnpm exec tsc --noEmit
+          else
+            npx --no-install tsc --noEmit
+          fi
+
+  # Turns test-shards into the matrix [1, 2, ..., n].
+  test-plan:
+    name: test-plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - name: Plan shards
+        id: plan
+        env:
+          TEST_SHARDS: ${{ inputs.test-shards }}
+        run: |
+          if ! [ "$TEST_SHARDS" -ge 1 ] 2>/dev/null; then
+            echo "::error::test-shards must be an integer >= 1, got '$TEST_SHARDS'"
+            exit 1
+          fi
+          echo "shards=$(jq -cn --argjson n "$TEST_SHARDS" '[range(1; $n + 1)]')" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: test (${{ matrix.shard }}/${{ inputs.test-shards }})
+    needs: test-plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.test-plan.outputs.shards) }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        if: inputs.package-manager == 'pnpm'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: ${{ inputs.working-directory }}/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: ${{ inputs.node-version-file }}
+          cache: ${{ inputs.package-manager }}
+          cache-dependency-path: ${{ inputs.working-directory }}/${{ inputs.package-manager == 'pnpm' && 'pnpm-lock.yaml' || 'package-lock.json' }}
+
+      - name: Install dependencies
+        run: |
+          case "$PACKAGE_MANAGER" in
+            npm) npm ci ;;
+            pnpm) pnpm install --frozen-lockfile ;;
+            *) echo "::error::package-manager must be npm or pnpm, got '$PACKAGE_MANAGER'"; exit 1 ;;
+          esac
+
+      # Coverage is measured, not enforced: no threshold fails the job.
+      - name: vitest with v8 coverage
+        env:
+          SHARD: ${{ matrix.shard }}
+          TEST_SHARDS: ${{ inputs.test-shards }}
+        run: |
+          args=(vitest run --shard="$SHARD/$TEST_SHARDS"
+            --coverage.enabled --coverage.provider=v8
+            --coverage.reporter=text-summary --coverage.reporter=json-summary --coverage.reporter=lcov
+            --coverage.reportsDirectory=coverage)
+          if [ "$PACKAGE_MANAGER" = pnpm ]; then
+            pnpm exec "${args[@]}"
+          else
+            npx --no-install "${args[@]}"
+          fi
+
+      - name: Coverage summary
+        if: always() && hashFiles(format('{0}/coverage/coverage-summary.json', inputs.working-directory)) != ''
+        env:
+          SHARD: ${{ matrix.shard }}
+          TEST_SHARDS: ${{ inputs.test-shards }}
+        run: |
+          jq -r --arg shard "$SHARD/$TEST_SHARDS" '
+            "### Coverage, shard \($shard)\n\n| Metric | % |\n|---|---|",
+            (.total | to_entries[] | "| \(.key) | \(.value.pct) |")
+          ' coverage/coverage-summary.json >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage
+        if: always() && hashFiles(format('{0}/coverage/**', inputs.working-directory)) != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-shard-${{ matrix.shard }}
+          path: ${{ inputs.working-directory }}/coverage/
+          retention-days: 14
+
+  build:
+    name: build
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    if: inputs.run-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        if: inputs.package-manager == 'pnpm'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: ${{ inputs.working-directory }}/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: ${{ inputs.node-version-file }}
+          cache: ${{ inputs.package-manager }}
+          cache-dependency-path: ${{ inputs.working-directory }}/${{ inputs.package-manager == 'pnpm' && 'pnpm-lock.yaml' || 'package-lock.json' }}
+
+      - name: Install dependencies
+        run: |
+          case "$PACKAGE_MANAGER" in
+            npm) npm ci ;;
+            pnpm) pnpm install --frozen-lockfile ;;
+            *) echo "::error::package-manager must be npm or pnpm, got '$PACKAGE_MANAGER'"; exit 1 ;;
+          esac
+
+      - name: Build
+        run: |
+          if [ "$PACKAGE_MANAGER" = pnpm ]; then
+            pnpm run build
+          else
+            npm run build
+          fi
+
+  # Blocking: a high or critical advisory in production dependencies fails CI.
+  audit:
+    name: audit
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        if: inputs.package-manager == 'pnpm'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: ${{ inputs.working-directory }}/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: ${{ inputs.node-version-file }}
+
+      - name: Audit production dependencies
+        run: |
+          case "$PACKAGE_MANAGER" in
+            npm) npm audit --omit=dev --audit-level=high ;;
+            pnpm) pnpm audit --prod --audit-level high ;;
+            *) echo "::error::package-manager must be npm or pnpm, got '$PACKAGE_MANAGER'"; exit 1 ;;
+          esac
+
+  # The lockfile is the only one, matches package-manager, and installs as-is
+  # (no lifecycle scripts).
+  check-deps:
+    name: check-deps
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: One lockfile, matching package-manager
+        run: |
+          case "$PACKAGE_MANAGER" in
+            npm) expected=package-lock.json ;;
+            pnpm) expected=pnpm-lock.yaml ;;
+            *) echo "::error::package-manager must be npm or pnpm, got '$PACKAGE_MANAGER'"; exit 1 ;;
+          esac
+          status=0
+          if [ ! -f "$expected" ]; then
+            echo "::error file=$expected::$expected is missing for package-manager=$PACKAGE_MANAGER"
+            status=1
+          fi
+          for lockfile in package-lock.json npm-shrinkwrap.json pnpm-lock.yaml yarn.lock bun.lockb bun.lock; do
+            if [ "$lockfile" != "$expected" ] && [ -f "$lockfile" ]; then
+              echo "::error file=$lockfile::$lockfile conflicts with package-manager=$PACKAGE_MANAGER"
+              status=1
+            fi
+          done
+          exit "$status"
+
+      - name: Setup pnpm
+        if: inputs.package-manager == 'pnpm'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: ${{ inputs.working-directory }}/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: ${{ inputs.node-version-file }}
+          cache: ${{ inputs.package-manager }}
+          cache-dependency-path: ${{ inputs.working-directory }}/${{ inputs.package-manager == 'pnpm' && 'pnpm-lock.yaml' || 'package-lock.json' }}
+
+      - name: Lockfile in sync with package.json
+        run: |
+          if [ "$PACKAGE_MANAGER" = pnpm ]; then
+            pnpm install --frozen-lockfile --ignore-scripts
+          else
+            npm ci --ignore-scripts
+          fi
+
+  # A CODEOWNERS with errors protects nothing: GitHub ignores the faulty lines.
+  # Reads the caller's own CODEOWNERS errors at the tested commit. A repository
+  # without CODEOWNERS passes with a warning; an unknown ref or an unreadable
+  # repository fails.
+  codeowners-check:
+    name: codeowners-check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: CODEOWNERS has no error
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if ! response=$(gh api -H "Accept: application/vnd.github+json" \
+            "repos/$REPO/codeowners/errors?ref=$REF" 2>&1); then
+            # The API also answers 404 for an unknown ref or an unreadable
+            # repository: only a readable commit without any CODEOWNERS passes.
+            if grep -q "HTTP 404" <<< "$response" \
+              && gh api --silent "repos/$REPO/commits/$REF"; then
+              found=false
+              for path in .github/CODEOWNERS CODEOWNERS docs/CODEOWNERS; do
+                if file=$(gh api --silent "repos/$REPO/contents/$path?ref=$REF" 2>&1); then
+                  found=true
+                elif ! grep -q "HTTP 404" <<< "$file"; then
+                  echo "::error::Could not read $path: $file"
+                  exit 1
+                fi
+              done
+              if [ "$found" = false ]; then
+                echo "::warning::No CODEOWNERS file in $REPO at $REF"
+                exit 0
+              fi
+            fi
+            echo "::error::Could not read CODEOWNERS errors: $response"
+            exit 1
+          fi
+          count=$(jq '.errors | length' <<< "$response")
+          if [ "$count" -eq 0 ]; then
+            echo "CODEOWNERS: 0 error"
+            exit 0
+          fi
+          jq -r '.errors[] | "::error file=\(.path),line=\(.line),col=\(.column)::\(.kind): \(.message | split("\n")[0])"' <<< "$response"
+          echo "::error::CODEOWNERS has $count error(s)"
+          exit 1
+
+  # The single check to require. Fails unless every job succeeded; build may
+  # only be skipped when run-build is false.
+  ci-gate:
+    name: ci-gate
+    if: always()
+    needs: [lint, typecheck, test-plan, test, build, audit, check-deps, codeowners-check]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check job results
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          RUN_BUILD: ${{ inputs.run-build }}
+        run: |
+          status=0
+          for job in $(jq -r 'keys[]' <<< "$NEEDS"); do
+            result=$(jq -r --arg job "$job" '.[$job].result' <<< "$NEEDS")
+            echo "$job: $result"
+            if [ "$result" = success ]; then
+              continue
+            fi
+            if [ "$job" = build ] && [ "$result" = skipped ] && [ "$RUN_BUILD" = false ]; then
+              continue
+            fi
+            echo "::error::$job did not succeed ($result)"
+            status=1
+          done
+          exit "$status"

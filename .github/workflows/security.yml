@@ -1,0 +1,28 @@
+name: Security
+
+# Kit security gates (KIT-02.6), from the MANAGED inline copy
+# kit-security.yml. The check is "security / security-gate". The weekly cron
+# lives here because a reusable workflow cannot schedule itself.
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+  schedule:
+    - cron: "23 4 * * 1" # Mondays 04:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    uses: ./.github/workflows/kit-security.yml
+    # GitHub checks the permissions of every job of the called workflow,
+    # skipped jobs included, so these are granted even while GHAS is off.
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    with:
+      package-manager: pnpm
+      node-version-file: .nvmrc

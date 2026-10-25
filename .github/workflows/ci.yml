@@ -24,7 +24,19 @@ permissions:
   contents: read
 
 jobs:
+  # Kit CI (KIT-02.6), from the MANAGED inline copy kit-ci-node.yml. Its check
+  # is "ci / ci-gate". It runs beside the job below until GOV-08 switches the
+  # required check over.
   ci:
+    uses: ./.github/workflows/kit-ci-node.yml
+    with:
+      package-manager: pnpm
+      node-version-file: .nvmrc
+
+  # The name below is the required status check: renaming it strands every PR
+  # on "Expected — waiting for status to be reported". Only the job id changed
+  # (ci → legacy), so that the kit caller above can use "ci".
+  legacy:
     name: Lint · Type-check · Test · Build
     runs-on: ubuntu-latest
     timeout-minutes: 15
