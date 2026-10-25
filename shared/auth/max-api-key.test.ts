@@ -127,6 +127,31 @@ describe("verifyMaxApiKey", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("refuses a production Max URL outside production, before any call", async () => {
+    process.env.DIGITALCREW_API_BASE_URL = "https://max.digitalcrew.tech";
+    process.env.APP_ENV = "staging";
+    try {
+      await expect(checkMaxApiKey("max_live_abc")).rejects.toThrow(/APP_ENV=staging/);
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.APP_ENV;
+    }
+  });
+
+  it("refuses redirects outside production and follows them in production", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200));
+    process.env.APP_ENV = "staging";
+    try {
+      await verifyMaxApiKey("max_live_abc");
+      expect(fetchMock.mock.calls[0][1].redirect).toBe("error");
+    } finally {
+      delete process.env.APP_ENV;
+    }
+    resetMaxApiKeyCache();
+    await verifyMaxApiKey("max_live_abc");
+    expect(fetchMock.mock.calls[1][1].redirect).toBe("follow");
+  });
+
   it("accepts a key max-agent confirms, forwarding it as Bearer", async () => {
     fetchMock.mockResolvedValue(jsonResponse(200));
     expect(await verifyMaxApiKey("max_live_abc")).toBe(true);
