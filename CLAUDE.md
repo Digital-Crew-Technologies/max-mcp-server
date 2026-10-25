@@ -15,7 +15,8 @@
 - Build: `pnpm build` (`postbuild` runs `scripts/copy-standalone-assets.mjs`).
 - Catalog size and cap check: `pnpm catalog:measure`.
 - No `test:security` script and no format script.
-- CI order (`.github/workflows/ci.yml`): lint, type-check, test, docs:check, build, presence of `.next/standalone/server.js`, `pnpm audit` (advisory only).
+- CI order (`.github/workflows/ci.yml`, job `legacy`, required check `Lint · Type-check · Test · Build`): lint, type-check, test, docs:check, build, presence of `.next/standalone/server.js`, `pnpm audit` (advisory only).
+- Kit CI and security gates (KIT-02.6): `ci.yml` job `ci` and `security.yml` call the MANAGED inline copies `kit-ci-node.yml` and `kit-security.yml` of digitalcrew-agent-kit `v0.1.0` (checks `ci / ci-gate` and `security / security-gate`). Do not edit the copies by hand; copy a newer kit tag instead.
 - `pnpm verify` and `pnpm test:endpoints` need a running server. `verify` without a bearer token lists the tools but skips the real calls; `test:endpoints` requires a token and creates and deletes real resources: do not run it without human approval.
 
 ## Structure

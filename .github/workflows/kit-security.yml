@@ -1,0 +1,355 @@
+# MANAGED by digitalcrew-agent-kit: do not edit by hand.
+# Inline copy of .github/workflows/security.yml at kit tag v0.1.0
+# (commit 6a6f0d65494cb683c7a5fdfc4e7d809e0b508b7f), byte for byte below this header.
+# max-mcp-server is public and cannot call the private kit (KIT-02.6), so the
+# kit workflow is copied here and called by local path. Update it only by
+# copying a newer kit tag. src/platform is not part of this copy (D7).
+#
+name: Security
+
+# Shared security gates, taken over from andre-agent's security.yml. A worker
+# calls it by exact tag, on pull requests, on pushes and on a weekly cron (so
+# newly published advisories are caught against unchanged code):
+#
+#   on:
+#     pull_request:
+#     push:
+#       branches: [main, develop]
+#     schedule:
+#       - cron: "23 4 * * 1" # Mondays 04:23 UTC
+#     workflow_dispatch:
+#
+#   permissions:
+#     contents: read
+#
+#   jobs:
+#     security:
+#       uses: Digital-Crew-Technologies/digitalcrew-agent-kit/.github/workflows/security.yml@v0.1.0
+#       permissions:
+#         contents: read
+#         actions: read
+#         security-events: write
+#
+# A reusable workflow cannot schedule itself: the weekly cron lives in the
+# caller. The caller must grant `actions: read` and `security-events: write`
+# even while GHAS is off, because GitHub checks the permissions of every job
+# of the called workflow before running it, skipped jobs included.
+#
+# The check to require is "security / security-gate": it aggregates every job
+# below.
+#
+# GitHub code scanning (SARIF upload, CodeQL) and dependency review need GitHub
+# Advanced Security (GitHub Code Security) on PRIVATE repositories (D6). They
+# run only when the caller's repository variable GHAS_ENABLED is "true". Until
+# then, the SARIF reports are still kept as workflow artifacts.
+#
+# Credentials model (docs/credentials-model.md): no secret is read, no job
+# declares an environment, and the only checkout is the caller's code.
+# Third-party actions are pinned by full commit SHA, container images by
+# digest. Dependabot does not track the images and CLI versions below
+# (gitleaks v8.30.1, semgrep 1.180.0, cyclonedx-npm 6.0.1, cdxgen 12.8.5):
+# bump them by hand in a reviewed PR at least quarterly.
+
+on:
+  workflow_call:
+    inputs:
+      package-manager:
+        description: "npm or pnpm (SBOM job)"
+        type: string
+        default: npm
+      node-version-file:
+        description: "File setup-node reads the Node version from (.nvmrc, .node-version, package.json)"
+        type: string
+        default: .nvmrc
+      semgrep-configs:
+        description: "Semgrep rulesets, separated by spaces"
+        type: string
+        default: "p/owasp-top-ten p/typescript p/nextjs p/secrets"
+      codeql-languages:
+        description: "CodeQL languages (only used when GHAS_ENABLED is true)"
+        type: string
+        default: javascript-typescript
+
+permissions:
+  contents: read
+
+# Pull requests and develop keep only the latest run; main never cancels a run.
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' }}
+
+env:
+  PACKAGE_MANAGER: ${{ inputs.package-manager }}
+
+jobs:
+  # Secret scanning over the full git history.
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The caller's .gitleaks.toml is used when present; otherwise the
+      # upstream default rules apply. GIT_CONFIG_* marks the mounted checkout
+      # as a safe directory for git inside the container.
+      - name: gitleaks over every commit
+        run: |
+          config=()
+          if [ -f .gitleaks.toml ]; then
+            config=(--config /repo/.gitleaks.toml)
+          fi
+          docker run --rm \
+            --volume "${GITHUB_WORKSPACE}:/repo" \
+            --env GIT_CONFIG_COUNT=1 \
+            --env GIT_CONFIG_KEY_0=safe.directory \
+            --env GIT_CONFIG_VALUE_0='*' \
+            ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            git /repo \
+              "${config[@]}" \
+              --redact \
+              --verbose \
+              --exit-code 1 \
+              --report-format sarif \
+              --report-path /repo/gitleaks.sarif
+
+      - name: Keep redacted report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gitleaks-sarif
+          path: gitleaks.sarif
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # SAST with Semgrep OSS. Any finding fails the job (--error).
+  # A false positive is suppressed in code with
+  # `// nosemgrep: <rule-id> -- <reason>`, and the reviewer checks the reason.
+  semgrep:
+    name: semgrep
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container:
+      image: semgrep/semgrep:1.180.0@sha256:529ee8a277ec8adc5b534d7c74eea0a47e9de21d62852b6ba7ac6ba9566845c3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Semgrep scan
+        env:
+          SEMGREP_CONFIGS: ${{ inputs.semgrep-configs }}
+        # POSIX sh: the semgrep image does not ship bash.
+        run: |
+          set --
+          for config in $SEMGREP_CONFIGS; do
+            set -- "$@" --config "$config"
+          done
+          semgrep scan "$@" --error --metrics=off --sarif-output=semgrep.sarif
+
+      - name: Keep SARIF report
+        if: always() && hashFiles('semgrep.sarif') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: semgrep-sarif
+          path: semgrep.sarif
+          retention-days: 30
+
+  # Publishes the Semgrep SARIF to code scanning. A separate job so that the
+  # scan itself runs with read-only contents. Not part of security-gate.
+  semgrep-sarif:
+    name: semgrep-sarif
+    needs: semgrep
+    if: always() && vars.GHAS_ENABLED == 'true' && (needs.semgrep.result == 'success' || needs.semgrep.result == 'failure')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Fetch SARIF report
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: semgrep-sarif
+
+      - name: Upload SARIF to code scanning
+        if: hashFiles('semgrep.sarif') != ''
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+  # CodeQL needs GHAS on a PRIVATE repository (D6): skipped unless
+  # GHAS_ENABLED is "true".
+  codeql:
+    name: codeql
+    if: vars.GHAS_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          languages: ${{ inputs.codeql-languages }}
+          build-mode: none
+          queries: security-extended
+
+      - name: Analyse
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          category: "/language:${{ inputs.codeql-languages }}"
+
+  # Informational: OSV covers every lockfile of the repository, dev
+  # dependencies included, at every severity. The blocking audit of production
+  # dependencies is the `audit` job of ci-node.yml. Findings are triaged from
+  # the weekly scheduled run.
+  osv-scanner:
+    name: osv-scanner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: OSV-Scanner (lockfiles)
+        continue-on-error: true
+        uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
+        with:
+          scan-args: |-
+            --recursive
+            --format=json
+            --output=osv-results.json
+            ./
+
+      - name: Keep OSV report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: osv-results
+          path: osv-results.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # Software bill of materials: production dependencies for npm, the whole
+  # tree for pnpm.
+  sbom:
+    name: sbom
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        if: inputs.package-manager == 'pnpm'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: ${{ inputs.node-version-file }}
+          cache: ${{ inputs.package-manager }}
+
+      - name: Install dependencies (lifecycle scripts off)
+        run: |
+          case "$PACKAGE_MANAGER" in
+            npm) npm ci --ignore-scripts ;;
+            pnpm) pnpm install --frozen-lockfile --ignore-scripts ;;
+            *) echo "::error::package-manager must be npm or pnpm, got '$PACKAGE_MANAGER'"; exit 1 ;;
+          esac
+
+      # npm: --ignore-npm-errors because `npm ls` reports peer ranges and
+      # optional platform binaries as errors; the installed tree (frozen
+      # install from the lockfile) is still what ships.
+      # pnpm: cyclonedx-npm does not read pnpm trees, cdxgen does. Its
+      # --required-only keeps only direct dependencies on a pnpm lockfile, so
+      # the pnpm SBOM lists the whole tree, dev dependencies included.
+      - name: Generate CycloneDX SBOM
+        run: |
+          if [ "$PACKAGE_MANAGER" = pnpm ]; then
+            npx --yes @cyclonedx/cdxgen@12.8.5 --type js --no-recurse --output sbom.cdx.json .
+          else
+            npx --yes @cyclonedx/cyclonedx-npm@6.0.1 --omit dev --ignore-npm-errors --output-file sbom.cdx.json
+          fi
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom-cyclonedx
+          path: sbom.cdx.json
+          retention-days: 90
+
+  # Dependency review on pull requests. Needs GHAS on a PRIVATE repository:
+  # skipped unless GHAS_ENABLED is "true".
+  dependency-review:
+    name: dependency-review
+    if: github.event_name == 'pull_request' && vars.GHAS_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+          fail-on-scopes: runtime
+          comment-summary-in-pr: never
+
+  # The single check to require. Fails unless every job succeeded; codeql and
+  # dependency-review may only be skipped, as their `if:` intends.
+  security-gate:
+    name: security-gate
+    if: always()
+    needs: [gitleaks, semgrep, codeql, osv-scanner, sbom, dependency-review]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check job results
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          GHAS_ENABLED: ${{ vars.GHAS_ENABLED == 'true' }}
+          IS_PULL_REQUEST: ${{ github.event_name == 'pull_request' }}
+        run: |
+          status=0
+          for job in $(jq -r 'keys[]' <<< "$NEEDS"); do
+            result=$(jq -r --arg job "$job" '.[$job].result' <<< "$NEEDS")
+            echo "$job: $result"
+            if [ "$result" = success ]; then
+              continue
+            fi
+            if [ "$result" = skipped ]; then
+              if [ "$job" = codeql ] && [ "$GHAS_ENABLED" = false ]; then
+                continue
+              fi
+              if [ "$job" = dependency-review ] && { [ "$GHAS_ENABLED" = false ] || [ "$IS_PULL_REQUEST" = false ]; }; then
+                continue
+              fi
+            fi
+            echo "::error::$job did not succeed ($result)"
+            status=1
+          done
+          exit "$status"
