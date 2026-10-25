@@ -1,45 +1,45 @@
 # CLAUDE.md — max-mcp-server
 
-## Le dépôt
-- Serveur MCP (Streamable HTTP) qui expose l'API Max Agent de Digital Crew sous forme d'outils MCP. Routes : `app/mcp/route.ts` (MCP, SSE désactivé), `app/chat/route.ts`, `app/health/route.ts`.
-- Stack : Next.js 15 (App Router, `output: "standalone"`), `mcp-handler`, Zod 3, TypeScript strict, Vitest. Alias d'import `@/*` vers la racine.
-- Gestionnaire : pnpm 8.15.7, épinglé par `packageManager` (lockfile v6). N'utilise ni npm ni une autre version de pnpm pour modifier `pnpm-lock.yaml`.
-- Node : ni `.nvmrc` ni `engines`. La CI tourne en Node 20.
-- Déploiement : intégration Git de Vercel (préversion sur PR, production au merge sur main). La CI ne fait que bloquer.
+## The repository
+- MCP server (Streamable HTTP) that exposes Digital Crew's Max Agent API as MCP tools. Routes: `app/mcp/route.ts` (MCP, SSE disabled), `app/chat/route.ts`, `app/health/route.ts`.
+- Stack: Next.js 15 (App Router, `output: "standalone"`), `mcp-handler`, Zod 3, strict TypeScript, Vitest. Import alias `@/*` points to the root.
+- Package manager: pnpm 8.15.7, pinned by `packageManager` (lockfile v6). Use neither npm nor another pnpm version to change `pnpm-lock.yaml`.
+- Node: no `.nvmrc` and no `engines`. CI runs on Node 20.
+- Deployment: Vercel Git integration (preview on PR, production on merge to main). CI only blocks.
 
-## Commandes (package.json)
-- Installation : `pnpm install` (la CI lance `pnpm install --frozen-lockfile`).
-- Dev : `pnpm dev`. Lint : `pnpm lint`. Typecheck : `pnpm type-check` (pas de script `typecheck`).
-- Tests : `pnpm test` (vitest run), `pnpm test:watch`.
-- Inventaire des outils : `pnpm docs:check` (vérifie), `pnpm docs:tools` (régénère).
-- Build : `pnpm build` (le `postbuild` lance `scripts/copy-standalone-assets.mjs`).
-- Taille du catalogue et vérification du plafond : `pnpm catalog:measure`.
-- Pas de script `test:security` ni de script de formatage.
-- Ordre de la CI (`.github/workflows/ci.yml`) : lint, type-check, test, docs:check, build, présence de `.next/standalone/server.js`, `pnpm audit` (indicatif seulement).
-- `pnpm verify` et `pnpm test:endpoints` demandent un serveur lancé. `verify` sans jeton porteur liste les outils mais saute les appels réels ; `test:endpoints` exige un jeton, crée et supprime de vraies ressources : ne le lance pas sans accord humain.
+## Commands (package.json)
+- Install: `pnpm install` (CI runs `pnpm install --frozen-lockfile`).
+- Dev: `pnpm dev`. Lint: `pnpm lint`. Typecheck: `pnpm type-check` (there is no `typecheck` script).
+- Tests: `pnpm test` (vitest run), `pnpm test:watch`.
+- Tool inventory: `pnpm docs:check` (checks), `pnpm docs:tools` (regenerates).
+- Build: `pnpm build` (`postbuild` runs `scripts/copy-standalone-assets.mjs`).
+- Catalog size and cap check: `pnpm catalog:measure`.
+- No `test:security` script and no format script.
+- CI order (`.github/workflows/ci.yml`): lint, type-check, test, docs:check, build, presence of `.next/standalone/server.js`, `pnpm audit` (advisory only).
+- `pnpm verify` and `pnpm test:endpoints` need a running server. `verify` without a bearer token lists the tools but skips the real calls; `test:endpoints` requires a token and creates and deletes real resources: do not run it without human approval.
 
 ## Structure
-- `app/` : routes Next.js (`mcp`, `chat`, `health`).
-- `middleware.ts` (+ `middleware.test.ts`) : passerelle d'authentification devant `/mcp` et `/chat`.
-- `features/pilot-tools/<domaine>/` : un domaine par dossier, en général `tools.ts` (enregistrement), `schema.ts` (Zod), `repository.ts` (appels API), `tools.test.ts`.
-- `features/pilot-tools/mcp/register.ts` : point d'entrée de l'enregistrement et liste `GROUPS` (un outil groupé par domaine).
-- `features/pilot-tools/shared.ts`, `http.ts`, `circuit-breaker.ts`, `dead-letter.ts` : client HTTP, reprises, disjoncteur, file des échecs.
-- `features/workspace-profile/` : outils du profil de workspace.
-- `shared/auth/`, `shared/http/` : clés API Max, portée de la passerelle, client Digital Crew, limite de débit du chat.
-- `test/contract/` : tests de contrat (inventaire, plafond du catalogue, schémas publiés).
-- `docs/` : `tools.json` (généré), référence des outils, ADR dans `docs/adr/`. `scripts/` : générateur de docs et scripts de test manuels.
+- `app/`: Next.js routes (`mcp`, `chat`, `health`).
+- `middleware.ts` (+ `middleware.test.ts`): authentication gateway in front of `/mcp` and `/chat`.
+- `features/pilot-tools/<domain>/`: one domain per folder, usually `tools.ts` (registration), `schema.ts` (Zod), `repository.ts` (API calls), `tools.test.ts`.
+- `features/pilot-tools/mcp/register.ts`: registration entry point and the `GROUPS` list (one grouped tool per domain).
+- `features/pilot-tools/shared.ts`, `http.ts`, `circuit-breaker.ts`, `dead-letter.ts`: HTTP client, retries, circuit breaker, dead-letter queue.
+- `features/workspace-profile/`: workspace profile tools.
+- `shared/auth/`, `shared/http/`: Max API keys, gateway scope, Digital Crew client, chat rate limit.
+- `test/contract/`: contract tests (inventory, catalog cap, published schemas).
+- `docs/`: `tools.json` (generated), tool reference, ADRs in `docs/adr/`. `scripts/`: docs generator and manual test scripts.
 
-## Règles
-- Ajout, renommage ou suppression d'un outil : lance `pnpm docs:tools` et commite `docs/tools.json` et le tableau du README (entre `<!-- TOOLS:START -->` et `<!-- TOOLS:END -->`). Ne modifie pas ces deux sorties à la main : `docs:check` fait échouer la CI en cas d'écart.
-- Le mode groupé est le défaut (`GROUPED_TOOLS` absent). Un nom d'outil groupé ne doit pas contenir de `_`. Le catalogue par défaut doit tenir dans 122 outils (`MCP_TOOL_BUDGET`, `features/pilot-tools/mcp/client-cap.ts`). `test/contract/tool-inventory.test.ts` le vérifie. Voir ADR-006.
-- Les schémas d'entrée doivent rester visibles une fois publiés par le SDK MCP (`test/contract/published-schema.test.ts`). Après un changement de schéma, vérifie que ce test passe.
-- Outils sensibles derrière un drapeau, désactivés par défaut : achats (`ENABLE_PURCHASE_TOOLS`), admin (`ENABLE_ADMIN_TOOLS`), simulateurs de webhooks (`ENABLE_WEBHOOK_SIMULATORS`). Ne retire pas ces garde-fous et ne les active pas par défaut.
-- Authentification : jeton porteur par requête. Le repli sur un jeton d'environnement n'est actif que si `ALLOW_ENV_TOKEN_FALLBACK=true` (ADR-002). N'en fais pas un défaut.
-- `.env.example` : noms de variables et valeurs vides ou factices uniquement. Jamais de vrai secret ni d'URL de production en dur dans le code.
-- Ajoute ou adapte les tests (`*.test.ts` à côté du code) avec chaque changement.
-- Pas de migrations ni de dossier i18n dans ce dépôt.
+## Rules
+- Adding, renaming or removing a tool: run `pnpm docs:tools` and commit `docs/tools.json` and the README table (between `<!-- TOOLS:START -->` and `<!-- TOOLS:END -->`). Do not edit these two outputs by hand: `docs:check` fails CI when they drift.
+- Grouped mode is the default (`GROUPED_TOOLS` unset). A grouped tool name must not contain `_`. The default catalog must fit in 122 tools (`MCP_TOOL_BUDGET`, `features/pilot-tools/mcp/client-cap.ts`). `test/contract/tool-inventory.test.ts` checks it. See ADR-006.
+- Input schemas must stay visible once published by the MCP SDK (`test/contract/published-schema.test.ts`). After a schema change, check that this test passes.
+- Sensitive tools sit behind a flag, off by default: purchases (`ENABLE_PURCHASE_TOOLS`), admin (`ENABLE_ADMIN_TOOLS`), webhook simulators (`ENABLE_WEBHOOK_SIMULATORS`). Do not remove these safeguards and do not turn them on by default.
+- Authentication: a bearer token per request. The fallback to an environment token is only active when `ALLOW_ENV_TOKEN_FALLBACK=true` (ADR-002). Do not make it a default.
+- `.env.example`: variable names with empty or dummy values only. Never a real secret, nor a hard-coded production URL in the code.
+- Add or adapt the tests (`*.test.ts` next to the code) with every change.
+- No migrations and no i18n folder in this repository.
 
-## Flux Git
-- Branche `claude/<clé-de-la-carte>-<mot-clé>`, créée depuis `main`. PR vers `main` (branche par défaut), avec relecture humaine.
-- Jamais de push sur `main` ni sur `develop`, jamais de merge, jamais de force-push.
-- Avant de pousser : `pnpm lint`, `pnpm type-check`, `pnpm test` et `pnpm docs:check` (ce que lance la CI).
+## Git flow
+- Branch `claude/<card-key>-<keyword>`, created from `main`. PR to `main` (the default branch), with human review.
+- Never push to `main` or `develop`, never merge, never force-push.
+- Before pushing: `pnpm lint`, `pnpm type-check`, `pnpm test` and `pnpm docs:check` (what CI runs).
