@@ -10,3 +10,6 @@
 94d390192e218ee892560785190267257fd5c776:middleware.test.ts:generic-api-key:8
 # Fake webhook token in a redaction test; fetch is mocked
 6000d0d0e0eb08b6bb5da05ab731c1b037e493ae:features/pilot-tools/automations/tools.test.ts:generic-api-key:197
+# Fake Max API key in the gateway contract tests ("max_live_validkeyvalidkeyvalidkey01"),
+# on branch claude/max-video-ux-mcp-8e6n1i
+15d581aaf044daf5ca8e692c21c052da3a8e874c:test/contract/gateway-auth.test.ts:generic-api-key:13
