@@ -1,0 +1,12 @@
+# Verified false positives (test fixtures, not credentials), by gitleaks
+# fingerprint. Add an entry here only after confirming the value is not a
+# real secret, and say why.
+#
+# Fake Max API keys used to test key parsing ("max_live_abc123")
+47e4456669218be38acd29ee7cc508b09d880999:shared/auth/max-api-key.test.ts:generic-api-key:54
+47e4456669218be38acd29ee7cc508b09d880999:shared/auth/max-api-key.test.ts:generic-api-key:91
+47e4456669218be38acd29ee7cc508b09d880999:shared/auth/max-api-key.test.ts:generic-api-key:102
+# Fake Max API key in the middleware tests ("max_live_abcdef123456")
+94d390192e218ee892560785190267257fd5c776:middleware.test.ts:generic-api-key:8
+# Fake webhook token in a redaction test; fetch is mocked
+6000d0d0e0eb08b6bb5da05ab731c1b037e493ae:features/pilot-tools/automations/tools.test.ts:generic-api-key:197
