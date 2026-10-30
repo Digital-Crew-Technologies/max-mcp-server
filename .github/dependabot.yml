@@ -4,7 +4,8 @@
 #
 # cooldown: version updates wait 7 days (30 for majors) after a release is
 # published. This limits exposure to a compromised release that gets yanked
-# shortly after. Security updates ignore cooldown.
+# shortly after. Security updates ignore cooldown. github-actions does not
+# support the semver-*-days keys, so actions wait 7 days for every update.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -37,7 +38,6 @@ updates:
       timezone: Europe/Paris
     cooldown:
       default-days: 7
-      semver-major-days: 30
     commit-message:
       prefix: "chore(ci)"
     groups:
