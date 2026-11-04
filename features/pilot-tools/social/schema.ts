@@ -9,7 +9,7 @@ const identifier = z.string().trim().min(1).max(512)
   .refine((v) => !/[\u0000-\u001f\u007f]/.test(v) && v !== "." && v !== "..", "Invalid identifier");
 
 const account = {
-  account_id: z.string().uuid()
+  account_id: z.guid()
     .describe("Max account UUID of a connected LinkedIn or Instagram account (list_accounts)"),
 };
 const providerId = identifier.describe("Provider id of the person or company (linkedin find_profile/get_profile)");

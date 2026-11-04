@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isoDateTime } from "../string-formats";
 import { withToken } from "../shared";
 
 // Mirrors the frozen contract in max-agent
@@ -54,8 +55,7 @@ export const TASK_AGENT_SETTABLE_STATUSES = [
  */
 const listFilters = {
   session_id: z
-    .string()
-    .uuid()
+    .guid()
     .optional()
     .describe("Only tasks from this meeting session."),
   status: z
@@ -65,7 +65,7 @@ const listFilters = {
     .describe(
       "Only tasks in these statuses, e.g. [\"suggested\"] for the human review queue.",
     ),
-  assignee_user_id: z.string().uuid().optional().describe("Only tasks assigned to this user."),
+  assignee_user_id: z.guid().optional().describe("Only tasks assigned to this user."),
   assignee_agent: z
     .enum(TASK_ASSIGNEE_AGENTS)
     .optional()
@@ -77,9 +77,7 @@ const listFilters = {
     .max(200)
     .optional()
     .describe("Page size, 1-200 (default 50)."),
-  cursor: z
-    .string()
-    .datetime({ offset: true })
+  cursor: isoDateTime({ offset: true })
     .optional()
     .describe(
       "Keyset cursor — echo back the previous page's nextCursor. Omit for the first page; a null nextCursor means the last page.",
@@ -89,8 +87,7 @@ const listFilters = {
 export const listTasksSchema = z.object({
   ...withToken,
   prospect_id: z
-    .string()
-    .uuid()
+    .guid()
     .optional()
     .describe(
       "Only tasks about this prospect. A filter within your own workspace — not a tenant selector.",
@@ -100,18 +97,18 @@ export const listTasksSchema = z.object({
 
 export const prospectListTasksSchema = z.object({
   ...withToken,
-  prospect_id: z.string().uuid().describe("Prospect UUID whose tasks to read."),
+  prospect_id: z.guid().describe("Prospect UUID whose tasks to read."),
   ...listFilters,
 });
 
 export const getTaskSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Task UUID."),
+  id: z.guid().describe("Task UUID."),
 });
 
 export const getTaskThreadSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Task UUID."),
+  id: z.guid().describe("Task UUID."),
 });
 
 /**
@@ -127,7 +124,7 @@ export const createTaskSuggestionSchema = z.object({
   description: z.string().trim().max(5000).optional().describe("Detail / context."),
   priority: z.enum(TASK_PRIORITIES).optional().describe("Default medium."),
   assignee_type: z.enum(TASK_ASSIGNEE_TYPES).optional(),
-  assignee_user_id: z.string().uuid().optional().describe("Suggest a human owner."),
+  assignee_user_id: z.guid().optional().describe("Suggest a human owner."),
   assignee_agent: z.enum(TASK_ASSIGNEE_AGENTS).optional().describe("Suggest an agent owner."),
   execution_mode: z
     .enum(TASK_EXECUTION_MODES)
@@ -135,18 +132,17 @@ export const createTaskSuggestionSchema = z.object({
     .describe(
       "manual = a human does it; approval_required = an agent may execute only after explicit approval. 'autonomous' is reserved and not enabled in this release.",
     ),
-  due_at: z.string().datetime({ offset: true }).optional().describe("ISO8601 due date."),
+  due_at: isoDateTime({ offset: true }).optional().describe("ISO8601 due date."),
   source_type: z
     .enum(TASK_SOURCE_TYPES)
     .optional()
     .describe("Where the suggestion came from. Defaults to 'agent' for API-key callers."),
-  source_id: z.string().uuid().optional(),
-  session_id: z.string().uuid().optional().describe("The meeting this came out of."),
-  prospect_id: z.string().uuid().optional().describe("The prospect this concerns."),
-  source_summary_id: z.string().uuid().optional().describe("Lineage: the summary that proposed it."),
+  source_id: z.guid().optional(),
+  session_id: z.guid().optional().describe("The meeting this came out of."),
+  prospect_id: z.guid().optional().describe("The prospect this concerns."),
+  source_summary_id: z.guid().optional().describe("Lineage: the summary that proposed it."),
   source_transcript_version_id: z
-    .string()
-    .uuid()
+    .guid()
     .optional()
     .describe("Lineage: the exact transcript version behind it."),
   dedup_key: z
@@ -169,10 +165,8 @@ export const createTaskSuggestionSchema = z.object({
  */
 export const updateTaskSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Task UUID."),
-  expected_version: z
-    .string()
-    .datetime({ offset: true })
+  id: z.guid().describe("Task UUID."),
+  expected_version: isoDateTime({ offset: true })
     .describe(
       "REQUIRED optimistic-concurrency token: the `updatedAt` of the task as you last read it. If the task changed underneath you the call returns 409 with the current task — re-read, re-apply your edit, and try again. Do not loop on it blindly.",
     ),
@@ -180,10 +174,10 @@ export const updateTaskSchema = z.object({
   description: z.string().trim().max(5000).nullable().optional().describe("null clears it."),
   priority: z.enum(TASK_PRIORITIES).optional(),
   assignee_type: z.enum(TASK_ASSIGNEE_TYPES).optional(),
-  assignee_user_id: z.string().uuid().nullable().optional(),
+  assignee_user_id: z.guid().nullable().optional(),
   assignee_agent: z.enum(TASK_ASSIGNEE_AGENTS).nullable().optional(),
   execution_mode: z.enum(TASK_EXECUTION_MODES).optional(),
-  due_at: z.string().datetime({ offset: true }).nullable().optional(),
+  due_at: isoDateTime({ offset: true }).nullable().optional(),
   status: z
     .enum(TASK_AGENT_SETTABLE_STATUSES)
     .optional()
@@ -194,10 +188,8 @@ export const updateTaskSchema = z.object({
 
 export const completeTaskSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Task UUID."),
-  expected_version: z
-    .string()
-    .datetime({ offset: true })
+  id: z.guid().describe("Task UUID."),
+  expected_version: isoDateTime({ offset: true })
     .describe(
       "REQUIRED optimistic-concurrency token: the `updatedAt` of the task as you last read it. A mismatch returns 409 with the current task.",
     ),

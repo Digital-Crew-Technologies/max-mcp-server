@@ -42,8 +42,7 @@ export const listInboxDraftsSchema = z.object({
 export const approveInboxDraftSchema = z.object({
   ...withToken,
   action_id: z
-    .string()
-    .uuid()
+    .guid()
     .describe("InboxAutopilotAction UUID of the draft to approve and send."),
   body: z
     .string()
@@ -56,7 +55,6 @@ export const approveInboxDraftSchema = z.object({
 export const rejectInboxDraftSchema = z.object({
   ...withToken,
   action_id: z
-    .string()
-    .uuid()
+    .guid()
     .describe("InboxAutopilotAction UUID of the draft to reject (no reply is sent)."),
 });

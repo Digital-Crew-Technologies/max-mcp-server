@@ -97,6 +97,14 @@ describe("saved view tools", () => {
     expect(body(f)).toEqual({ object_key: "prospects", name: "US ops", visibility: "private", config });
   });
 
+  it("create_saved_view accepts a column filter without a value", () => {
+    // `value` is z.unknown(): zod 4 makes such a key required unless it is
+    // marked optional, and zod 3 never required it.
+    const schema = tool("create_saved_view").config.inputSchema as z.ZodTypeAny;
+    const input = { object_key: "prospects", name: "Has email", config: { filters: [{ id: "email" }] } };
+    expect(schema.safeParse(input).success).toBe(true);
+  });
+
   it("update_saved_view PATCHes /views/:id without the id in the body", async () => {
     const f = mockFetch({ data: { id: VIEW } });
     await tool("update_saved_view").handler({ bearer_token: "t", view_id: VIEW, position: 2 });

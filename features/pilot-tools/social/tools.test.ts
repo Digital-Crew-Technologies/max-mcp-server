@@ -89,7 +89,7 @@ describe("social tool registration", () => {
   });
 
   it("does not expose base64 image attachments on create_post", () => {
-    const schema = tool("social_create_post").config.inputSchema as z.AnyZodObject;
+    const schema = tool("social_create_post").config.inputSchema as z.ZodObject;
     expect(Object.keys(schema.shape)).not.toContain("attachments");
   });
 });

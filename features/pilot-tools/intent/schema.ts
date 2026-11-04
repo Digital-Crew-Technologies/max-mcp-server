@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { urlString } from "../string-formats";
 import { withToken } from "../shared";
 
 // Intent Signals (feature #7): set up triggers that watch a target URL for a
@@ -47,9 +48,7 @@ export const createIntentTriggerSchema = z.object({
     .optional()
     .describe("specific (default) watches target_url; person/organization watch that record's stored profile URL for `platform`."),
   platform: platformSchema.describe("Which profile to watch for person/organization monitors (default website)."),
-  target_url: z
-    .string()
-    .url()
+  target_url: urlString()
     .optional()
     .describe("The URL to monitor (required when target_type is specific, e.g. a company news page)."),
   criteria: z
@@ -60,17 +59,15 @@ export const createIntentTriggerSchema = z.object({
     ),
   frequency: frequencySchema,
   organization_id: z
-    .string()
-    .uuid()
+    .guid()
     .optional()
     .describe("Optional organization UUID this trigger is scoped to (the company for an organization monitor)."),
   prospect_id: z
-    .string()
-    .uuid()
+    .guid()
     .optional()
     .describe("Optional prospect UUID this trigger is scoped to (the person for a person monitor)."),
   campaign_ids: z
-    .array(z.string().uuid())
+    .array(z.guid())
     .max(20)
     .optional()
     .describe("Launch-ready campaigns to auto-launch when a signal fires."),
@@ -87,14 +84,13 @@ export const listIntentSignalsSchema = z.object({
 export const getSignalHistorySchema = z.object({
   ...withToken,
   trigger_id: z
-    .string()
-    .uuid()
+    .guid()
     .describe("Trigger UUID to fetch the detected signal events for."),
 });
 
 export const disableTriggerSchema = z.object({
   ...withToken,
-  trigger_id: z.string().uuid().describe("Trigger UUID to disable (sets active=false)."),
+  trigger_id: z.guid().describe("Trigger UUID to disable (sets active=false)."),
 });
 
 export const listSignalProposalsSchema = z.object({
@@ -107,7 +103,7 @@ export const listSignalProposalsSchema = z.object({
 
 export const getSignalProposalSchema = z.object({
   ...withToken,
-  proposal_id: z.string().uuid().describe("Proposal UUID to fetch."),
+  proposal_id: z.guid().describe("Proposal UUID to fetch."),
 });
 
 // Strict modification body shared by approve (optional overrides) and modify.
@@ -117,7 +113,7 @@ const modificationsShape = {
     .optional()
     .describe("Override the target job titles used to build the prospect list."),
   target_prospect_ids: z
-    .array(z.string().uuid())
+    .array(z.guid())
     .optional()
     .describe("Override the explicit set of prospect UUIDs to target."),
   campaign_name: z.string().optional().describe("Override the draft campaign name."),
@@ -129,10 +125,9 @@ const modificationsShape = {
 
 export const approveProposalSchema = z.object({
   ...withToken,
-  proposal_id: z.string().uuid().describe("Proposal UUID to approve and launch."),
+  proposal_id: z.guid().describe("Proposal UUID to approve and launch."),
   modifications: z
-    .object(modificationsShape)
-    .strict()
+    .strictObject(modificationsShape)
     .optional()
     .describe(
       "Optional last-minute overrides applied before launch. Absent/empty = approve the recommendation as-is.",
@@ -141,15 +136,14 @@ export const approveProposalSchema = z.object({
 
 export const rejectProposalSchema = z.object({
   ...withToken,
-  proposal_id: z.string().uuid().describe("Proposal UUID to reject."),
+  proposal_id: z.guid().describe("Proposal UUID to reject."),
 });
 
 export const modifyProposalSchema = z.object({
   ...withToken,
-  proposal_id: z.string().uuid().describe("Proposal UUID to modify (must be pending)."),
+  proposal_id: z.guid().describe("Proposal UUID to modify (must be pending)."),
   modifications: z
-    .object(modificationsShape)
-    .strict()
+    .strictObject(modificationsShape)
     .describe(
       "Adjustments to apply to the pending proposal (titles, target_prospect_ids, campaign_name, campaign_description). The workflow is regenerated and the proposal stays pending.",
     ),
@@ -163,12 +157,11 @@ export const bulkCreateIntentTriggersSchema = z.object({
   ...withToken,
   signal_type: signalTypeSchema,
   prospect_list_id: z
-    .string()
-    .uuid()
+    .guid()
     .optional()
     .describe("Monitor each person in this prospect list (first 200). Use this OR organization_ids."),
   organization_ids: z
-    .array(z.string().uuid())
+    .array(z.guid())
     .min(1)
     .max(200)
     .optional()
@@ -187,7 +180,7 @@ export const bulkCreateIntentTriggersSchema = z.object({
     .describe("Natural-language criteria for what counts as a relevant signal."),
   frequency: frequencySchema,
   campaign_ids: z
-    .array(z.string().uuid())
+    .array(z.guid())
     .max(20)
     .optional()
     .describe("Launch-ready campaigns to auto-launch when a signal fires."),
@@ -195,9 +188,9 @@ export const bulkCreateIntentTriggersSchema = z.object({
 
 export const attachCampaignToIntentTriggerSchema = z.object({
   ...withToken,
-  campaign_id: z.string().uuid().describe("Campaign UUID to link."),
+  campaign_id: z.guid().describe("Campaign UUID to link."),
   trigger_ids: z
-    .array(z.string().uuid())
+    .array(z.guid())
     .min(1)
     .max(20)
     .describe("Intent trigger UUIDs to link the campaign to."),

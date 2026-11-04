@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isoDateTime } from "../string-formats";
 import { withToken } from "../shared";
 
 // Mirrors the query/body contracts of the max-agent handlers wrapped in
@@ -24,7 +25,7 @@ export const updateDataSupplierSchema = z.object({
   provider,
   enabled: z.boolean().optional().describe("Turn the connected supplier on or off."),
   config: z
-    .record(z.unknown())
+    .record(z.string(), z.unknown())
     .optional()
     .describe("Saved default advanced search filters for this supplier (replaces the stored config)."),
 });
@@ -41,14 +42,12 @@ export const listDuplicatesSchema = z.object({
 
 export const dismissDuplicateSchema = z.object({
   ...withToken,
-  pair_id: z.string().uuid().describe("Duplicate pair UUID (from list_duplicate_records)."),
+  pair_id: z.guid().describe("Duplicate pair UUID (from list_duplicate_records)."),
 });
 
 export const listWalletConsumptionSchema = z.object({
   ...withToken,
-  since: z
-    .string()
-    .datetime({ offset: true })
+  since: isoDateTime({ offset: true })
     .optional()
     .describe("ISO 8601 timestamp; only count spend from this point on."),
 });
@@ -74,5 +73,5 @@ export const listAgentSessionsSchema = z.object({
 
 export const getAgentSessionMessagesSchema = z.object({
   ...withToken,
-  session_id: z.string().uuid().describe("Chat thread UUID (from list_agent_sessions)."),
+  session_id: z.guid().describe("Chat thread UUID (from list_agent_sessions)."),
 });

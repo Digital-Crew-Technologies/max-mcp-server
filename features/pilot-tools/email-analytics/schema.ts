@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { isoDateTime } from "../string-formats";
 import { withToken } from "../shared";
 
 export const getEmailTrackingEventsSchema = z.object({
   ...withToken,
-  prospect_id: z.string().uuid().describe("Prospect UUID"),
+  prospect_id: z.guid().describe("Prospect UUID"),
   event_types: z
     .array(z.string())
     .optional()
@@ -14,17 +15,17 @@ export const getEmailTrackingEventsSchema = z.object({
 
 export const getProspectEngagementTimelineSchema = z.object({
   ...withToken,
-  prospect_id: z.string().uuid().describe("Prospect UUID"),
+  prospect_id: z.guid().describe("Prospect UUID"),
 });
 
 export const getLinkClickDetailsSchema = z.object({
   ...withToken,
-  campaign_id: z.string().uuid().describe("Campaign UUID"),
+  campaign_id: z.guid().describe("Campaign UUID"),
 });
 
 export const getCampaignEngagementSummarySchema = z.object({
   ...withToken,
-  campaign_id: z.string().uuid().describe("Campaign UUID"),
+  campaign_id: z.guid().describe("Campaign UUID"),
 });
 
 // ── Workspace analytics (dashboard:read) ────────────────────────────────────
@@ -32,12 +33,10 @@ export const getCampaignEngagementSummarySchema = z.object({
 // query then spans all time) and 400s a non-UTC one on conversations, so every
 // period bound is validated here as a UTC ISO datetime.
 const periodShape = {
-  from: z
-    .string()
-    .datetime()
+  from: isoDateTime()
     .optional()
     .describe("Period start, UTC ISO datetime (e.g. 2026-01-01T00:00:00Z). Omit for all time."),
-  to: z.string().datetime().optional().describe("Period end, UTC ISO datetime. Omit for now."),
+  to: isoDateTime().optional().describe("Period end, UTC ISO datetime. Omit for now."),
 };
 
 const compareSchema = z
@@ -49,11 +48,11 @@ export const getAnalyticsOverviewSchema = z.object({
   ...withToken,
   ...periodShape,
   campaign_ids: z
-    .array(z.string().uuid())
+    .array(z.guid())
     .optional()
     .describe("Only these campaigns (unknown ids are ignored)."),
   account_ids: z
-    .array(z.string().uuid())
+    .array(z.guid())
     .optional()
     .describe("Only activity sent from these sender accounts."),
   compare: compareSchema,
@@ -67,7 +66,7 @@ export const listConversationAnalyticsSchema = z.object({
 export const getEntityAnalyticsSchema = z.object({
   ...withToken,
   type: z.enum(["person", "organization"]).describe("person = prospect, organization = company."),
-  id: z.string().uuid().describe("Prospect or organization UUID."),
+  id: z.guid().describe("Prospect or organization UUID."),
   ...periodShape,
   compare: compareSchema,
 });

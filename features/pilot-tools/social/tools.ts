@@ -16,7 +16,7 @@ interface SocialAction {
   name: string;
   title: string;
   description: string;
-  inputSchema: z.AnyZodObject;
+  inputSchema: z.ZodObject;
   hints?: Hints;
   call: (token: string, args: Record<string, unknown>) => Promise<Response>;
 }

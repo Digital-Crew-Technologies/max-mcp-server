@@ -75,7 +75,7 @@ describe("pipeline tool registration", () => {
 
   it("never declares a top-level `action` arg (reserved for the grouped discriminator)", () => {
     for (const t of capture()) {
-      const shape = (t.config.inputSchema as z.AnyZodObject).shape;
+      const shape = (t.config.inputSchema as z.ZodObject).shape;
       expect(Object.keys(shape), t.name).not.toContain("action");
     }
   });

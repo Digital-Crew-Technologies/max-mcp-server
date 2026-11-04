@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isoDateTime, urlString } from "../string-formats";
 import { withToken } from "../shared";
 
 /**
@@ -37,16 +38,12 @@ const listFilters = {
     .max(200)
     .optional()
     .describe("Free-text search over meeting titles."),
-  from: z
-    .string()
-    .datetime()
+  from: isoDateTime()
     .optional()
     .describe(
       "Only meetings with startedAt >= this ISO8601 UTC time (e.g. 2026-07-01T00:00:00Z).",
     ),
-  to: z
-    .string()
-    .datetime()
+  to: isoDateTime()
     .optional()
     .describe("Only meetings with startedAt <= this ISO8601 UTC time."),
   limit: z
@@ -68,8 +65,7 @@ const listFilters = {
 export const listMeetingsSchema = z.object({
   ...withToken,
   prospect_id: z
-    .string()
-    .uuid()
+    .guid()
     .optional()
     .describe(
       "Only meetings involving this prospect. A filter within your own workspace — not a tenant selector.",
@@ -80,8 +76,7 @@ export const listMeetingsSchema = z.object({
 export const prospectListMeetingsSchema = z.object({
   ...withToken,
   prospect_id: z
-    .string()
-    .uuid()
+    .guid()
     .describe("Prospect UUID whose meeting feed to read."),
   ...listFilters,
 });
@@ -94,7 +89,7 @@ export const prospectListMeetingsSchema = z.object({
 
 export const getMeetingSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Meeting session UUID."),
+  id: z.guid().describe("Meeting session UUID."),
 });
 
 /**
@@ -112,7 +107,7 @@ export const TRANSCRIPT_MAX_SEGMENTS = 200;
 
 export const getTranscriptSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Meeting session UUID."),
+  id: z.guid().describe("Meeting session UUID."),
   version: z
     .number()
     .int()
@@ -142,12 +137,12 @@ export const getTranscriptSchema = z.object({
 
 export const getSummarySchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Meeting session UUID."),
+  id: z.guid().describe("Meeting session UUID."),
 });
 
 export const listParticipantsSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Meeting session UUID."),
+  id: z.guid().describe("Meeting session UUID."),
 });
 
 // ── calendar + workspace-level conversation-intelligence reads ──────────────
@@ -157,14 +152,10 @@ export const CALENDAR_MAX_LIMIT = 250;
 
 export const listCalendarSchema = z.object({
   ...withToken,
-  from: z
-    .string()
-    .datetime()
+  from: isoDateTime()
     .optional()
     .describe("Only events with startsAt >= this ISO8601 UTC time."),
-  to: z
-    .string()
-    .datetime()
+  to: isoDateTime()
     .optional()
     .describe("Only events with startsAt <= this ISO8601 UTC time."),
   limit: z
@@ -187,7 +178,7 @@ export const getConversationConfigSchema = z.object({ ...withToken });
 
 // ── per-meeting reads ───────────────────────────────────────────────────────
 
-const sessionId = z.string().uuid().describe("Meeting session UUID.");
+const sessionId = z.guid().describe("Meeting session UUID.");
 
 export const getConversationAnalysisSchema = z.object({ ...withToken, id: sessionId });
 
@@ -242,7 +233,7 @@ export const addNoteSchema = z.object({
 export const deleteNoteSchema = z.object({
   ...withToken,
   id: sessionId,
-  note_id: z.string().uuid().describe("Note UUID (from list_notes)."),
+  note_id: z.guid().describe("Note UUID (from list_notes)."),
 });
 
 /** Mirrors max-agent's MAX_BATCH_CHANGES for PATCH /segments. */
@@ -286,17 +277,11 @@ export const regenerateSummarySchema = z.object({ ...withToken, id: sessionId })
 export const createMeetingSchema = z.object({
   ...withToken,
   title: z.string().trim().min(1).max(200).describe("Meeting title, 1-200 chars."),
-  started_at: z
-    .string()
-    .datetime()
+  started_at: isoDateTime()
     .describe("Start, ISO8601 UTC (e.g. 2026-07-01T15:00:00Z)."),
-  ended_at: z
-    .string()
-    .datetime()
+  ended_at: isoDateTime()
     .describe("End, ISO8601 UTC; must be after started_at."),
-  meeting_url: z
-    .string()
-    .url()
+  meeting_url: urlString()
     .max(2000)
     .regex(/^https?:\/\//i, "must be an http(s) URL")
     .optional()

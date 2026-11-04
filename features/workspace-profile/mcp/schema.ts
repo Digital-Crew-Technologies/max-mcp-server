@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { urlString } from "../../pilot-tools/string-formats";
 
 export const workspaceProfileCompanySizeSchema = z.enum([
   "1-10",
@@ -50,7 +51,7 @@ export const workspaceAgentSettingsSchema = z.object({
 
 export const upsertWorkspaceProfileSettingsToolSchema = z.object({
   company_name: z.string().min(1, "Company name is required"),
-  company_website_url: z.string().url("Valid website URL is required"),
+  company_website_url: urlString("Valid website URL is required"),
   company_description: z
     .string()
     .min(1, "Company description is required")

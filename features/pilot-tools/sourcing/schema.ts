@@ -112,8 +112,7 @@ export const autoCreateProspectListSchema = z.object({
   criteria: peopleCriteria,
   provider: managedProvider,
   icp_id: z
-    .string()
-    .uuid()
+    .guid()
     .optional()
     .describe(
       "ICP to search from (get_default_icp / ensure_default_icp / list_icps). With criteria that target no one it runs the ICP's targeting (Max fills an empty ICP first — credits); with targeting of its own the criteria run as given and icp_id is provenance only",

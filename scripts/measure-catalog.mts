@@ -17,7 +17,6 @@
  */
 
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import type { McpServer } from "../features/pilot-tools/shared";
 import { registerWorkspaceProfileTools } from "../features/workspace-profile/mcp/register";
 import { registerPilotMcpTools } from "../features/pilot-tools/mcp/register";
@@ -46,16 +45,20 @@ function isZodSchema(v: unknown): v is z.ZodTypeAny {
   );
 }
 
+// What @modelcontextprotocol/sdk passes to zod 4's converter when it publishes
+// tools/list (server/zod-json-schema-compat.js): draft-7, input side of pipes.
+const WIRE_JSON_SCHEMA = { target: "draft-7", io: "input" } as const;
+
 /** Serialize an inputSchema the way mcp-handler would put it on the wire. */
 function toJsonSchema(input: unknown): unknown {
   try {
     if (isZodSchema(input)) {
-      return zodToJsonSchema(input as z.ZodTypeAny, { $refStrategy: "none" });
+      return z.toJSONSchema(input as z.ZodTypeAny, WIRE_JSON_SCHEMA);
     }
     if (input && typeof input === "object") {
-      return zodToJsonSchema(
+      return z.toJSONSchema(
         z.object(input as Record<string, z.ZodTypeAny>),
-        { $refStrategy: "none" },
+        WIRE_JSON_SCHEMA,
       );
     }
   } catch (e) {

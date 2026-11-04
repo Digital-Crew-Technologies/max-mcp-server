@@ -34,22 +34,22 @@ export const lookupShape = {
   person_name: z.string().trim().min(1).max(200).refine(value => !/[\u0000-\u001f\u007f]/.test(value), "Use a name without control characters.").optional().describe("Full person name; also provide company_domain or company_linkedin_url."),
   company_domain: domain.optional().describe("Company hostname, for example example.com. Required with a name unless company_linkedin_url is supplied."),
   company_linkedin_url: linkedin("company").optional().describe("Company's HTTPS LinkedIn /company/ URL; can identify a standalone company lookup. Regional hosts accepted; query/hash removed."),
-  request_id: z.string().uuid().optional().describe("Idempotency UUID. Reuse only for the same category and identifiers to recover the same job without another paid submission."),
+  request_id: z.guid().optional().describe("Idempotency UUID. Reuse only for the same category and identifiers to recover the same job without another paid submission."),
 };
 
-export const personLookupSchema = z.object(lookupShape).strict().refine(
+export const personLookupSchema = z.strictObject(lookupShape).refine(
   (value) => Boolean(value.email || value.linkedin_url || (value.person_name && (value.company_domain || value.company_linkedin_url))),
   "Provide email, linkedin_url, or person_name with a company_domain/company_linkedin_url.",
 );
 
-export const companyLookupSchema = z.object(lookupShape).strict().refine(
+export const companyLookupSchema = z.strictObject(lookupShape).refine(
   (value) => Boolean(value.company_domain || value.company_linkedin_url || value.email || value.linkedin_url),
   "Provide company_domain, company_linkedin_url, email, or linkedin_url to identify the company.",
 );
 
-export const getJobSchema = z.object({
+export const getJobSchema = z.strictObject({
   ...withToken,
-  job_id: z.string().uuid().describe("Max job UUID returned by one of the fullenrich_* lookup tools."),
-}).strict();
+  job_id: z.guid().describe("Max job UUID returned by one of the fullenrich_* lookup tools."),
+});
 
 export type LookupBody = Omit<z.infer<typeof personLookupSchema>, "bearer_token">;

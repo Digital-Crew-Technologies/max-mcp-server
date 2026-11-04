@@ -11,8 +11,7 @@ import { withToken } from "../shared";
 // Not Cal.com: that integration is the `calendar` group.
 
 const meetingLinkId = z
-  .string()
-  .uuid()
+  .guid()
   .describe("Meeting link (booking page) UUID, from list_meeting_links.");
 
 const TIME_OF_DAY = /^(?:(?:[01]\d|2[0-3]):[0-5]\d|24:00)$/;
@@ -68,14 +67,14 @@ const question = z.object({
 });
 
 const host = z.object({
-  user_id: z.string().uuid().describe("A workspace member's user id (get_meeting_link returns them as `team`)."),
+  user_id: z.guid().describe("A workspace member's user id (get_meeting_link returns them as `team`)."),
   routing_note: z
     .string()
     .max(500)
     .optional()
     .describe("Who should get these leads — read by dispatch_strategy 'ai', never shown to leads."),
   calendar_account_ids: z
-    .array(z.string().uuid())
+    .array(z.guid())
     .max(5)
     .optional()
     .describe(

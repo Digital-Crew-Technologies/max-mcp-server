@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isoDateTime } from "../string-formats";
 import { withToken } from "../shared";
 
 // Max's NATIVE deals (its own sales pipeline in max-agent) plus the sales
@@ -14,7 +15,7 @@ import { withToken } from "../shared";
 // shapes. max-agent re-validates (e.g. "No fields to update", rule config vs
 // action, select-field options) and returns a 400 with the reason.
 
-const uuid = (what: string) => z.string().uuid().describe(what);
+const uuid = (what: string) => z.guid().describe(what);
 const isoDate = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD");
@@ -58,7 +59,7 @@ const dealEditable = {
   owner_id: uuid("Owner (workspace member) user UUID").nullable().optional(),
   organization_id: uuid("Organization UUID").nullable().optional(),
   description: z.string().max(20000).nullable().optional().describe("Free-text description"),
-  custom_fields: z.record(z.unknown()).optional().describe("Deal custom field values keyed by field key"),
+  custom_fields: z.record(z.string(), z.unknown()).optional().describe("Deal custom field values keyed by field key"),
 };
 
 export const createDealSchema = z.object({
@@ -68,7 +69,7 @@ export const createDealSchema = z.object({
   stage_id: uuid("Deal stage UUID (default: pipeline's first open stage)").optional(),
   ...dealEditable,
   source: z.enum(["manual", "stage_rule", "import", "agent", "automation"]).optional().describe("Origin of the deal (default manual)"),
-  prospect_ids: z.array(z.string().uuid()).max(50).optional().describe("Prospect UUIDs to link as contacts; first is primary"),
+  prospect_ids: z.array(z.guid()).max(50).optional().describe("Prospect UUIDs to link as contacts; first is primary"),
 });
 
 export const dealIdSchema = z.object({
@@ -175,7 +176,7 @@ export const deleteDealStageSchema = z.object({
 export const reorderDealStagesSchema = z.object({
   ...withToken,
   pipeline_id: uuid("Deal pipeline UUID"),
-  ordered_ids: z.array(z.string().uuid()).min(1).describe("All stage UUIDs of the pipeline in the new order"),
+  ordered_ids: z.array(z.guid()).min(1).describe("All stage UUIDs of the pipeline in the new order"),
 });
 
 // ── Stage entry-automation rules ──────────────────────────────────────────
@@ -186,7 +187,7 @@ const ruleAction = z
   .enum(["notify", "assign", "enroll_campaign"])
   .describe("notify | assign | enroll_campaign");
 const ruleConfig = z
-  .record(z.unknown())
+  .record(z.string(), z.unknown())
   .describe("notify: {message?}; assign: {owner_id, overwrite?}; enroll_campaign: {campaign_id}");
 
 export const dealStageIdSchema = z.object({
@@ -248,7 +249,7 @@ const offeringFields = {
   currency: currency.nullable().optional().describe("ISO 4217 code; set together with unit_price"),
   unit_label: z.string().min(1).max(50).optional().describe("Unit name (default 'unit')"),
   attributes: z
-    .record(z.union([z.string().max(4000), z.number().finite(), z.boolean(), z.null()]))
+    .record(z.string(), z.union([z.string().max(4000), z.number().finite(), z.boolean(), z.null()]))
     .optional()
     .describe("Custom catalog field values keyed by field key (see list_sales_catalog_fields)"),
 };
@@ -262,9 +263,7 @@ export const updateSalesCatalogItemSchema = z.object({
   ...withToken,
   catalog_item_id: uuid("Sales catalog item (offering) UUID"),
   ...offeringFields,
-  expected_updated_at: z
-    .string()
-    .datetime({ offset: true })
+  expected_updated_at: isoDateTime({ offset: true })
     .describe("The item's current updated_at (optimistic lock; 409 if it changed)"),
 });
 
