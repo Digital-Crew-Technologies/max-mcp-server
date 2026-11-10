@@ -6,8 +6,8 @@ import {
 } from "@/shared/http/chat-rate-limit";
 
 // In-memory mode (no REDIS_URL). Verifies semantics + the env-var caps;
-// the Redis path is exercised by the dead-letter / breaker integration
-// tests in their respective modules (same ensureRedis pattern).
+// the Redis path (fallback when unreachable, hashed key names) is covered in
+// shared/redis/fail-fast.test.ts.
 describe("chat rate limit (in-memory fallback)", () => {
   beforeEach(() => {
     delete process.env.REDIS_URL;

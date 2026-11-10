@@ -7,7 +7,7 @@
  * buffer otherwise so the API stays the same in dev.
  */
 
-import { createClient, type RedisClientType } from "redis";
+import { createFailFastRedis } from "@/shared/redis/fail-fast";
 
 const REDIS_KEY = "max-mcp:dead-letter";
 const MAX_ENTRIES = 500;
@@ -23,85 +23,48 @@ export type DeadLetterEntry = {
   attempts: number;
 };
 
-let redis: RedisClientType | null = null;
-let redisReady = false;
-let redisInitPromise: Promise<void> | null = null;
+// Fail-fast: an unreachable or slow Redis falls back to the in-memory ring.
+const redis = createFailFastRedis("dead-letter");
 const memoryRing: DeadLetterEntry[] = [];
-
-async function ensureRedis(): Promise<RedisClientType | null> {
-  const url = process.env.REDIS_URL;
-  if (!url) return null;
-  if (redisReady && redis) return redis;
-  if (redisInitPromise) {
-    await redisInitPromise;
-    return redisReady ? redis : null;
-  }
-
-  redisInitPromise = (async () => {
-    try {
-      const client: RedisClientType = createClient({ url });
-      client.on("error", (err) => {
-        console.warn(`[dead-letter] redis error: ${err.message}`);
-      });
-      await client.connect();
-      redis = client;
-      redisReady = true;
-      console.log("[dead-letter] connected to Redis");
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.warn(`[dead-letter] redis unavailable, using in-memory fallback: ${msg}`);
-      redisReady = false;
-    }
-  })();
-  await redisInitPromise;
-  redisInitPromise = null;
-  return redisReady ? redis : null;
-}
 
 export async function recordDeadLetter(entry: DeadLetterEntry): Promise<void> {
   const json = JSON.stringify(entry);
-  const client = await ensureRedis();
-  if (client) {
-    try {
-      await client.lPush(REDIS_KEY, json);
-      await client.lTrim(REDIS_KEY, 0, MAX_ENTRIES - 1);
-      return;
-    } catch (e) {
-      console.warn(`[dead-letter] redis push failed: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
-  memoryRing.unshift(entry);
-  if (memoryRing.length > MAX_ENTRIES) memoryRing.length = MAX_ENTRIES;
+  await redis.run(
+    async (r) => {
+      await r.lPush(REDIS_KEY, json);
+      await r.lTrim(REDIS_KEY, 0, MAX_ENTRIES - 1);
+    },
+    () => {
+      memoryRing.unshift(entry);
+      if (memoryRing.length > MAX_ENTRIES) memoryRing.length = MAX_ENTRIES;
+    },
+  );
 }
 
 export async function listDeadLetters(limit = 50): Promise<DeadLetterEntry[]> {
   const cap = Math.max(1, Math.min(limit, MAX_ENTRIES));
-  const client = await ensureRedis();
-  if (client) {
-    try {
-      const rows = await client.lRange(REDIS_KEY, 0, cap - 1);
-      return rows.map((r) => JSON.parse(r) as DeadLetterEntry);
-    } catch (e) {
-      console.warn(`[dead-letter] redis read failed: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
-  return memoryRing.slice(0, cap);
+  return redis.run(
+    async (r) => {
+      const rows = await r.lRange(REDIS_KEY, 0, cap - 1);
+      return rows.map((row) => JSON.parse(row) as DeadLetterEntry);
+    },
+    () => memoryRing.slice(0, cap),
+  );
 }
 
 export async function clearDeadLetters(): Promise<number> {
-  const client = await ensureRedis();
-  if (client) {
-    try {
-      const n = await client.lLen(REDIS_KEY);
-      await client.del(REDIS_KEY);
+  return redis.run(
+    async (r) => {
+      const n = await r.lLen(REDIS_KEY);
+      await r.del(REDIS_KEY);
       return n;
-    } catch (e) {
-      console.warn(`[dead-letter] redis clear failed: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
-  const n = memoryRing.length;
-  memoryRing.length = 0;
-  return n;
+    },
+    () => {
+      const n = memoryRing.length;
+      memoryRing.length = 0;
+      return n;
+    },
+  );
 }
 
 function shortId(): string {
