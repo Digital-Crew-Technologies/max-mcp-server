@@ -18,8 +18,7 @@ import {
   type McpServer,
 } from "../shared";
 import * as S from "./schema";
-import { HubSpotClient } from "./hubspot-client";
-import { getHubSpotAccessToken } from "./token-resolver";
+import { HUBSPOT_REAUTH_MESSAGE, MaxCrmReader } from "./max-crm-reader";
 import type { CrmDeal, CrmOwner, CrmPipelineStage } from "./hubspot-client.types";
 
 type McpEnvelope = {
@@ -42,7 +41,7 @@ function mapError(e: unknown): McpEnvelope {
       "HubSpot is not connected for this workspace. Connect HubSpot in workspace settings, then retry.",
     );
   }
-  if (msg.startsWith("HUBSPOT_TOKEN_FETCH_FAILED")) {
+  if (msg === HUBSPOT_REAUTH_MESSAGE || msg.startsWith("HubSpot read failed")) {
     return err(msg);
   }
   if (msg.startsWith("DEAL_SNAPSHOT_FETCH_FAILED")) {
@@ -341,8 +340,7 @@ export function registerCrmForecastTools(server: McpServer): void {
       const currentIso = new Date(now).toISOString();
 
       try {
-        const { access_token, auth_method } = await getHubSpotAccessToken(bearer);
-        const client = new HubSpotClient(access_token, auth_method);
+        const client = new MaxCrmReader(bearer);
         const [currentDeals, priorSnapshots, owners, stages] = await Promise.all([
           client.listDeals(input.owner_id ? { ownerId: input.owner_id } : {}),
           getDealSnapshotsAt(bearer, baselineIso),
