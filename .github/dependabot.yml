@@ -1,15 +1,16 @@
 # Dependabot for Digital-Crew-Technologies/max-mcp-server.
-# Version updates run weekly and target develop. Minor and patch updates are
+# Version updates run weekly and target main (the only integration branch). Minor and patch updates are
 # grouped into one PR; major updates and security updates stay separate.
 #
 # cooldown: version updates wait 7 days (30 for majors) after a release is
 # published. This limits exposure to a compromised release that gets yanked
-# shortly after. Security updates ignore cooldown.
+# shortly after. Security updates ignore cooldown. github-actions only accepts
+# default-days: Dependabot rejects the whole file on semver-*-days there.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: "/"
-    target-branch: develop
+    target-branch: main
     schedule:
       interval: weekly
       day: monday
@@ -29,7 +30,7 @@ updates:
 
   - package-ecosystem: github-actions
     directory: "/"
-    target-branch: develop
+    target-branch: main
     schedule:
       interval: weekly
       day: monday
@@ -37,7 +38,6 @@ updates:
       timezone: Europe/Paris
     cooldown:
       default-days: 7
-      semver-major-days: 30
     commit-message:
       prefix: "chore(ci)"
     groups:

@@ -2,7 +2,7 @@
   "name": "max-mcp-server",
   "version": "0.1.0",
   "private": true,
-  "description": "MCP server for Digital Crew Max \u2014 workspace profile tools (Streamable HTTP) via Next.js and mcp-handler.",
+  "description": "MCP server for Digital Crew Max: the Max Agent API as MCP tools (Streamable HTTP) via Next.js and mcp-handler.",
   "keywords": [
     "mcp",
     "model-context-protocol",
@@ -61,21 +61,13 @@
       "minimatch@>=9.0.0 <9.0.7": "^9.0.7",
       "flatted": "^3.4.2",
       "picomatch": "^4.0.4",
-      "fast-uri": "3.1.8",
+      "fast-uri": "3.1.9",
       "path-to-regexp@>=8.0.0 <8.4.0": "^8.4.0",
       "postcss@<8.5.10": "^8.5.10",
       "@babel/parser": "7.29.9",
       "@babel/types": "7.29.8",
       "@babel/helper-string-parser": "7.29.7"
     }
-  },
-  "overrides": {
-    "minimatch": "^9.0.7",
-    "flatted": "^3.4.2",
-    "picomatch": "^4.0.4",
-    "fast-uri": "3.1.8",
-    "path-to-regexp": "^8.4.0",
-    "postcss": "^8.5.10"
   },
   "packageManager": "pnpm@8.15.7+sha512.c85cd21b6da10332156b1ca2aa79c0a61ee7ad2eb0453b88ab299289e9e8ca93e6091232b25c07cbf61f6df77128d9c849e5c9ac6e44854dbd211c49f3a67adc"
 }

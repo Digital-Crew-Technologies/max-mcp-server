@@ -7,8 +7,8 @@ reach, and which ones are left out on purpose". It replaces
 [`ENDPOINT_CHECKLIST.md`](ENDPOINT_CHECKLIST.md), a snapshot from the 64-tool era.
 The machine-generated list of every tool is [`tools.json`](tools.json).
 
-**Counts:** 430 tools carrying 456 operations with every flag on; 444 operations
-with the flags off. By default they are published as 36 grouped tools (see
+**Counts:** 446 tools carrying 472 operations with every flag on; 460 operations
+with the flags off. By default they are published as 46 tools (see
 [ADR-006](adr/006-grouped-by-default-and-client-cap.md)).
 
 ## What "available" means
