@@ -40,7 +40,7 @@ export const agentDraftCreateSchema = z.object({
       "1–3 sentence explanation of what will happen on approval — context for the human approver.",
     ),
   payload: z
-    .record(z.any())
+    .record(z.string(), z.any())
     .describe(
       "Free-form action arguments — exactly the args the downstream tool will receive on approval. Stored verbatim, no mutation.",
     ),
@@ -73,7 +73,6 @@ export const agentDraftListSchema = z.object({
 export const agentDraftGetSchema = z.object({
   ...withToken,
   draft_id: z
-    .string()
-    .uuid()
+    .guid()
     .describe("UUID of the draft to fetch."),
 });

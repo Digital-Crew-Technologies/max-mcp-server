@@ -4,8 +4,8 @@
 #
 # cooldown: version updates wait 7 days (30 for majors) after a release is
 # published. This limits exposure to a compromised release that gets yanked
-# shortly after. Security updates ignore cooldown. github-actions only accepts
-# default-days: Dependabot rejects the whole file on semver-*-days there.
+# shortly after. Security updates ignore cooldown. github-actions does not
+# support the semver-*-days keys, so actions wait 7 days for every update.
 version: 2
 updates:
   - package-ecosystem: npm

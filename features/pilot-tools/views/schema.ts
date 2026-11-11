@@ -11,7 +11,7 @@ const visibility = z
   .enum(["workspace", "private"])
   .describe("workspace = shared with the team (default); private = only the creator sees it.");
 
-const viewId = z.string().uuid().describe("Saved view UUID.");
+const viewId = z.guid().describe("Saved view UUID.");
 
 const configSchema = z
   .object({
@@ -20,14 +20,14 @@ const configSchema = z
       .array(
         z.object({
           id: z.string().trim().min(1).max(120).describe("Column id."),
-          value: z.unknown().describe("Filter value, as the table holds it."),
+          value: z.unknown().optional().describe("Filter value, as the table holds it."),
         }),
       )
       .max(50)
       .optional()
       .describe("Faceted column filters."),
     filterTree: z
-      .record(z.unknown())
+      .record(z.string(), z.unknown())
       .nullable()
       .optional()
       .describe(
@@ -38,14 +38,14 @@ const configSchema = z
       .max(5)
       .optional()
       .describe("Sort columns, e.g. [{id:'created_at', desc:true}]."),
-    columnVisibility: z.record(z.boolean()).optional().describe("Column id → visible."),
+    columnVisibility: z.record(z.string(), z.boolean()).optional().describe("Column id → visible."),
     pageSize: z.number().int().min(1).max(200).optional().describe("Rows per page."),
     aggregates: z
-      .record(z.enum(["count", "count_not_empty", "count_empty", "count_unique", "sum", "avg", "min", "max"]))
+      .record(z.string(), z.enum(["count", "count_not_empty", "count_empty", "count_unique", "sum", "avg", "min", "max"]))
       .optional()
       .describe("Summary chips: column id → aggregate op."),
     params: z
-      .record(z.unknown())
+      .record(z.string(), z.unknown())
       .optional()
       .describe("Surface-specific server filter params (e.g. People: titles, countries, employees_from)."),
   })

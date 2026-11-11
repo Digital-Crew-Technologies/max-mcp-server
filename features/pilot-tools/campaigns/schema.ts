@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { urlString } from "../string-formats";
 
 import { withToken } from "../shared";
 
@@ -74,7 +75,7 @@ export const getCampaignSchema = z.object({
 
   ...withToken,
 
-  id: z.string().uuid().describe("Campaign UUID"),
+  id: z.guid().describe("Campaign UUID"),
 
 });
 
@@ -84,7 +85,7 @@ export const getCampaignMemorySchema = z.object({
 
   ...withToken,
 
-  id: z.string().uuid().describe("Campaign UUID"),
+  id: z.guid().describe("Campaign UUID"),
 
 });
 
@@ -94,7 +95,7 @@ export const updateCampaignMemorySchema = z.object({
 
   ...withToken,
 
-  id: z.string().uuid().describe("Campaign UUID"),
+  id: z.guid().describe("Campaign UUID"),
 
   memory: z
 
@@ -118,11 +119,11 @@ export const createCampaignSchema = z.object({
 
   description: z.string().max(1000).optional().describe("Campaign description"),
 
-  included_lists: z.array(z.string().uuid()).min(1).describe("Prospect list UUIDs to include"),
+  included_lists: z.array(z.guid()).min(1).describe("Prospect list UUIDs to include"),
 
   accounts: z.array(z.object({
 
-    account_id: z.string().uuid(),
+    account_id: z.guid(),
 
     enabled: z.boolean().optional(),
 
@@ -132,7 +133,7 @@ export const createCampaignSchema = z.object({
 
   })).min(1).describe("Sending accounts"),
 
-  excluded_lists: z.array(z.string().uuid()).optional().describe("Prospect list UUIDs to exclude"),
+  excluded_lists: z.array(z.guid()).optional().describe("Prospect list UUIDs to exclude"),
 
   workflow_config: workflowConfigSchema.optional().describe("Workflow canvas config (nodes and edges)"),
 
@@ -148,7 +149,7 @@ export const updateCampaignSchema = z.object({
 
   ...withToken,
 
-  id: z.string().uuid().describe("Campaign UUID"),
+  id: z.guid().describe("Campaign UUID"),
 
   name: z.string().min(1).optional().describe("Campaign name"),
 
@@ -156,13 +157,13 @@ export const updateCampaignSchema = z.object({
 
   workflow_config: workflowConfigSchema.optional().describe("Updated workflow config"),
 
-  included_lists: z.array(z.string().uuid()).optional(),
+  included_lists: z.array(z.guid()).optional(),
 
-  excluded_lists: z.array(z.string().uuid()).optional(),
+  excluded_lists: z.array(z.guid()).optional(),
 
   accounts: z.array(z.object({
 
-    account_id: z.string().uuid(),
+    account_id: z.guid(),
 
     enabled: z.boolean().optional(),
 
@@ -184,7 +185,7 @@ export const deleteCampaignSchema = z.object({
 
   ...withToken,
 
-  id: z.string().uuid().describe("Campaign UUID"),
+  id: z.guid().describe("Campaign UUID"),
 
 });
 
@@ -194,7 +195,7 @@ export const campaignTransitionSchema = z.object({
 
   ...withToken,
 
-  id: z.string().uuid().describe("Campaign UUID"),
+  id: z.guid().describe("Campaign UUID"),
 
 });
 
@@ -204,7 +205,7 @@ export const getCampaignStatsSchema = z.object({
 
   ...withToken,
 
-  id: z.string().uuid().describe("Campaign UUID"),
+  id: z.guid().describe("Campaign UUID"),
 
 });
 
@@ -214,7 +215,7 @@ export const getCampaignLeadAnalyticsSchema = z.object({
 
   ...withToken,
 
-  id: z.string().uuid().describe("Campaign UUID"),
+  id: z.guid().describe("Campaign UUID"),
 
   page: z.number().int().min(1).optional(),
 
@@ -228,7 +229,7 @@ export const getCampaignNodeRunCountsSchema = z.object({
 
   ...withToken,
 
-  id: z.string().uuid().describe("Campaign UUID"),
+  id: z.guid().describe("Campaign UUID"),
 
 });
 
@@ -248,7 +249,7 @@ export const createSchedulePresetSchema = z.object({
 
 export const updateSchedulePresetSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Schedule preset UUID"),
+  id: z.guid().describe("Schedule preset UUID"),
   name: z.string().min(1).max(80).optional().describe("New name"),
   scheduling_config: looseConfigRecord.optional().describe("Replacement scheduling config"),
   is_default: z.boolean().optional().describe("Make this the schedule pre-filled on new campaigns"),
@@ -256,12 +257,12 @@ export const updateSchedulePresetSchema = z.object({
 
 export const deleteSchedulePresetSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Schedule preset UUID"),
+  id: z.guid().describe("Schedule preset UUID"),
 });
 
 // ── A/B tests ────────────────────────────────────────────────────────────────
 
-const campaignId = () => z.string().uuid().describe("Campaign UUID");
+const campaignId = () => z.guid().describe("Campaign UUID");
 
 export const getCampaignAbTestsSchema = z.object({
   ...withToken,
@@ -313,9 +314,9 @@ export const listCampaignAudienceProspectsSchema = z.object({
 export const addCampaignAudienceProspectsSchema = z.object({
   ...withToken,
   id: campaignId(),
-  prospect_ids: z.array(z.string().uuid()).max(1000).optional().describe("Prospect UUIDs to add (max 1000)"),
+  prospect_ids: z.array(z.guid()).max(1000).optional().describe("Prospect UUIDs to add (max 1000)"),
   organization_ids: z
-    .array(z.string().uuid())
+    .array(z.guid())
     .max(200)
     .optional()
     .describe("Add everyone at these organizations (max 200 orgs; at most 1000 people per call)"),
@@ -329,13 +330,13 @@ export const addCampaignAudienceProspectsSchema = z.object({
 export const removeCampaignAudienceProspectsSchema = z.object({
   ...withToken,
   id: campaignId(),
-  prospect_ids: z.array(z.string().uuid()).min(1).max(1000).describe("Prospect UUIDs to remove (max 1000)"),
+  prospect_ids: z.array(z.guid()).min(1).max(1000).describe("Prospect UUIDs to remove (max 1000)"),
 });
 
 export const attachCampaignAudienceListSchema = z.object({
   ...withToken,
   id: campaignId(),
-  prospect_list_id: z.string().uuid().describe("Prospect list UUID"),
+  prospect_list_id: z.guid().describe("Prospect list UUID"),
   inclusion_type: z.enum(["included", "excluded"]).optional().describe("Default 'included'"),
   enroll_now: z
     .boolean()
@@ -346,7 +347,7 @@ export const attachCampaignAudienceListSchema = z.object({
 export const detachCampaignAudienceListSchema = z.object({
   ...withToken,
   id: campaignId(),
-  list_id: z.string().uuid().describe("Prospect list UUID to detach"),
+  list_id: z.guid().describe("Prospect list UUID to detach"),
 });
 
 export const syncCampaignAudienceSchema = z.object({
@@ -380,7 +381,7 @@ export const duplicateCampaignSchema = z.object({
 
 export const bulkGetCampaignNodeRunCountsSchema = z.object({
   ...withToken,
-  ids: z.array(z.string().uuid()).min(1).max(100).describe("Campaign UUIDs (max 100)"),
+  ids: z.array(z.guid()).min(1).max(100).describe("Campaign UUIDs (max 100)"),
 });
 
 // ── Share link ──────────────────────────────────────────────────────────────
@@ -403,9 +404,7 @@ export const uploadCampaignAttachmentSchema = z.object({
     .min(1)
     .max(255)
     .describe("Name the recipient sees, with its extension, e.g. 'Reactivation_guide.pdf'"),
-  file_url: z
-    .string()
-    .url()
+  file_url: urlString()
     .optional()
     .describe("Public https URL to download the file from. Give this OR content_base64."),
   content_base64: z
@@ -421,18 +420,18 @@ export const uploadCampaignAttachmentSchema = z.object({
 
 export const deleteCampaignAttachmentSchema = z.object({
   ...withToken,
-  attachment_id: z.string().uuid().describe("Library attachment UUID"),
+  attachment_id: z.guid().describe("Library attachment UUID"),
 });
 
 export const setCampaignStepAttachmentsSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Campaign UUID"),
+  id: z.guid().describe("Campaign UUID"),
   node_id: z
     .string()
     .min(1)
     .describe("Workflow node id of a send_email / send_linkedin_message / send_whatsapp_message step (see get_campaign)"),
   attachment_ids: z
-    .array(z.string().uuid())
+    .array(z.guid())
     .max(3)
     .describe("Library attachment UUIDs to send with the step, in order (max 3, 15 MB total). [] removes the step's files."),
 });

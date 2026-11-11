@@ -10,7 +10,7 @@ const modeSchema = z
 
 export const enrichProspectSchema = z.object({
   ...withToken,
-  prospect_id: z.string().uuid().describe("Prospect UUID to enrich."),
+  prospect_id: z.guid().describe("Prospect UUID to enrich."),
   mode: modeSchema,
   force: z
     .boolean()
@@ -22,7 +22,7 @@ export const enrichProspectSchema = z.object({
 
 export const enrichOrganizationSchema = z.object({
   ...withToken,
-  organization_id: z.string().uuid().describe("Organization UUID to enrich."),
+  organization_id: z.guid().describe("Organization UUID to enrich."),
   mode: modeSchema,
   force: z
     .boolean()
@@ -36,11 +36,11 @@ export const bulkEnrichSchema = z
   .object({
     ...withToken,
     prospect_ids: z
-      .array(z.string().uuid())
+      .array(z.guid())
       .optional()
       .describe("Prospect UUIDs to queue for background enrichment."),
     organization_ids: z
-      .array(z.string().uuid())
+      .array(z.guid())
       .optional()
       .describe("Organization UUIDs to queue for background enrichment."),
     mode: modeSchema,
@@ -48,26 +48,24 @@ export const bulkEnrichSchema = z
   .refine(
     (b) =>
       (b.prospect_ids?.length ?? 0) + (b.organization_ids?.length ?? 0) > 0,
-    { message: "Provide at least one prospect_id or organization_id." },
+    { error: "Provide at least one prospect_id or organization_id." },
   );
 
 export const getEnrichmentStatusSchema = z
   .object({
     ...withToken,
     prospect_id: z
-      .string()
-      .uuid()
+      .guid()
       .optional()
       .describe("Prospect UUID to check enrichment status for."),
     organization_id: z
-      .string()
-      .uuid()
+      .guid()
       .optional()
       .describe("Organization UUID to check enrichment status for."),
   })
   .refine(
     (b) => Boolean(b.prospect_id) !== Boolean(b.organization_id),
-    { message: "Provide exactly one of prospect_id or organization_id." },
+    { error: "Provide exactly one of prospect_id or organization_id." },
   );
 
 export const getEnrichmentCreditsSchema = z.object({
@@ -81,12 +79,11 @@ export const getEnrichmentCreditsSchema = z.object({
 
 const targetShape = {
   prospect_ids: z
-    .array(z.string().uuid())
+    .array(z.guid())
     .optional()
     .describe("Prospect UUIDs. Provide this or list_id."),
   list_id: z
-    .string()
-    .uuid()
+    .guid()
     .optional()
     .describe("Prospect list UUID (whole list). Provide this or prospect_ids."),
 };
@@ -117,7 +114,7 @@ export const enrichContactDetailsSchema = z.object({
 
 export const getContactEnrichmentJobSchema = z.object({
   ...withToken,
-  job_id: z.string().uuid().describe("Job UUID from enrich_contact_details."),
+  job_id: z.guid().describe("Job UUID from enrich_contact_details."),
 });
 
 export const verifyEmailsSchema = z.object({
@@ -127,7 +124,7 @@ export const verifyEmailsSchema = z.object({
 
 export const getEmailVerificationJobSchema = z.object({
   ...withToken,
-  job_id: z.string().uuid().describe("Job UUID from verify_emails."),
+  job_id: z.guid().describe("Job UUID from verify_emails."),
 });
 
 export const previewEnrichmentSchema = z.object({

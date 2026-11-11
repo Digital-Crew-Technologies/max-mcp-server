@@ -9,7 +9,7 @@ export const listProspectsSchema = z.object({
   pageSize: z.number().int().min(1).max(100).optional().describe("Results per page (default 20, max 100)"),
   search: z.string().optional().describe("Search by name, email, or title"),
   status: prospectStatusEnum.optional().describe("Filter by status"),
-  organization_id: z.string().uuid().optional().describe("Filter by organization UUID"),
+  organization_id: z.guid().optional().describe("Filter by organization UUID"),
   titles: z.array(z.string()).optional().describe("Filter by job titles (contains-any)"),
   countries: z.array(z.string()).optional().describe("Filter by countries"),
   industries: z.array(z.string()).optional().describe("Filter by industries"),
@@ -19,17 +19,17 @@ export const listProspectsSchema = z.object({
 
 export const getProspectSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Prospect UUID"),
+  id: z.guid().describe("Prospect UUID"),
 });
 
 export const createProspectSchema = z.object({
   ...withToken,
   first_name: z.string().optional(),
   last_name: z.string().optional(),
-  email: z.string().email().optional().describe("Primary email (used for dedup)"),
+  email: z.email().optional().describe("Primary email (used for dedup)"),
   title: z.string().optional().describe("Job title"),
   linkedin_url: z.string().optional().describe("LinkedIn profile URL"),
-  organization_id: z.string().uuid().optional().describe("Organization UUID"),
+  organization_id: z.guid().optional().describe("Organization UUID"),
   country: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
@@ -42,13 +42,13 @@ export const createProspectSchema = z.object({
 
 export const updateProspectSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Prospect UUID"),
+  id: z.guid().describe("Prospect UUID"),
   first_name: z.string().optional(),
   last_name: z.string().optional(),
-  email: z.string().email().optional(),
+  email: z.email().optional(),
   title: z.string().optional(),
   linkedin_url: z.string().optional(),
-  organization_id: z.string().uuid().nullable().optional(),
+  organization_id: z.guid().nullable().optional(),
   country: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
@@ -59,13 +59,13 @@ export const updateProspectSchema = z.object({
 
 export const deleteProspectSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Prospect UUID"),
+  id: z.guid().describe("Prospect UUID"),
 });
 
 export const bulkImportProspectsSchema = z.object({
   ...withToken,
   prospects: z.array(z.object({
-    email: z.string().email().optional(),
+    email: z.email().optional(),
     first_name: z.string().optional(),
     last_name: z.string().optional(),
     title: z.string().optional(),
@@ -78,18 +78,18 @@ export const bulkImportProspectsSchema = z.object({
 
 export const bulkDeleteProspectsSchema = z.object({
   ...withToken,
-  ids: z.array(z.string().uuid()).min(1).describe("Prospect UUIDs to delete"),
+  ids: z.array(z.guid()).min(1).describe("Prospect UUIDs to delete"),
 });
 
 export const getProspectCampaignActivitySchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Prospect UUID"),
+  id: z.guid().describe("Prospect UUID"),
 });
 
 // ── Prospect sub-resources ───────────────────────────────────────────────────
 
-const prospectId = z.string().uuid().describe("Prospect UUID");
-const hookId = z.string().uuid().describe("Profile hook UUID");
+const prospectId = z.guid().describe("Prospect UUID");
+const hookId = z.guid().describe("Profile hook UUID");
 
 /** Any tool whose only argument is the prospect id. */
 export const prospectIdSchema = z.object({
@@ -98,13 +98,13 @@ export const prospectIdSchema = z.object({
 });
 
 /** Same selected-category contract as Max's saved-person button. */
-export const claireEnrichProspectSchema = z.object({
+export const claireEnrichProspectSchema = z.strictObject({
   ...withToken,
   id: prospectId,
   categories: z.array(z.enum(["emails", "phones", "identity", "linkedin", "career", "education-skills", "location", "company"]))
     .min(1).max(8).refine(values => new Set(values).size === values.length, "Choose each category once")
     .optional().describe("Unique categories to enrich and save. Omit for automatic missing/invalid-field selection."),
-}).strict();
+});
 export type ClaireEnrichProspectBody = Omit<z.infer<typeof claireEnrichProspectSchema>, "bearer_token" | "id">;
 
 const hookSourceEnum = z

@@ -40,7 +40,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "redis": "^4.7.0",
-    "zod": "^3.24.2"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@eslint/compat": "^2.0.0",
@@ -63,10 +63,17 @@
       "picomatch": "^4.0.4",
       "fast-uri": "3.1.9",
       "path-to-regexp@>=8.0.0 <8.4.0": "^8.4.0",
-      "postcss@<8.5.10": "^8.5.10",
       "@babel/parser": "7.29.9",
       "@babel/types": "7.29.8",
-      "@babel/helper-string-parser": "7.29.7"
+      "@babel/helper-string-parser": "7.29.7",
+      "body-parser@>=2.0.0 <2.4.0": "2.4.0",
+      "body-parser@2.4.0>qs": "6.16.1",
+      "postcss@<8.5.18": "8.5.18",
+      "hono@<4.12.25": "4.12.25",
+      "ip-address@<10.3.1": "10.3.1",
+      "nanoid@<3.3.18": "3.3.18",
+      "source-map-js@>=1.0.0 <1.2.2": "1.2.2",
+      "sharp@<0.35.5": "0.35.5"
     }
   },
   "packageManager": "pnpm@8.15.7+sha512.c85cd21b6da10332156b1ca2aa79c0a61ee7ad2eb0453b88ab299289e9e8ca93e6091232b25c07cbf61f6df77128d9c849e5c9ac6e44854dbd211c49f3a67adc"

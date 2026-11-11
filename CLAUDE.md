@@ -2,7 +2,7 @@
 
 ## The repository
 - MCP server (Streamable HTTP) that exposes Digital Crew's Max Agent API as MCP tools. Routes: `app/mcp/route.ts` (MCP, SSE disabled), `app/chat/route.ts`, `app/health/route.ts`.
-- Stack: Next.js 15 (App Router, `output: "standalone"`), `mcp-handler`, Zod 3, strict TypeScript, Vitest. Import alias `@/*` points to the root.
+- Stack: Next.js 15 (App Router, `output: "standalone"`), `mcp-handler`, Zod 4, strict TypeScript, Vitest. Import alias `@/*` points to the root.
 - Package manager: pnpm 8.15.7, pinned by `packageManager` (lockfile v6). Use neither npm nor another pnpm version to change `pnpm-lock.yaml`.
 - Node: `.nvmrc` pins 20 (read by the kit CI job); no `engines`. CI runs on Node 20.
 - Deployment: Vercel Git integration (preview on PR, production on merge to main). CI only blocks.

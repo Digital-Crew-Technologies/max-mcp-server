@@ -8,7 +8,7 @@ const DOMAIN_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z
 const PREFIX_PATTERN = /^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/i;
 const domain = z.string().trim().max(253).regex(DOMAIN_PATTERN, "Invalid domain");
 
-const warmupId = z.string().uuid().describe("Warm-up UUID (from list_warmups)");
+const warmupId = z.guid().describe("Warm-up UUID (from list_warmups)");
 
 const warmupSettingsShape = {
   daily_target: z.number().int().min(1).max(100).describe("Warm-up emails per day at full ramp (1-100)"),
@@ -89,5 +89,5 @@ export const createMailpoolOrderSchema = z.object({
 
 export const syncMailpoolOrderSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Order UUID (from list_mailpool_orders)"),
+  id: z.guid().describe("Order UUID (from list_mailpool_orders)"),
 });

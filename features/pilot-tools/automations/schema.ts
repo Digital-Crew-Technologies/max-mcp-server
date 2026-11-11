@@ -8,7 +8,7 @@ import { withToken } from "../shared";
 // apply and validates the rest). Drafts save leniently — per-action config is
 // only strictly checked at activation and manual runs.
 
-const uuid = (what: string) => z.string().uuid().describe(what);
+const uuid = (what: string) => z.guid().describe(what);
 
 const FILTER_OPERATORS = [
   "equals", "not_equals", "contains", "not_contains", "starts_with", "ends_with",
@@ -88,7 +88,7 @@ const stepSchema = z.object({
   kind: z.enum(["action", "filter", "delay"]),
   action: z.enum(ACTION_TYPES).optional().describe("kind=action: what to do."),
   config: z
-    .record(z.unknown())
+    .record(z.string(), z.unknown())
     .optional()
     .describe(
       "kind=action config: create_task {title, description?, priority?, assignee_id?, due_in_days?}; notify {message}; " +
@@ -147,8 +147,7 @@ export const runAutomationSchema = z.object({
   ...withToken,
   automation_id: uuid("Automation workflow UUID."),
   prospect_id: z
-    .string()
-    .uuid()
+    .guid()
     .optional()
     .describe("Person to run for (manual triggers with entity 'prospect')."),
 });

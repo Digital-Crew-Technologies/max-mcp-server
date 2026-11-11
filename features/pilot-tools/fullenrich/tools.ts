@@ -13,9 +13,9 @@ const categories: Array<{ category: FullenrichCategory; name: string; title: str
   { category: "company", name: "fullenrich_company", title: "Find company with FullEnrich", data: "Company name, ID, website/domain, description, logo, industry, specialties, type, founding year, employee count/range, LinkedIn details, followers, headquarters and offices." },
 ];
 
-function invalidArguments(issues: Array<{ path: (string | number)[]; message: string }>) {
+function invalidArguments(issues: Array<{ path: PropertyKey[]; message: string }>) {
   return {
-    content: [{ type: "text" as const, text: `Invalid arguments: ${issues.map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`).join("; ")}` }],
+    content: [{ type: "text" as const, text: `Invalid arguments: ${issues.map((issue) => `${issue.path.map(String).join(".") || "(root)"}: ${issue.message}`).join("; ")}` }],
     isError: true,
   };
 }

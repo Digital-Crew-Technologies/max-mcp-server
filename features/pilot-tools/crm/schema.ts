@@ -19,7 +19,6 @@ export const crmSearchContactsSchema = z.object({
 export const crmGetContactSchema = z.object({
   ...withToken,
   email: z
-    .string()
     .email()
     .describe("Email of the contact to fetch (the dedup identity)."),
 });
@@ -27,7 +26,6 @@ export const crmGetContactSchema = z.object({
 export const crmUpsertContactSchema = z.object({
   ...withToken,
   email: z
-    .string()
     .email()
     .describe("Contact email — the dedup key. An existing contact is updated, never duplicated."),
   firstName: z.string().optional().describe("First name."),

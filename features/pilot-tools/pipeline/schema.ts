@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isoDateTime } from "../string-formats";
 import { withToken } from "../shared";
 
 // Mirrors max-agent src/features/pipeline/schemas/* and
@@ -9,7 +10,7 @@ import { withToken } from "../shared";
 // the stage rule's `action` body field is exposed as `rule_action` because
 // `action` is the grouped tool's discriminator.
 
-const uuid = (what: string) => z.string().uuid().describe(what);
+const uuid = (what: string) => z.guid().describe(what);
 
 const STAGE_COLORS = [
   "slate", "blue", "sky", "cyan", "teal", "emerald", "green", "lime", "amber",
@@ -73,8 +74,7 @@ export const deletePipelineSchema = z.object({
   ...withToken,
   pipeline_id: uuid("Pipeline UUID."),
   reassign_to: z
-    .string()
-    .uuid()
+    .guid()
     .optional()
     .describe("Pipeline UUID to move this pipeline's prospects into (required if it has any)."),
 });
@@ -83,14 +83,14 @@ export const deletePipelineSchema = z.object({
 
 export const listStagesSchema = z.object({
   ...withToken,
-  pipeline_id: z.string().uuid().optional().describe("Only this pipeline's columns."),
+  pipeline_id: z.guid().optional().describe("Only this pipeline's columns."),
   include_archived: includeArchived,
 });
 
 export const createStageSchema = z.object({
   ...withToken,
   label: z.string().trim().min(1).max(40).describe("Column label (max 40)."),
-  pipeline_id: z.string().uuid().optional().describe("Target pipeline; workspace default when omitted."),
+  pipeline_id: z.guid().optional().describe("Target pipeline; workspace default when omitted."),
   color: colorSchema.optional(),
   type: stageTypeSchema.optional(),
   position: z.number().int().min(0).optional().describe("0-based order; appended when omitted."),
@@ -110,8 +110,7 @@ export const deleteStageSchema = z.object({
   ...withToken,
   stage_id: uuid("Stage (column) UUID."),
   reassign_to: z
-    .string()
-    .uuid()
+    .guid()
     .optional()
     .describe("Stage UUID to move this column's prospects into (required if it has any)."),
 });
@@ -119,7 +118,7 @@ export const deleteStageSchema = z.object({
 export const reorderStagesSchema = z.object({
   ...withToken,
   ordered_ids: z
-    .array(z.string().uuid())
+    .array(z.guid())
     .min(1)
     .describe("Stage UUIDs in the new left-to-right order."),
 });
@@ -127,7 +126,7 @@ export const reorderStagesSchema = z.object({
 // ── Stage entry rules ──────────────────────────────────────────────────────
 
 const ruleConfig = z
-  .record(z.unknown())
+  .record(z.string(), z.unknown())
   .describe(
     "Per rule_action: enroll_campaign {campaign_id}; notify {message?}; " +
       "assign {assignee_ids[1-50], strategy?: collective|round_robin|least_busy|first_available, weights?: {user_id: 1-10}, availability?, merge?: add|replace}; " +
@@ -176,8 +175,8 @@ export const createLinkSchema = z.object({
   ...withToken,
   from_pipeline_id: uuid("Source pipeline UUID."),
   to_pipeline_id: uuid("Destination pipeline UUID."),
-  from_stage_id: z.string().uuid().nullable().optional().describe("Source column (set both stage ids or neither)."),
-  to_stage_id: z.string().uuid().nullable().optional().describe("Destination column (set both stage ids or neither)."),
+  from_stage_id: z.guid().nullable().optional().describe("Source column (set both stage ids or neither)."),
+  to_stage_id: z.guid().nullable().optional().describe("Destination column (set both stage ids or neither)."),
   auto_move: z.boolean().optional().describe("Entering from_stage auto-moves the prospect to to_stage; needs both stage ids."),
   label: z.string().trim().max(60).optional().describe("Edge label (max 60)."),
 });
@@ -186,10 +185,10 @@ export const updateLinkSchema = z.object({
   ...withToken,
   link_id: uuid("Pipeline link UUID."),
   label: z.string().trim().max(60).nullable().optional().describe("Edge label; null clears."),
-  from_pipeline_id: z.string().uuid().optional().describe("New source pipeline."),
-  to_pipeline_id: z.string().uuid().optional().describe("New destination pipeline."),
-  from_stage_id: z.string().uuid().nullable().optional().describe("Source column; null unpins (pin/unpin both ends together)."),
-  to_stage_id: z.string().uuid().nullable().optional().describe("Destination column; null unpins."),
+  from_pipeline_id: z.guid().optional().describe("New source pipeline."),
+  to_pipeline_id: z.guid().optional().describe("New destination pipeline."),
+  from_stage_id: z.guid().nullable().optional().describe("Source column; null unpins (pin/unpin both ends together)."),
+  to_stage_id: z.guid().nullable().optional().describe("Destination column; null unpins."),
   auto_move: z.boolean().optional().describe("Arm/disarm the automatic move."),
 });
 
@@ -234,7 +233,7 @@ export const createCampaignRouteSchema = z.object({
 export const updateCampaignRouteSchema = z.object({
   ...withToken,
   route_id: uuid("Campaign route UUID."),
-  to_stage_id: z.string().uuid().optional().describe("New destination column."),
+  to_stage_id: z.guid().optional().describe("New destination column."),
   is_enabled: z.boolean().optional().describe("Arm/disarm the route."),
 });
 
@@ -266,12 +265,10 @@ const CHANGE_OPERATION_TYPES = [
   "webhook_route.upsert", "webhook_route.remove",
 ] as const;
 
-const changeOperationSchema = z
-  .object({
-    operation_id: z.string().uuid().describe("New UUID, unique within the change set."),
-    type: z.enum(CHANGE_OPERATION_TYPES).describe("Operation type; other fields depend on it."),
-  })
-  .passthrough();
+const changeOperationSchema = z.looseObject({
+  operation_id: z.guid().describe("New UUID, unique within the change set."),
+  type: z.enum(CHANGE_OPERATION_TYPES).describe("Operation type; other fields depend on it."),
+});
 
 const changeSetDefinitionSchema = z
   .object({
@@ -280,7 +277,7 @@ const changeSetDefinitionSchema = z
     base: z
       .object({
         fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
-        captured_at: z.string().datetime(),
+        captured_at: isoDateTime(),
       })
       .describe("Copy unchanged from the draft."),
     changes: z
@@ -318,7 +315,7 @@ export const createCanvasDraftSchema = z.object({
   ...withToken,
   name: z.string().trim().min(1).max(80).describe("Change-set name (max 80)."),
   description: z.string().trim().max(300).nullable().optional().describe("Description (max 300)."),
-  duplicate_from: z.string().uuid().optional().describe("Copy the operations of this existing change set."),
+  duplicate_from: z.guid().optional().describe("Copy the operations of this existing change set."),
 });
 
 export const updateCanvasDraftSchema = z.object({

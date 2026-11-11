@@ -60,12 +60,12 @@ export const getleadsCreateListSchema = z.object({
   exclude_linkedin_connections: z.boolean().optional().describe("Skip people already in the workspace's LinkedIn networks (default false)"),
 
   data_supplier: z.enum(["personal"]).optional().describe("\"personal\" runs on the workspace's own connected GetLeads key instead of Digital Crew credits"),
-  icp_id: z.string().uuid().optional().describe("ICP this search was built from (provenance only)"),
+  icp_id: z.guid().optional().describe("ICP this search was built from (provenance only)"),
   idempotency_key: z.string().optional().describe("Idempotency key for safe retries (auto-generated if omitted)"),
 });
 
 export const getleadsAddMoreSchema = z.object({
   ...withToken,
-  list_id: z.string().uuid().describe("Existing COMPLETED GetLeads list UUID"),
+  list_id: z.guid().describe("Existing COMPLETED GetLeads list UUID"),
   count: z.number().int().min(1).max(10000).optional().describe("Number of contacts to add (default 100, capped by the list's max_results)"),
 });

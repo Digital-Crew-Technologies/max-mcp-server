@@ -9,7 +9,7 @@ const LIST_MAX = 40;
 const chips = (what: string) =>
   z.array(z.string().trim().min(1).max(TEXT_MAX)).max(LIST_MAX).optional().describe(what);
 
-const icpId = z.string().uuid().describe("ICP UUID.");
+const icpId = z.guid().describe("ICP UUID.");
 
 /** Searchable half — same vocabulary as the People search bar. */
 const criteriaSchema = z
@@ -129,7 +129,7 @@ export const linkIcpSchema = z.object({
   ...withToken,
   icp_id: icpId,
   entity_type: entityType,
-  entity_id: z.string().uuid().describe("UUID of the deal / organization / prospect."),
+  entity_id: z.guid().describe("UUID of the deal / organization / prospect."),
   fit_score: z
     .number()
     .int()
@@ -145,13 +145,13 @@ export const linkIcpSchema = z.object({
 export const unlinkIcpSchema = z.object({
   ...withToken,
   icp_id: icpId,
-  link_id: z.string().uuid().describe("Link UUID (from list_icp_links)."),
+  link_id: z.guid().describe("Link UUID (from list_icp_links)."),
 });
 
 export const listIcpsForRecordSchema = z.object({
   ...withToken,
   entity_type: entityType,
-  entity_id: z.string().uuid().describe("UUID of the record."),
+  entity_id: z.guid().describe("UUID of the record."),
 });
 
 export const generateIcpSchema = z.object({
@@ -164,8 +164,7 @@ export const generateIcpSchema = z.object({
     .optional()
     .describe("Market/segment brief. Omit to work from the workspace's company profile."),
   icp_id: z
-    .string()
-    .uuid()
+    .guid()
     .nullable()
     .optional()
     .describe("Existing ICP to refine instead of writing a new one."),
