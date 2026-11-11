@@ -25,4 +25,25 @@ const mcpHandler = createMcpHandler(
 const handler = (request: Request) =>
   runWithMcpRequest(request, () => mcpHandler(request));
 
-export { handler as GET, handler as POST, handler as DELETE };
+// mcp-handler parses a POST body inside a promise it never awaits: a body that
+// is not JSON became an unhandled rejection and the request was never answered
+// (it hung until the platform timeout). Answer it here with the JSON-RPC parse
+// error instead; a valid body goes to the handler untouched.
+async function post(request: Request): Promise<Response> {
+  const text = await request.clone().text();
+  try {
+    JSON.parse(text);
+  } catch {
+    return Response.json(
+      {
+        jsonrpc: "2.0",
+        error: { code: -32700, message: "Parse error: the request body is not valid JSON" },
+        id: null,
+      },
+      { status: 400 },
+    );
+  }
+  return handler(request);
+}
+
+export { handler as GET, post as POST, handler as DELETE };
