@@ -46,7 +46,7 @@
     "@eslint/compat": "^2.0.0",
     "@eslint/eslintrc": "^3.3.3",
     "@modelcontextprotocol/sdk": "1.32.1",
-    "@types/node": "^20",
+    "@types/node": "^26",
     "@types/react": "^19",
     "@vitest/coverage-v8": "4.1.9",
     "eslint": "^9",
