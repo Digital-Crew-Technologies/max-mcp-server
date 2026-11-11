@@ -282,9 +282,10 @@ describe("GetLeads filters max-agent validates (contacts/search API names)", () 
 function describedFields(schema: unknown, out: string[] = []): string[] {
   const def = (schema as { _def?: Record<string, unknown> } | undefined)?._def;
   if (!def) return out;
-  if (typeof def.description === "string") out.push(def.description);
-  const shape = typeof def.shape === "function" ? (def.shape as () => Record<string, unknown>)() : {};
-  for (const child of [def.innerType, def.type, def.schema, def.valueType, ...Object.values(shape)]) {
+  const description = (schema as { description?: unknown }).description;
+  if (typeof description === "string") out.push(description);
+  const shape = (def.shape ?? {}) as Record<string, unknown>;
+  for (const child of [def.innerType, def.element, def.in, def.valueType, ...Object.values(shape)]) {
     describedFields(child, out);
   }
   return out;

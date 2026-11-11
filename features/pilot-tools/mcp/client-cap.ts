@@ -26,10 +26,12 @@
 export const MODEL_MAX_TOOLS = 128;
 
 /**
- * Slots max-agent reserves for tools it defines locally and adds after ours:
- * 3 prospecting + 1 agent-config + `ask_user` + `navigate_app`.
+ * Slots max-agent reserves for tools it defines locally and adds after ours
+ * (`localToolCount` in src/features/agent/handlers/chat-stream.handler.ts,
+ * counted 2026-11-10): 3 prospecting + 1 organization search + 1 agent config
+ * + 7 hiring + 2 pages + 8 contact classification + 1 verbatim campaign + 4.
  */
-export const CLIENT_RESERVED_SLOTS = 6;
+export const CLIENT_RESERVED_SLOTS = 27;
 
 /** What is actually left for MCP tools from all servers combined. */
 export const MCP_TOOL_BUDGET = MODEL_MAX_TOOLS - CLIENT_RESERVED_SLOTS;

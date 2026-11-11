@@ -38,12 +38,16 @@ export async function listChatMessages(
   });
 }
 
+// Sends go out from the member's own account: one attempt, so a lost answer
+// can never deliver the same message twice.
+const SEND_CONFIG = { timeoutMs: 60_000, maxRetries: 0 };
+
 export async function sendChatMessage(token: string, chatId: string, text: string): Promise<Response> {
   return fetchWithRetry(apiUrl(`/api/v1/unibox/chats/${chatId}/messages`), {
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify({ text }),
-  });
+  }, SEND_CONFIG);
 }
 
 export async function sendNewEmail(token: string, body: Record<string, unknown>): Promise<Response> {
@@ -51,7 +55,7 @@ export async function sendNewEmail(token: string, body: Record<string, unknown>)
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify(body),
-  });
+  }, SEND_CONFIG);
 }
 
 // ── Channels + sync rules ─────────────────────────────────────────────────────

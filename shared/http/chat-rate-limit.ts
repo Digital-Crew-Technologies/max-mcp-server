@@ -16,7 +16,9 @@
  *   REDIS_URL                   if set, use Redis; otherwise in-memory
  */
 
-import { createClient, type RedisClientType } from "redis";
+import { createHash } from "node:crypto";
+import type { RedisClientType } from "redis";
+import { createFailFastRedis } from "@/shared/redis/fail-fast";
 
 export type RateLimitResult =
   | { ok: true }
@@ -43,47 +45,23 @@ function todayKey(): string {
 
 // ── Redis-backed (cluster-wide) ─────────────────────────────────────────────
 
-let redis: RedisClientType | null = null;
-let redisReady = false;
-let redisInitPromise: Promise<void> | null = null;
+// Fail-fast: an unreachable or slow Redis falls back to the in-memory buckets
+// instead of holding /chat (ADR-005: the route never blocks on Redis).
+const redis = createFailFastRedis("chat-rl");
 
-async function ensureRedis(): Promise<RedisClientType | null> {
-  const url = process.env.REDIS_URL;
-  if (!url) return null;
-  if (redisReady && redis) return redis;
-  if (redisInitPromise) {
-    await redisInitPromise;
-    return redisReady ? redis : null;
-  }
-
-  redisInitPromise = (async () => {
-    try {
-      const client: RedisClientType = createClient({ url });
-      client.on("error", (err) => {
-        console.warn(`[chat-rl] redis error: ${err.message}`);
-      });
-      await client.connect();
-      redis = client;
-      redisReady = true;
-      console.log("[chat-rl] connected to Redis for chat rate limit");
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.warn(`[chat-rl] redis unavailable, using in-memory fallback: ${msg}`);
-      redisReady = false;
-    }
-  })();
-  await redisInitPromise;
-  redisInitPromise = null;
-  return redisReady ? redis : null;
+// Redis key names are visible to anyone who can SCAN or MONITOR the instance,
+// and the principal can be the shared gateway secret: keys carry its hash.
+function principalId(principal: string): string {
+  return createHash("sha256").update(principal).digest("hex").slice(0, 32);
 }
 
 function minuteKey(principal: string, nowMs: number): string {
   const window = Math.floor(nowMs / MINUTE_MS);
-  return `max-mcp:chat:rl:${principal}:${window}`;
+  return `max-mcp:chat:rl:${principalId(principal)}:${window}`;
 }
 
 function dayKeyRedis(principal: string): string {
-  return `max-mcp:chat:rl:daily:${principal}:${todayKey()}`;
+  return `max-mcp:chat:rl:daily:${principalId(principal)}:${todayKey()}`;
 }
 
 async function redisCheckMinute(
@@ -161,27 +139,19 @@ function memCheckDaily(principal: string): DailyCapResult {
 export async function checkChatRateLimit(
   principal: string,
 ): Promise<RateLimitResult> {
-  try {
-    const r = await ensureRedis();
-    if (r) return await redisCheckMinute(r, principal);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.warn(`[chat-rl] redis check failed, falling back: ${msg}`);
-  }
-  return memCheckMinute(principal);
+  return redis.run(
+    (r) => redisCheckMinute(r, principal),
+    () => memCheckMinute(principal),
+  );
 }
 
 export async function checkChatDailyCap(
   principal: string,
 ): Promise<DailyCapResult> {
-  try {
-    const r = await ensureRedis();
-    if (r) return await redisCheckDaily(r, principal);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.warn(`[chat-rl] redis daily check failed, falling back: ${msg}`);
-  }
-  return memCheckDaily(principal);
+  return redis.run(
+    (r) => redisCheckDaily(r, principal),
+    () => memCheckDaily(principal),
+  );
 }
 
 /** Test-only: reset the in-memory buckets between cases. */

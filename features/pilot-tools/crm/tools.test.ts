@@ -139,3 +139,69 @@ describe("crm_export_import_csv dedup", () => {
     expect(out.row_count).toBe(1);
   });
 });
+
+// Deals, activities, owners and stages read HubSpot through max-agent's scoped
+// routes (crm:read); the old GET /api/v1/crm/access-token is gone.
+describe("crm deal/activity/owner/stage tools use max-agent's scoped read routes", () => {
+  it("crm_list_deals posts the filters and maps name to dealname", async () => {
+    const fetchMock = mockFetch({ data: [{ id: "9001", name: "Renewal", amount: 1200 }] });
+    const res = await tool("crm_list_deals")({ bearer_token: "tok", ownerId: "7", limit: 10 });
+
+    expect(res.isError).toBeUndefined();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(new URL(url).pathname).toBe("/api/v1/crm/list-deals");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(init?.body as string)).toMatchObject({ ownerId: "7", limit: 10 });
+    expect(JSON.parse(res.content[0].text)).toEqual([
+      expect.objectContaining({ id: "9001", dealname: "Renewal", amount: 1200, associatedCompanyIds: [] }),
+    ]);
+  });
+
+  it("crm_get_deal posts the id", async () => {
+    const fetchMock = mockFetch({ data: { id: "42", name: "Big one" } });
+    const res = await tool("crm_get_deal")({ bearer_token: "tok", id: "42" });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(new URL(url).pathname).toBe("/api/v1/crm/get-deal");
+    expect(JSON.parse(init?.body as string)).toEqual({ id: "42" });
+    expect(JSON.parse(res.content[0].text)).toMatchObject({ id: "42", dealname: "Big one" });
+  });
+
+  it("crm_list_owners and crm_list_pipeline_stages are GET reads", async () => {
+    const fetchMock = mockFetch({ data: [] });
+    await tool("crm_list_owners")({ bearer_token: "tok" });
+    await tool("crm_list_pipeline_stages")({ bearer_token: "tok", pipelineId: "default" });
+
+    const paths = fetchMock.mock.calls.map(([url]) => new URL(url).pathname + new URL(url).search);
+    expect(paths).toEqual([
+      "/api/v1/crm/list-owners",
+      "/api/v1/crm/list-pipeline-stages?pipelineId=default",
+    ]);
+    for (const [, init] of fetchMock.mock.calls) expect(init?.method ?? "GET").toBe("GET");
+  });
+
+  it("never asks max-agent for a HubSpot access token", async () => {
+    const fetchMock = mockFetch({ data: [] });
+    await tool("crm_list_deals")({ bearer_token: "tok" });
+    await tool("crm_list_activities")({ bearer_token: "tok" });
+    for (const [url] of fetchMock.mock.calls) {
+      expect(new URL(url).pathname).not.toBe("/api/v1/crm/access-token");
+    }
+  });
+
+  it("maps 409 crm_not_connected to the connect-HubSpot message", async () => {
+    mockFetch({ error: "HubSpot is not connected for this workspace.", code: "crm_not_connected" }, 409);
+    const res = await tool("crm_list_deals")({ bearer_token: "tok" });
+
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/not connected/);
+  });
+
+  it("maps 409 crm_reauth_required to the reconnect message", async () => {
+    mockFetch({ error: "expired", code: "crm_reauth_required" }, 409);
+    const res = await tool("crm_list_owners")({ bearer_token: "tok" });
+
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/has expired. Reconnect HubSpot/);
+  });
+});

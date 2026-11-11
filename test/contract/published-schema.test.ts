@@ -110,4 +110,13 @@ describe("published input schemas (contract)", () => {
     expect(props.length).toBeGreaterThan(5);
     expect(props).toContain("action");
   }, 20_000);
+
+  it("publishes a grouped field with its own description, not only the actions using it", async () => {
+    const tools = await publishedTools(undefined);
+    const campaigns = tools.find((t) => t.name === "campaigns")!;
+    const fileName = campaigns.inputSchema.properties?.file_name as { description?: string };
+    expect(fileName.description).toBe(
+      "Name the recipient sees, with its extension, e.g. 'Reactivation_guide.pdf' (upload_campaign_attachment)",
+    );
+  }, 20_000);
 });

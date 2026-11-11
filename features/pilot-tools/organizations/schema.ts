@@ -14,7 +14,7 @@ export const listOrganizationsSchema = z.object({
 
 export const getOrganizationSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Organization UUID"),
+  id: z.guid().describe("Organization UUID"),
 });
 
 export const createOrganizationSchema = z.object({
@@ -32,7 +32,7 @@ export const createOrganizationSchema = z.object({
 
 export const updateOrganizationSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Organization UUID"),
+  id: z.guid().describe("Organization UUID"),
   name: z.string().min(1).optional(),
   primary_domain: z.string().optional(),
   website_url: z.string().optional(),
@@ -46,7 +46,7 @@ export const updateOrganizationSchema = z.object({
 
 export const deleteOrganizationSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Organization UUID"),
+  id: z.guid().describe("Organization UUID"),
 });
 
 export const bulkImportOrganizationsSchema = z.object({
@@ -63,7 +63,7 @@ export const bulkImportOrganizationsSchema = z.object({
 
 export const bulkDeleteOrganizationsSchema = z.object({
   ...withToken,
-  ids: z.array(z.string().uuid()).min(1).describe("Organization UUIDs to delete"),
+  ids: z.array(z.guid()).min(1).describe("Organization UUIDs to delete"),
   deleteProspects: z.boolean().optional().describe("Also delete linked prospects (default false)"),
 });
 
@@ -73,5 +73,5 @@ export const getOrganizationGeoSchema = z.object({
 
 export const organizationShareLinkSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Organization UUID"),
+  id: z.guid().describe("Organization UUID"),
 });

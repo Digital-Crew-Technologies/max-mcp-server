@@ -64,11 +64,10 @@ const FILTER_OPERATORS = [
 
 // ── Shared fields ──────────────────────────────────────────────────────────
 
-const webhookId = z.string().uuid().describe("Pipeline webhook endpoint UUID.");
-const routeId = z.string().uuid().describe("Routing branch UUID.");
+const webhookId = z.guid().describe("Pipeline webhook endpoint UUID.");
+const routeId = z.guid().describe("Routing branch UUID.");
 const toStageId = z
-  .string()
-  .uuid()
+  .guid()
   .describe("Destination pipeline stage (column) UUID; must be a live column of this workspace.");
 const isEnabled = z.boolean().describe("false pauses it (endpoint skips deliveries / branch is ignored).");
 const dryRun = z
@@ -187,7 +186,7 @@ export const rotatePipelineWebhookSchema = z.object({
 export const testPipelineWebhookSchema = z.object({
   ...withToken,
   webhook_id: webhookId,
-  payload: z.record(z.unknown()).describe("Sample JSON object, as the sender would post it."),
+  payload: z.record(z.string(), z.unknown()).describe("Sample JSON object, as the sender would post it."),
   dry_run: dryRun.optional(),
 });
 
@@ -202,7 +201,7 @@ export const listPipelineWebhookDeliveriesSchema = z.object({
 export const replayPipelineWebhookDeliverySchema = z.object({
   ...withToken,
   webhook_id: webhookId,
-  delivery_id: z.string().uuid().describe("Delivery UUID from pipeline_webhook_list_deliveries."),
+  delivery_id: z.guid().describe("Delivery UUID from pipeline_webhook_list_deliveries."),
   dry_run: dryRun.optional(),
 });
 
@@ -226,7 +225,7 @@ export const reorderPipelineWebhookRoutesSchema = z.object({
   ...withToken,
   webhook_id: webhookId,
   ordered_ids: z
-    .array(z.string().uuid())
+    .array(z.guid())
     .describe("ALL of the endpoint's branch UUIDs in the new evaluation order."),
 });
 

@@ -2,11 +2,7 @@ import { resolveBearerToken, type McpServer } from "../shared";
 import { responseBodyText, sanitizeUpstreamError } from "@/shared/http/response";
 import * as S from "./schema";
 import * as repo from "./repository";
-import { HubSpotClient } from "./hubspot-client";
-import {
-  getHubSpotAccessToken,
-  invalidateHubSpotToken,
-} from "./token-resolver";
+import { HUBSPOT_REAUTH_MESSAGE, MaxCrmReader, type CrmReader } from "./max-crm-reader";
 
 // CRM (HubSpot) tools. Two paths:
 //
@@ -15,12 +11,10 @@ import {
 //     upsert-company}, GET /api/v1/crm/status). max-agent resolves the
 //     workspace's HubSpot client server-side and enforces the read/write
 //     connection mode itself (403 code "crm_read_only").
-//   • Deals, activities, owners and pipeline stages still call HubSpot's
-//     official MCP DIRECTLY via HubSpotClient, with the token resolved from
-//     GET /api/v1/crm/access-token. ⚠️ max-agent no longer serves that route
-//     (HubSpot credentials are never returned to API callers), and it has no
-//     scoped equivalent for these reads yet, so these tools fail until one
-//     exists.
+//   • Deals, activities, owners and pipeline stages go through max-agent's
+//     scoped read routes (POST /api/v1/crm/{list-deals,get-deal,
+//     list-activities}, GET /api/v1/crm/{list-owners,list-pipeline-stages})
+//     via MaxCrmReader. HubSpot credentials never leave max-agent.
 //
 // Error mapping → standard MCP envelope:
 //   not connected (409 / HUBSPOT_NOT_CONNECTED) → friendly "connect HubSpot" message
@@ -47,17 +41,13 @@ function err(text: string): McpEnvelope {
   return { isError: true, content: [{ type: "text", text }] };
 }
 
-function isAuthError(msg: string): boolean {
-  return /\b401\b|unauthorized|invalid[_ ]?token|token expired/i.test(msg);
-}
-
 /** Map a thrown error from a HubSpot call to the MCP error envelope. */
 function mapError(e: unknown): McpEnvelope {
   const msg = e instanceof Error ? e.message : String(e);
   if (msg === "HUBSPOT_NOT_CONNECTED") {
     return err(NOT_CONNECTED_MSG);
   }
-  if (msg.startsWith("HUBSPOT_TOKEN_FETCH_FAILED")) {
+  if (msg === HUBSPOT_REAUTH_MESSAGE || msg.startsWith("HubSpot read failed")) {
     return err(msg);
   }
   const cls = e instanceof Error ? e.name : "Error";
@@ -80,20 +70,18 @@ async function viaMaxAgent(
   }
   const text = await responseBodyText(res);
   if (res.ok) return ok(text);
-  if (res.status === 409) return err(NOT_CONNECTED_MSG);
+  if (res.status === 409) {
+    return err(text.includes("crm_reauth_required") ? HUBSPOT_REAUTH_MESSAGE : NOT_CONNECTED_MSG);
+  }
   if (res.status === 403 && text.includes("crm_read_only")) return err(WRITES_DISABLED_MSG);
   const detail = text ? sanitizeUpstreamError(text) : res.statusText;
   return err(`API error (${res.status}): ${detail}`);
 }
 
-/**
- * Resolve bearer → HubSpot token → HubSpotClient, run fn, map result/errors.
- * On a HubSpot 401 we invalidate the cached token once and retry so a token
- * that expired mid-cache refetches transparently.
- */
+/** Resolve the bearer, run fn against max-agent's CRM reads, map errors. */
 async function withClient(
   bearerOverride: string | undefined,
-  fn: (client: HubSpotClient) => Promise<unknown>,
+  fn: (client: CrmReader) => Promise<unknown>,
 ): Promise<McpEnvelope> {
   let bearer: string;
   try {
@@ -103,19 +91,7 @@ async function withClient(
   }
 
   try {
-    const { access_token, auth_method } = await getHubSpotAccessToken(bearer);
-    try {
-      return ok(await fn(new HubSpotClient(access_token, auth_method)));
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (isAuthError(msg)) {
-        // Token may have just expired — drop it and refetch once.
-        invalidateHubSpotToken(bearer);
-        const fresh = await getHubSpotAccessToken(bearer);
-        return ok(await fn(new HubSpotClient(fresh.access_token, fresh.auth_method)));
-      }
-      throw e;
-    }
+    return ok(await fn(new MaxCrmReader(bearer)));
   } catch (e) {
     return mapError(e);
   }

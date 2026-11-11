@@ -41,8 +41,7 @@ export const salesOsCrewCheckInSchema = z.object({
     .optional()
     .describe("What it is doing, shown to the team (e.g. 'Researching Acme Corp'). Replaces the previous activity; omit to clear it."),
   worker_id: z
-    .string()
-    .uuid()
+    .guid()
     .optional()
     .describe("Check in as this workspace's digital worker (UUID from list_digital_workers or list_sales_os_crew) instead of as a named agent."),
 });

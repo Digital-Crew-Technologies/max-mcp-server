@@ -10,6 +10,6 @@ export const apolloCreateListSchema = z.object({
 
 export const apolloAddMoreSchema = z.object({
   ...withToken,
-  list_id: z.string().uuid().describe("Existing Apollo list UUID"),
+  list_id: z.guid().describe("Existing Apollo list UUID"),
   count: z.number().int().min(1).max(10000).optional().describe("Number of leads to add (default 100)"),
 });

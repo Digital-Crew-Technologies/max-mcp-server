@@ -11,7 +11,7 @@ export const listProspectListsSchema = z.object({
 
 export const getProspectListSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Prospect list UUID"),
+  id: z.guid().describe("Prospect list UUID"),
 });
 
 export const createProspectListSchema = z.object({
@@ -22,19 +22,19 @@ export const createProspectListSchema = z.object({
 
 export const updateProspectListSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Prospect list UUID"),
+  id: z.guid().describe("Prospect list UUID"),
   list_name: z.string().min(1).optional().describe("New name"),
   status: z.enum(["pending", "processing", "completed", "failed", "cancelled"]).optional(),
 });
 
 export const deleteProspectListSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Prospect list UUID"),
+  id: z.guid().describe("Prospect list UUID"),
 });
 
 export const listProspectListMembersSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Prospect list UUID"),
+  id: z.guid().describe("Prospect list UUID"),
   page: z.number().int().min(1).optional(),
   pageSize: z.number().int().min(1).max(100).optional(),
   search: z.string().optional(),
@@ -45,14 +45,14 @@ export const listProspectListMembersSchema = z.object({
 
 export const addProspectsToListSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Prospect list UUID"),
-  prospect_ids: z.array(z.string().uuid()).min(1).describe("Prospect UUIDs to add"),
+  id: z.guid().describe("Prospect list UUID"),
+  prospect_ids: z.array(z.guid()).min(1).describe("Prospect UUIDs to add"),
 });
 
 export const removeProspectsFromListSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Prospect list UUID"),
-  prospect_ids: z.array(z.string().uuid()).min(1).describe("Prospect UUIDs to remove"),
+  id: z.guid().describe("Prospect list UUID"),
+  prospect_ids: z.array(z.guid()).min(1).describe("Prospect UUIDs to remove"),
 });
 
 export const searchProspectListsSchema = z.object({
@@ -65,7 +65,7 @@ export const searchProspectListsSchema = z.object({
     status: z.array(z.string()).optional(),
     employees_from: z.number().int().optional(),
     employees_to: z.number().int().optional(),
-    organization_id: z.string().uuid().optional(),
+    organization_id: z.guid().optional(),
   }).describe("Filter criteria for prospect search"),
   page: z.number().int().min(1).optional(),
   pageSize: z.number().int().min(1).max(100).optional(),
@@ -73,7 +73,7 @@ export const searchProspectListsSchema = z.object({
 
 export const waitForProspectListSchema = z.object({
   ...withToken,
-  id: z.string().uuid().describe("Prospect list UUID to poll"),
+  id: z.guid().describe("Prospect list UUID to poll"),
   timeout_seconds: z.number().int().min(5).max(300).optional().describe("Max wait time in seconds (default 120, max 300)"),
   poll_interval_seconds: z.number().int().min(2).max(30).optional().describe("Seconds between polls (default 5)"),
 });
@@ -82,7 +82,7 @@ export const importProspectListCsvSchema = z.object({
   ...withToken,
   list_name: z.string().min(1).describe("Name for the new list"),
   prospects: z.array(z.object({
-    email: z.string().email(),
+    email: z.email(),
     first_name: z.string().optional(),
     last_name: z.string().optional(),
     title: z.string().optional(),
@@ -91,7 +91,7 @@ export const importProspectListCsvSchema = z.object({
   })).min(1).describe("Prospect records with required email"),
 });
 
-const listId = z.string().uuid().describe("Prospect list UUID");
+const listId = z.guid().describe("Prospect list UUID");
 
 /** Any tool whose only argument is the list id. */
 export const prospectListIdSchema = z.object({
@@ -120,7 +120,7 @@ export const listProspectListMemberIdsSchema = z.object({
   countries: z.array(z.string()).optional(),
   states: z.array(z.string()).optional(),
   cities: z.array(z.string()).optional(),
-  organization_ids: z.array(z.string().uuid()).optional().describe("Organization UUIDs"),
+  organization_ids: z.array(z.guid()).optional().describe("Organization UUIDs"),
   email_verification: z.array(z.string()).optional().describe("Verdicts, e.g. valid, invalid, catch_all, unknown"),
   has_email: z.boolean().optional(),
   has_phone: z.boolean().optional(),
@@ -157,7 +157,7 @@ export const createLinkedInProspectListSchema = z.object({
     excludeExistingProspects: z.boolean().optional().describe("Skip people already in the workspace (default true)"),
     excludeLinkedInConnections: z.boolean().optional().describe("Skip the workspace's LinkedIn connections (default false)"),
     linkedin: z.object({
-      accountId: z.string().uuid().describe("Connected LinkedIn account id (from list_accounts)"),
+      accountId: z.guid().describe("Connected LinkedIn account id (from list_accounts)"),
       api: z.enum(["classic", "sales_navigator"]).optional().describe("Default classic; a pasted URL decides it"),
       url: z
         .string()
@@ -172,5 +172,5 @@ export const createLinkedInProspectListSchema = z.object({
     }),
   }).describe("Needs at least one targeting filter or linkedin.url"),
   idempotency_key: z.string().optional().describe("Replay guard: a second create with the same key is refused"),
-  icp_id: z.string().uuid().optional().describe("ICP the criteria came from (provenance only)"),
+  icp_id: z.guid().optional().describe("ICP the criteria came from (provenance only)"),
 });

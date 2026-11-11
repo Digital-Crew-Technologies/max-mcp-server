@@ -101,7 +101,7 @@ describe("client catalog cap (contract)", () => {
   });
 
   it("leaves headroom for the other MCP servers sharing the budget", () => {
-    // GetLeads and Explorium contribute to the same 122 slots. The default
+    // GetLeads and Explorium contribute to the same MCP_TOOL_BUDGET slots. The default
     // catalog must not consume so much of it that a modest provider catalog
     // starts evicting our tools.
     const names = captureInventory(undefined).map((t) => t.name);

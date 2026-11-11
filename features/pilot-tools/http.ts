@@ -4,7 +4,10 @@
  * Features:
  * - Per-request timeout via AbortSignal
  * - Exponential backoff with jitter on transient failures
- * - Method-aware retry policy (only safe methods retry on 502)
+ * - Method-aware retry policy: a POST is only retried when the request was
+ *   certainly not processed (429, 503). Timeouts, network errors and 502/504
+ *   retry idempotent methods only, so a send or a billed job is never
+ *   repeated unless the caller opts in with `retryNonIdempotent`.
  * - Retry-After header parsing on 429
  * - Bounded concurrency to prevent flooding upstream
  * - Per-host circuit breaker to fail fast when upstream is dead
@@ -21,6 +24,12 @@ type RetryConfig = {
   baseDelayMs?: number;
   maxDelayMs?: number;
   timeoutMs?: number;
+  /**
+   * Also retry a non-idempotent request (POST) after a timeout, a network
+   * error or a 502/504, when the response may have been lost after the work
+   * was done. Only for calls that are safe to repeat, such as searches.
+   */
+  retryNonIdempotent?: boolean;
 };
 
 const DEFAULTS = {
@@ -32,8 +41,10 @@ const DEFAULTS = {
 };
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "DELETE", "PATCH"]);
-const ALWAYS_RETRY_STATUSES = new Set([429, 503, 504]);
-const SAFE_METHOD_RETRY_STATUSES = new Set([502]);
+// The upstream refused the request before doing any work: safe to repeat.
+const ALWAYS_RETRY_STATUSES = new Set([429, 503]);
+// The work may have happened and only the answer was lost.
+const SAFE_METHOD_RETRY_STATUSES = new Set([502, 504]);
 
 let inFlight = 0;
 const waiters: Array<() => void> = [];
@@ -79,9 +90,13 @@ function shortId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-function shouldRetryStatus(status: number, method: string): boolean {
+function canRepeat(method: string, config: RetryConfig): boolean {
+  return SAFE_METHODS.has(method) || config.retryNonIdempotent === true;
+}
+
+function shouldRetryStatus(status: number, method: string, config: RetryConfig): boolean {
   if (ALWAYS_RETRY_STATUSES.has(status)) return true;
-  if (SAFE_METHODS.has(method) && SAFE_METHOD_RETRY_STATUSES.has(status)) return true;
+  if (canRepeat(method, config) && SAFE_METHOD_RETRY_STATUSES.has(status)) return true;
   return false;
 }
 
@@ -146,7 +161,7 @@ async function fetchWithRetryInner(
         lastStatus = res.status;
         lastReason = `HTTP ${res.status}`;
 
-        if (attempt < maxRetries && shouldRetryStatus(res.status, method)) {
+        if (attempt < maxRetries && shouldRetryStatus(res.status, method, config)) {
           const retryAfter = parseRetryAfter(res.headers.get("retry-after"), maxDelayMs);
           const delay = retryAfter ?? jitteredBackoff(attempt, baseDelayMs, maxDelayMs);
           console.warn(`[mcp:${reqId}] ${method} ${url} → ${res.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
@@ -176,7 +191,7 @@ async function fetchWithRetryInner(
         const isTimeout = isAbortError(e);
         lastReason = isTimeout ? `timeout after ${elapsed}ms` : (e instanceof Error ? e.message : String(e));
 
-        if (attempt < maxRetries) {
+        if (attempt < maxRetries && canRepeat(method, config)) {
           const delay = jitteredBackoff(attempt, baseDelayMs, maxDelayMs);
           console.warn(`[mcp:${reqId}] ${method} ${url} failed (${lastReason}), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
           await sleep(delay);
@@ -190,7 +205,7 @@ async function fetchWithRetryInner(
             body: init.body, attempts: attempt + 1,
           }));
         }
-        throw new Error(`${method} ${url} failed after ${maxRetries + 1} attempts: ${lastReason}`);
+        throw new Error(`${method} ${url} failed after ${attempt + 1} attempt${attempt === 0 ? "" : "s"}: ${lastReason}`);
       }
     }
     throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));

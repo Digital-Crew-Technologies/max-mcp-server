@@ -2,7 +2,8 @@
  * Pluggable circuit-breaker state — in-memory (default) or Redis (multi-instance).
  */
 
-import { createClient, type RedisClientType } from "redis";
+import { randomUUID } from "node:crypto";
+import { createFailFastRedis } from "@/shared/redis/fail-fast";
 import { CircuitOpenError } from "./circuit-breaker-errors";
 
 export type BreakerState = "closed" | "open" | "half-open";
@@ -118,139 +119,115 @@ class InMemoryBreakerStore implements BreakerStore {
 }
 
 // ── Redis (shared across instances) ─────────────────────────────────────────
+//
+// Every Redis call goes through a fail-fast connection (shared/redis): an
+// unreachable or slow Redis falls back to the in-memory store instead of
+// holding the request (ADR-004).
 
-let redis: RedisClientType | null = null;
-let redisReady = false;
-let redisInitPromise: Promise<void> | null = null;
-
-async function ensureRedis(): Promise<RedisClientType | null> {
-  const url = process.env.REDIS_URL;
-  if (!url) return null;
-  if (redisReady && redis) return redis;
-  if (redisInitPromise) {
-    await redisInitPromise;
-    return redisReady ? redis : null;
-  }
-
-  redisInitPromise = (async () => {
-    try {
-      const client: RedisClientType = createClient({ url });
-      client.on("error", (err) => {
-        console.warn(`[circuit] redis error: ${err.message}`);
-      });
-      await client.connect();
-      redis = client;
-      redisReady = true;
-      console.log("[circuit] connected to Redis for breaker state");
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.warn(`[circuit] redis unavailable, using in-memory fallback: ${msg}`);
-      redisReady = false;
-    }
-  })();
-  await redisInitPromise;
-  redisInitPromise = null;
-  return redisReady ? redis : null;
-}
+const redis = createFailFastRedis("circuit");
 
 function redisKey(host: string): string {
   return `max-mcp:breaker:${host}`;
 }
 
+type Admission = { probing: boolean } | { openRetryIn: number };
+
 class RedisBreakerStore implements BreakerStore {
   private readonly fallback = new InMemoryBreakerStore();
 
-  private async client(): Promise<RedisClientType | null> {
-    return ensureRedis();
-  }
-
   async beforeRequest(host: string): Promise<BreakerToken> {
-    const r = await this.client();
-    if (!r) return this.fallback.beforeRequest(host);
+    const admission = await redis.run<Admission | null>(async (r) => {
+      const key = redisKey(host);
+      const now = Date.now();
+      const raw = await r.hGetAll(key);
+      const state = (raw.state as BreakerState) || "closed";
+      const openedAt = Number(raw.openedAt || 0);
+      const halfOpenInFlight = raw.halfOpenInFlight === "1";
 
-    const key = redisKey(host);
-    const now = Date.now();
-    const raw = await r.hGetAll(key);
-    const state = (raw.state as BreakerState) || "closed";
-    const openedAt = Number(raw.openedAt || 0);
-    const halfOpenInFlight = raw.halfOpenInFlight === "1";
-
-    if (state === "open") {
-      if (now - openedAt >= DEFAULTS.cooldownMs) {
-        const probeKey = `${key}:probe`;
-        const won = await r.set(probeKey, "1", { NX: true, PX: DEFAULTS.cooldownMs });
-        if (won) {
-          await r.hSet(key, { state: "half-open", halfOpenInFlight: "1" });
-          return { host, probing: true };
+      if (state === "open") {
+        if (now - openedAt >= DEFAULTS.cooldownMs) {
+          const won = await r.set(`${key}:probe`, "1", { NX: true, PX: DEFAULTS.cooldownMs });
+          if (won) {
+            await r.hSet(key, { state: "half-open", halfOpenInFlight: "1" });
+            return { probing: true };
+          }
+          return { openRetryIn: 1 };
         }
-        throw new CircuitOpenError(host, 1);
+        return { openRetryIn: Math.ceil((DEFAULTS.cooldownMs - (now - openedAt)) / 1000) };
       }
-      const retryIn = Math.ceil((DEFAULTS.cooldownMs - (now - openedAt)) / 1000);
-      throw new CircuitOpenError(host, retryIn);
-    }
 
-    if (state === "half-open") {
-      if (halfOpenInFlight) throw new CircuitOpenError(host, 1);
-      await r.hSet(key, { halfOpenInFlight: "1" });
-      return { host, probing: true };
-    }
+      if (state === "half-open") {
+        if (halfOpenInFlight) return { openRetryIn: 1 };
+        await r.hSet(key, { halfOpenInFlight: "1" });
+        return { probing: true };
+      }
 
-    return { host, probing: false };
+      return { probing: false };
+    }, () => null);
+
+    if (admission === null) return this.fallback.beforeRequest(host);
+    if ("openRetryIn" in admission) throw new CircuitOpenError(host, admission.openRetryIn);
+    return { host, probing: admission.probing };
   }
 
   async recordSuccess(host: string, probing: boolean): Promise<void> {
-    const r = await this.client();
-    if (!r) return this.fallback.recordSuccess(host, probing);
-
-    const key = redisKey(host);
-    await r.hSet(key, { state: "closed", failures: "0", halfOpenInFlight: "0", openedAt: "0" });
-    await r.del(`${key}:failures`);
-    if (probing) console.log(`[circuit] ${host} closed (probe succeeded)`);
+    await redis.run(async (r) => {
+      const key = redisKey(host);
+      await r.del(`${key}:failures`);
+      // Same rule as the in-memory store: only the probe (or a half-open
+      // breaker) closes it. A request admitted before the breaker opened, and
+      // finishing late, must not close an open breaker.
+      const state = (await r.hGet(key, "state")) as BreakerState | null;
+      if (probing || state === "half-open") {
+        await r.hSet(key, { state: "closed", halfOpenInFlight: "0", openedAt: "0" });
+        console.log(`[circuit] ${host} closed (probe succeeded)`);
+      }
+    }, () => this.fallback.recordSuccess(host, probing));
   }
 
   async recordFailure(host: string, probing: boolean): Promise<void> {
-    const r = await this.client();
-    if (!r) return this.fallback.recordFailure(host, probing);
+    await redis.run(async (r) => {
+      const key = redisKey(host);
+      const now = Date.now();
+      const state = (await r.hGet(key, "state")) as BreakerState | null;
 
-    const key = redisKey(host);
-    const now = Date.now();
+      if (probing || state === "half-open") {
+        await r.hSet(key, { state: "open", openedAt: String(now), halfOpenInFlight: "0" });
+        console.warn(`[circuit] ${host} re-opened (probe failed)`);
+        return;
+      }
 
-    if (probing) {
-      await r.hSet(key, { state: "open", openedAt: String(now), halfOpenInFlight: "0" });
-      console.warn(`[circuit] ${host} re-opened (probe failed)`);
-      return;
-    }
+      const failKey = `${key}:failures`;
+      // Unique members: two failures in the same millisecond are two failures.
+      await r.zAdd(failKey, { score: now, value: `${now}:${randomUUID()}` });
+      await r.zRemRangeByScore(failKey, 0, now - DEFAULTS.windowMs);
+      await r.pExpire(failKey, DEFAULTS.windowMs);
+      const count = await r.zCard(failKey);
 
-    const failKey = `${key}:failures`;
-    await r.zAdd(failKey, { score: now, value: String(now) });
-    await r.zRemRangeByScore(failKey, 0, now - DEFAULTS.windowMs);
-    const count = await r.zCard(failKey);
-
-    if (count >= DEFAULTS.failureThreshold) {
-      await r.hSet(key, { state: "open", openedAt: String(now), halfOpenInFlight: "0" });
-      console.warn(`[circuit] ${host} opened after ${count} failures`);
-    }
+      if (count >= DEFAULTS.failureThreshold) {
+        await r.hSet(key, { state: "open", openedAt: String(now), halfOpenInFlight: "0" });
+        console.warn(`[circuit] ${host} opened after ${count} failures`);
+      }
+    }, () => this.fallback.recordFailure(host, probing));
   }
 
   async status(): Promise<Record<string, BreakerStatusEntry>> {
-    const r = await this.client();
-    if (!r) return this.fallback.status();
-
-    const out: Record<string, BreakerStatusEntry> = {};
-    const keys = await r.keys("max-mcp:breaker:*");
-    for (const key of keys) {
-      if (key.endsWith(":failures") || key.endsWith(":probe")) continue;
-      const host = key.replace("max-mcp:breaker:", "");
-      const raw = await r.hGetAll(key);
-      const failKey = `${key}:failures`;
-      const failures = await r.zCard(failKey);
-      out[host] = {
-        state: (raw.state as BreakerState) || "closed",
-        failures,
-        openedAt: Number(raw.openedAt || 0),
-      };
-    }
-    return out;
+    return redis.run(async (r) => {
+      const out: Record<string, BreakerStatusEntry> = {};
+      const keys = await r.keys("max-mcp:breaker:*");
+      for (const key of keys) {
+        if (key.endsWith(":failures") || key.endsWith(":probe")) continue;
+        const host = key.replace("max-mcp:breaker:", "");
+        const raw = await r.hGetAll(key);
+        const failures = await r.zCard(`${key}:failures`);
+        out[host] = {
+          state: (raw.state as BreakerState) || "closed",
+          failures,
+          openedAt: Number(raw.openedAt || 0),
+        };
+      }
+      return out;
+    }, () => this.fallback.status());
   }
 }
 

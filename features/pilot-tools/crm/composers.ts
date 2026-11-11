@@ -2,11 +2,9 @@
 //   • crm_pipeline_risk_scan   — score open deals for risk, draft owner nudges
 //   • crm_weekly_brief_compose — build a structured weekly sales brief
 //
-// These COMPOSE the read-only HubSpotClient methods (listDeals / listActivities
-// / listOwners / listPipelineStages) ported in the prior batch. Those deal/
-// owner/activity methods are UNVERIFIED against live HubSpot; if they throw
-// HubSpotMcpError we let it propagate into the tool's isError envelope (we do
-// not swallow it).
+// These COMPOSE the CRM reads (listDeals / listActivities / listOwners /
+// listPipelineStages) served by max-agent's scoped CRM routes through
+// MaxCrmReader. A failed read propagates into the tool's isError envelope.
 //
 // The risk logic is factored into a single internal scanPipeline() so the
 // weekly brief reuses it instead of duplicating.
@@ -14,8 +12,7 @@
 
 import { resolveBearerToken, type McpServer } from "../shared";
 import * as S from "./schema";
-import { HubSpotClient } from "./hubspot-client";
-import { getHubSpotAccessToken } from "./token-resolver";
+import { HUBSPOT_REAUTH_MESSAGE, MaxCrmReader, type CrmReader } from "./max-crm-reader";
 import { getAgentSettingsResolved, type RiskThresholds } from "./agent-settings";
 import type {
   CrmActivity,
@@ -43,6 +40,9 @@ function mapError(e: unknown): McpEnvelope {
     return err(
       "HubSpot is not connected for this workspace. Connect HubSpot in workspace settings, then retry.",
     );
+  }
+  if (msg === HUBSPOT_REAUTH_MESSAGE || msg.startsWith("HubSpot read failed")) {
+    return err(msg);
   }
   const cls = e instanceof Error ? e.name : "Error";
   return err(`${cls}: ${msg}`);
@@ -226,7 +226,7 @@ interface PipelineData {
  * open deals. Reused by both composite tools. Lets HubSpotMcpError propagate.
  */
 async function loadPipeline(
-  client: HubSpotClient,
+  client: CrmReader,
   opts: { sinceIso: string; ownerId?: string },
 ): Promise<PipelineData> {
   const [deals, activities, owners, stages] = await Promise.all([
@@ -264,8 +264,7 @@ export function registerCrmComposerTools(server: McpServer): void {
 
       try {
         const thresholds = (await getAgentSettingsResolved(bearer)).risk_thresholds;
-        const { access_token, auth_method } = await getHubSpotAccessToken(bearer);
-        const client = new HubSpotClient(access_token, auth_method);
+        const client = new MaxCrmReader(bearer);
         const { openDeals, activities, owners } = await loadPipeline(client, {
           sinceIso,
           ownerId: input.owner_id,
@@ -302,8 +301,7 @@ export function registerCrmComposerTools(server: McpServer): void {
       try {
         const resolved = await getAgentSettingsResolved(bearer);
         const thresholds = resolved.risk_thresholds;
-        const { access_token, auth_method } = await getHubSpotAccessToken(bearer);
-        const client = new HubSpotClient(access_token, auth_method);
+        const client = new MaxCrmReader(bearer);
         const { openDeals, activities, owners } = await loadPipeline(client, {
           sinceIso,
           ownerId: input.owner_id,

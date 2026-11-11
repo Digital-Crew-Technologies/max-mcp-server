@@ -2,9 +2,9 @@
 
 ## The repository
 - MCP server (Streamable HTTP) that exposes Digital Crew's Max Agent API as MCP tools. Routes: `app/mcp/route.ts` (MCP, SSE disabled), `app/chat/route.ts`, `app/health/route.ts`.
-- Stack: Next.js 15 (App Router, `output: "standalone"`), `mcp-handler`, Zod 3, strict TypeScript, Vitest. Import alias `@/*` points to the root.
+- Stack: Next.js 15 (App Router, `output: "standalone"`), `mcp-handler`, Zod 4, strict TypeScript, Vitest. Import alias `@/*` points to the root.
 - Package manager: pnpm 8.15.7, pinned by `packageManager` (lockfile v6). Use neither npm nor another pnpm version to change `pnpm-lock.yaml`.
-- Node: no `.nvmrc` and no `engines`. CI runs on Node 20.
+- Node: `.nvmrc` pins 20 (read by the kit CI job); no `engines`. CI runs on Node 20.
 - Deployment: Vercel Git integration (preview on PR, production on merge to main). CI only blocks.
 
 ## Commands (package.json)
@@ -15,7 +15,7 @@
 - Build: `pnpm build` (`postbuild` runs `scripts/copy-standalone-assets.mjs`).
 - Catalog size and cap check: `pnpm catalog:measure`.
 - No `test:security` script and no format script.
-- CI order (`.github/workflows/ci.yml`, job `legacy`, required check `Lint · Type-check · Test · Build`): lint, type-check, test, docs:check, build, presence of `.next/standalone/server.js`, `pnpm audit` (advisory only).
+- CI order (`.github/workflows/ci.yml`, job `legacy`, required check `Lint · Type-check · Test · Build`): lint, type-check, test, docs:check, build, presence of `.next/standalone/server.js`, `pnpm audit` (critical advisories block; high ones are advisory).
 - Kit CI and security gates (KIT-02.6): `ci.yml` job `ci` and `security.yml` call the MANAGED inline copies `kit-ci-node.yml` and `kit-security.yml` of digitalcrew-agent-kit `v0.1.0` (checks `ci / ci-gate` and `security / security-gate`). Do not edit the copies by hand; copy a newer kit tag instead.
 - `pnpm verify` and `pnpm test:endpoints` need a running server. `verify` without a bearer token lists the tools but skips the real calls; `test:endpoints` requires a token and creates and deletes real resources: do not run it without human approval.
 
@@ -32,7 +32,7 @@
 
 ## Rules
 - Adding, renaming or removing a tool: run `pnpm docs:tools` and commit `docs/tools.json` and the README table (between `<!-- TOOLS:START -->` and `<!-- TOOLS:END -->`). Do not edit these two outputs by hand: `docs:check` fails CI when they drift.
-- Grouped mode is the default (`GROUPED_TOOLS` unset). A grouped tool name must not contain `_`. The default catalog must fit in 122 tools (`MCP_TOOL_BUDGET`, `features/pilot-tools/mcp/client-cap.ts`). `test/contract/tool-inventory.test.ts` checks it. See ADR-006.
+- Grouped mode is the default (`GROUPED_TOOLS` unset). A grouped tool name must not contain `_`. The default catalog must fit in 101 tools (`MCP_TOOL_BUDGET` = 128 − 27 slots max-agent reserves for its own tools, `features/pilot-tools/mcp/client-cap.ts`). `test/contract/tool-inventory.test.ts` checks it. See ADR-006.
 - Input schemas must stay visible once published by the MCP SDK (`test/contract/published-schema.test.ts`). After a schema change, check that this test passes.
 - Sensitive tools sit behind a flag, off by default: purchases (`ENABLE_PURCHASE_TOOLS`), admin (`ENABLE_ADMIN_TOOLS`), webhook simulators (`ENABLE_WEBHOOK_SIMULATORS`). Do not remove these safeguards and do not turn them on by default.
 - Authentication: a bearer token per request. The fallback to an environment token is only active when `ALLOW_ENV_TOKEN_FALLBACK=true` (ADR-002). Do not make it a default.

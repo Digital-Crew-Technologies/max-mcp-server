@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { urlString } from "../string-formats";
 import { withToken } from "../shared";
 
 const modeSchema = z
@@ -35,9 +36,7 @@ export const claireDeepResearchSchema = z.object({
 
 export const claireMarketWatchSchema = z.object({
   ...withToken,
-  url: z
-    .string()
-    .url()
+  url: urlString()
     .describe("Company / market URL to monitor for changes."),
   criteria: z
     .string()
@@ -50,17 +49,13 @@ export const claireMarketWatchSchema = z.object({
 
 export const claireCompetitorFinderSchema = z.object({
   ...withToken,
-  url: z
-    .string()
-    .url()
+  url: urlString()
     .describe("Company website URL to find direct competitors for."),
 });
 
 export const claireExtractProspectsFromUrlSchema = z.object({
   ...withToken,
-  url: z
-    .string()
-    .url()
+  url: urlString()
     .describe(
       "Public URL to extract prospects (people / contacts) from — e.g. a conference attendee list, a team page, a press release. Claire fetches and structures the page.",
     ),

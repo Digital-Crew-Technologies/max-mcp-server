@@ -14,7 +14,7 @@ export const generateMessagePreviewSchema = z.object({
   ...withToken,
   channel: z.enum(["email", "linkedin_inmail", "linkedin_message"]).describe("Message channel"),
   prompt: z.string().min(1).max(4000).describe("Instructions for the message"),
-  prospect_id: z.string().uuid().describe("Prospect UUID to personalize for"),
+  prospect_id: z.guid().describe("Prospect UUID to personalize for"),
   model: z.string().optional(),
   temperature: z.number().min(0).max(1).optional(),
 });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isoDateTime, urlString } from "../string-formats";
 import { withToken } from "../shared";
 
 // Calendar tools. Two integrations share this domain:
@@ -23,9 +24,7 @@ import { withToken } from "../shared";
 
 export const connectCalendarSchema = z.object({
   ...withToken,
-  base_url: z
-    .string()
-    .url()
+  base_url: urlString()
     .describe(
       "The self-hosted Cal.com instance API base URL, e.g. https://cal.example.com or https://cal.example.com/api/v2.",
     ),
@@ -101,20 +100,18 @@ export const bookMeetingSchema = z.object({
     .string()
     .describe("ISO8601 UTC start time of the booking (required)."),
   attendee_name: z.string().describe("Attendee full name."),
-  attendee_email: z.string().email().describe("Attendee email address."),
+  attendee_email: z.email().describe("Attendee email address."),
   attendee_time_zone: z
     .string()
     .describe("Attendee IANA time zone string, e.g. America/New_York."),
   prospect_id: z
-    .string()
-    .uuid()
+    .guid()
     .optional()
     .describe(
       "Optional prospect UUID to associate; when given, the prospect's status advances to 'replied'.",
     ),
   campaign_id: z
-    .string()
-    .uuid()
+    .guid()
     .optional()
     .describe("Optional campaign UUID to associate the booked meeting with."),
   recurrence_count: z
@@ -135,8 +132,7 @@ export const bookMeetingSchema = z.object({
 export const sendBookingLinkSchema = z.object({
   ...withToken,
   prospect_id: z
-    .string()
-    .uuid()
+    .guid()
     .optional()
     .describe("Optional prospect UUID the booking link is being shared with."),
   event_type_id: z
@@ -162,8 +158,7 @@ export const getUpcomingMeetingsSchema = z.object({
 export const cancelMeetingSchema = z.object({
   ...withToken,
   meeting_id: z
-    .string()
-    .uuid()
+    .guid()
     .describe("The meetings.id UUID (from get_upcoming_meetings)."),
   reason: z
     .string()
@@ -177,8 +172,7 @@ export const cancelMeetingSchema = z.object({
 // ---------------------------------------------------------------------------
 
 const meetingId = z
-  .string()
-  .uuid()
+  .guid()
   .describe("The meetings.id UUID (from get_upcoming_meetings).");
 
 const lifecycleReason = z
@@ -201,9 +195,7 @@ export const declineMeetingSchema = z.object({
 export const rescheduleMeetingSchema = z.object({
   ...withToken,
   meeting_id: meetingId,
-  new_start: z
-    .string()
-    .datetime({ offset: true })
+  new_start: isoDateTime({ offset: true })
     .describe("New ISO8601 start time (must be in the future), e.g. 2026-10-01T15:00:00Z."),
   reason: lifecycleReason,
 });
@@ -223,7 +215,6 @@ export const updateMeetingAttendanceSchema = z.object({
   ...withToken,
   meeting_id: meetingId,
   attendee_email: z
-    .string()
     .email()
     .max(320)
     .describe("Email of a guest recorded on the booking."),
@@ -237,12 +228,10 @@ export const updateMeetingAttendanceSchema = z.object({
 export const getTeamCalendarAvailabilitySchema = z.object({
   ...withToken,
   user_ids: z
-    .array(z.string().uuid())
+    .array(z.guid())
     .optional()
     .describe("Auth user ids to check. Omit for every joined member (max 50)."),
-  start: z
-    .string()
-    .datetime({ offset: true })
+  start: isoDateTime({ offset: true })
     .optional()
     .describe("ISO8601 window start (default: now)."),
   window_days: z
@@ -290,8 +279,7 @@ export const listSyncedCalendarAccountsSchema = z.object({
 });
 
 const syncedAccountId = z
-  .string()
-  .uuid()
+  .guid()
   .describe("Synced calendar account id (from list_synced_calendar_accounts).");
 
 export const disconnectSyncedCalendarAccountSchema = z.object({
@@ -307,16 +295,14 @@ export const syncCalendarsNowSchema = z.object({
 });
 
 const eventAttendee = z.object({
-  email: z.string().email().describe("Attendee email."),
+  email: z.email().describe("Attendee email."),
   display_name: z.string().nullable().optional().describe("Optional display name."),
 });
 
 // Event boundaries are flattened to scalars; the handler rebuilds max-agent's
 // {date_time, time_zone} | {date} objects (see buildBoundary in tools.ts).
 const eventBoundaryFields = {
-  start_at: z
-    .string()
-    .datetime({ offset: true })
+  start_at: isoDateTime({ offset: true })
     .optional()
     .describe("Timed start, ISO8601 with offset. Use this or start_date."),
   start_date: z
@@ -324,9 +310,7 @@ const eventBoundaryFields = {
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional()
     .describe("All-day start, YYYY-MM-DD. Use this or start_at."),
-  end_at: z
-    .string()
-    .datetime({ offset: true })
+  end_at: isoDateTime({ offset: true })
     .optional()
     .describe("Timed end, ISO8601 with offset."),
   end_date: z

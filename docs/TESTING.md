@@ -1,6 +1,6 @@
 # MCP Server Testing Guide
 
-This server exposes **64 MCP tools** wrapping the Digital Crew Max Agent API. This document explains how to verify each tool works, what's covered, and what isn't.
+This server registers **446 MCP tools** (472 operations; 46 tools in the default grouped catalog) wrapping the Digital Crew Max Agent API. This document explains how to verify each tool works, what's covered, and what isn't.
 
 ---
 

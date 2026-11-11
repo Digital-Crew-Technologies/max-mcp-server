@@ -1,14 +1,13 @@
 // Lead Dispatch tools (the assistant Task B2): score → assign → export CSV.
-// Reuses B1's HubSpotClient + token-resolver (via tools.ts withClient) and the
-// the assistant workspace-profile reader.
+// Reads owners through max-agent's scoped CRM routes (MaxCrmReader) and the
+// assistant workspace-profile reader.
 // ⚠️ Server-only.
 
 import { resolveBearerToken, type McpServer } from "../shared";
 import { responseBodyText, sanitizeUpstreamError } from "@/shared/http/response";
 import * as S from "./schema";
 import * as repo from "./repository";
-import { HubSpotClient } from "./hubspot-client";
-import { getHubSpotAccessToken } from "./token-resolver";
+import { HUBSPOT_REAUTH_MESSAGE, MaxCrmReader } from "./max-crm-reader";
 import {
   getAgentSettingsConfig,
   type AssignmentRule,
@@ -35,6 +34,9 @@ function mapError(e: unknown): McpEnvelope {
     return err(
       "HubSpot is not connected for this workspace. Connect HubSpot in workspace settings, then retry.",
     );
+  }
+  if (msg === HUBSPOT_REAUTH_MESSAGE || msg.startsWith("HubSpot read failed")) {
+    return err(msg);
   }
   const cls = e instanceof Error ? e.name : "Error";
   return err(`${cls}: ${msg}`);
@@ -293,8 +295,7 @@ export function registerCrmLeadDispatchTools(server: McpServer): void {
       // Resolve owners so we can attach name/email to assignments.
       let owners: CrmOwner[];
       try {
-        const { access_token, auth_method } = await getHubSpotAccessToken(bearer);
-        owners = await new HubSpotClient(access_token, auth_method).listOwners();
+        owners = await new MaxCrmReader(bearer).listOwners();
       } catch (e) {
         return mapError(e);
       }

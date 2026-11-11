@@ -12,6 +12,10 @@ function get(
   });
 }
 
+// Writes act on the member's LinkedIn account (messages, invitations, posts):
+// one attempt, so a lost answer can never send the same thing twice.
+const WRITE_CONFIG = { timeoutMs: 60_000, maxRetries: 0 };
+
 function post(
   token: string,
   action: string,
@@ -21,7 +25,7 @@ function post(
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify(body),
-  });
+  }, WRITE_CONFIG);
 }
 
 // ── Profiles ──────────────────────────────────────────────────────────────

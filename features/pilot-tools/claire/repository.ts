@@ -1,5 +1,10 @@
 import { apiUrl, authHeaders, fetchWithRetry } from "../shared";
 
+// Every Claire call starts a job billed to the workspace and runs for a minute
+// or more (competitor finding takes 1-3 min). One attempt with a timeout that
+// covers the job: a retry would start, and bill, a second job.
+const CLAIRE_CONFIG = { timeoutMs: 200_000, maxRetries: 0 };
+
 // All Claire calls go through max-agent's /api/v1/claire/* proxy. That layer
 // holds the X-Service-Secret + X-On-Behalf-Of pair, so the MCP server only
 // needs the user's standard bearer token — same auth model as Apollo,
@@ -14,7 +19,7 @@ export async function claireSearch(
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify(body),
-  });
+  }, CLAIRE_CONFIG);
 }
 
 export async function claireDeepResearch(
@@ -25,7 +30,7 @@ export async function claireDeepResearch(
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify(body),
-  });
+  }, CLAIRE_CONFIG);
 }
 
 export async function claireMarketWatch(
@@ -36,7 +41,7 @@ export async function claireMarketWatch(
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify(body),
-  });
+  }, CLAIRE_CONFIG);
 }
 
 export async function claireCompetitorFinder(
@@ -47,7 +52,7 @@ export async function claireCompetitorFinder(
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify(body),
-  });
+  }, CLAIRE_CONFIG);
 }
 
 export async function claireExtractProspects(
@@ -58,5 +63,5 @@ export async function claireExtractProspects(
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify(body),
-  });
+  }, CLAIRE_CONFIG);
 }
