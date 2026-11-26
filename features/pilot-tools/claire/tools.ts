@@ -1,6 +1,7 @@
 import { callApi, strip, type McpServer } from "../shared";
 import * as repo from "./repository";
 import * as S from "./schema";
+import { registerClaireDataTools } from "./data-tools";
 
 // Claire is Max's research-and-intelligence layer. These tools give the chat
 // agent the same Claire access onboarding already has — via max-agent's
@@ -10,7 +11,9 @@ import * as S from "./schema";
 // max-agent handles the Claire job submit + poll internally.
 
 export function registerClaireTools(server: McpServer): void {
-  // Person data comes from the individual Max-owned fullenrich_* tools.
+  // Paid people and company data lookups (enrich, find, verify, LinkedIn).
+  registerClaireDataTools(server);
+
   server.registerTool(
     "claire_search",
     {
