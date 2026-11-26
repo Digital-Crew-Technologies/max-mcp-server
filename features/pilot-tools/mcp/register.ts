@@ -276,7 +276,7 @@ const GROUPS: GroupDef[] = [
   {
     name: "claire",
     blurb:
-      "Claire market research: web search, deep research, market watch, competitor finding, prospect extraction from a URL. Several of these cost credits per call. Person data enrichment uses the separate individual fullenrich_* tools.",
+      "Claire research and data: web search, deep research, market watch, competitor finding, prospect extraction from a URL; and paid people / company data lookups (enrich a person or a company, find people or companies, similar companies, company news and jobs, email verification, LinkedIn profiles and posts) with an optional price cap. These cost credits per call.",
     register: registerClaireTools,
   },
   {

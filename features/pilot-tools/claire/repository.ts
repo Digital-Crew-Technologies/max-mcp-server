@@ -65,3 +65,17 @@ export async function claireExtractProspects(
     body: JSON.stringify(body),
   }, CLAIRE_CONFIG);
 }
+
+// One paid people / company data lookup. max-agent submits the job to Claire
+// and polls it, so this waits like the other Claire calls and is never retried:
+// a retry would start, and bill, a second lookup.
+export async function claireData(
+  token: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  return fetchWithRetry(apiUrl(`/api/v1/claire/data`), {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  }, CLAIRE_CONFIG);
+}

@@ -60,10 +60,10 @@ describe("individual FullEnrich tools", () => {
       expect(names.filter((entry) => entry === name)).toHaveLength(1);
     }
     expect(names).not.toContain("fullenrich");
-    expect(names).not.toContain("claire_enrich_person");
-    // The grouped Claire domain keeps research, with no legacy enrichment action.
-    const claire = capture(true).find((entry) => entry.name === "claire");
-    if (claire) expect(claire.config.description).not.toContain("enrich_person —");
+    // The FullEnrich category tools stay separate from Claire's own person
+    // lookup, which runs on Claire's provider waterfall with a price cap
+    // (features/pilot-tools/claire/data-tools.ts). In flat mode it is its own tool.
+    expect(names.filter((entry) => entry === "claire_enrich_person").length).toBeLessThanOrEqual(1);
   });
 
   it.each(Object.entries(endpoints))("%s sends only lookup inputs to %s with caller authentication", async (name, category) => {
